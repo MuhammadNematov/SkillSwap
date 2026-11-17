@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<PasswordResetService>();
         services.AddScoped<SessionService>();
         services.AddScoped<SkillCatalogService>();
+        services.AddScoped<SkillCatalogAdminService>();
         services.AddScoped<LiveKitWebhookService>();
 
         return services;

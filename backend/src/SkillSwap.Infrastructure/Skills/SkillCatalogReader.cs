@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SkillSwap.Application.Common;
 using SkillSwap.Application.Skills;
+using SkillSwap.Domain.Entities;
 using SkillSwap.Infrastructure.Persistence;
 
 namespace SkillSwap.Infrastructure.Skills;
@@ -30,16 +31,7 @@ public sealed class SkillCatalogReader : ISkillCatalogReader
             skills = skills.Where(s => s.CategoryId == categoryId);
         }
 
-        if (search.Query is { } query)
-        {
-            // Подстрока без учёта регистра в названии на любом из трёх языков или в синониме.
-            var pattern = $"%{EscapeLike(query)}%";
-            skills = skills.Where(s =>
-                EF.Functions.ILike(s.NameTg, pattern, LikeEscape) ||
-                EF.Functions.ILike(s.NameRu, pattern, LikeEscape) ||
-                EF.Functions.ILike(s.NameEn, pattern, LikeEscape) ||
-                s.Synonyms.Any(synonym => EF.Functions.ILike(synonym, pattern, LikeEscape)));
-        }
+        skills = WhereMatches(skills, search.Query);
 
         var total = await skills.CountAsync(ct);
 
@@ -60,6 +52,22 @@ public sealed class SkillCatalogReader : ISkillCatalogReader
     }
 
     private const string LikeEscape = "\\";
+
+    /// <summary>Подстрока без учёта регистра в названии на любом из трёх языков или в синониме. Пустой запрос ничего не отсекает.</summary>
+    internal static IQueryable<Skill> WhereMatches(IQueryable<Skill> skills, string? query)
+    {
+        if (query is null)
+        {
+            return skills;
+        }
+
+        var pattern = $"%{EscapeLike(query)}%";
+        return skills.Where(s =>
+            EF.Functions.ILike(s.NameTg, pattern, LikeEscape) ||
+            EF.Functions.ILike(s.NameRu, pattern, LikeEscape) ||
+            EF.Functions.ILike(s.NameEn, pattern, LikeEscape) ||
+            s.Synonyms.Any(synonym => EF.Functions.ILike(synonym, pattern, LikeEscape)));
+    }
 
     /// <summary>Символы %, _ и \ в запросе пользователя ищутся как обычные, а не как шаблон.</summary>
     internal static string EscapeLike(string value) =>

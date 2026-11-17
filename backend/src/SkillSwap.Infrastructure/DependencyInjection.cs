@@ -100,6 +100,7 @@ public static class DependencyInjection
         services.AddScoped<IMailSender, ConsoleMailSender>();
 
         services.AddScoped<ISkillCatalogReader, SkillCatalogReader>();
+        services.AddScoped<ISkillCatalogRepository, SkillCatalogRepository>();
 
         return services;
     }
