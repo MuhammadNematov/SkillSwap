@@ -1,9 +1,12 @@
 using System.Text.Json;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using SkillSwap.Api.Middleware;
+using SkillSwap.Application.Exceptions;
 using SkillSwap.Domain.Exceptions;
 
 namespace SkillSwap.Api.IntegrationTests;
@@ -49,6 +52,45 @@ public class GlobalExceptionHandlerTests
 
         Assert.Equal(409, status);
         Assert.Equal("concurrency_conflict", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task ConflictException_gives_409_with_its_code()
+    {
+        var (status, body) = await HandleAsync(new ConflictException("email_already_registered", "занят"));
+
+        Assert.Equal(409, status);
+        Assert.Equal("email_already_registered", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task BadRequestException_gives_400_with_its_code()
+    {
+        var (status, body) = await HandleAsync(new BadRequestException("invalid_confirmation_token", "плохая ссылка"));
+
+        Assert.Equal(400, status);
+        Assert.Equal("invalid_confirmation_token", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task ValidationException_gives_400_with_error_codes_per_field()
+    {
+        var failures = new[]
+        {
+            new ValidationFailure("Password", "msg") { ErrorCode = "password_too_short" },
+            new ValidationFailure("Password", "msg") { ErrorCode = "password_needs_digit" },
+            new ValidationFailure("Email", "msg") { ErrorCode = "invalid_email" },
+        };
+
+        var (status, body) = await HandleAsync(new ValidationException(failures));
+
+        Assert.Equal(400, status);
+        Assert.Equal("validation_failed", body.GetProperty("code").GetString());
+        var errors = body.GetProperty("errors");
+        Assert.Equal(
+            ["password_too_short", "password_needs_digit"],
+            errors.GetProperty("password").EnumerateArray().Select(e => e.GetString()!).ToArray());
+        Assert.Equal("invalid_email", errors.GetProperty("email")[0].GetString());
     }
 
     [Fact]

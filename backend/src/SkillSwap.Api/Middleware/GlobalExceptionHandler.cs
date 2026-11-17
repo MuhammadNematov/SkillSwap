@@ -1,6 +1,9 @@
+using System.Text.Json;
+using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SkillSwap.Application.Exceptions;
 using SkillSwap.Domain.Exceptions;
 
 namespace SkillSwap.Api.Middleware;
@@ -23,6 +26,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         var (status, code, title, detail) = Map(exception);
+        var validationErrors = (exception as ValidationException)?.Errors
+            .GroupBy(e => JsonNamingPolicy.CamelCase.ConvertName(e.PropertyName))
+            .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorCode).Distinct().ToArray());
 
         if (status >= StatusCodes.Status500InternalServerError)
         {
@@ -39,6 +45,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             Detail = detail,
         };
         problem.Extensions["code"] = code;
+        if (validationErrors is not null)
+        {
+            // Поле -> коды ошибок; фронтенд сам подбирает переводы.
+            problem.Extensions["errors"] = validationErrors;
+        }
 
         return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
@@ -50,6 +61,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 
     private static (int Status, string Code, string Title, string? Detail) Map(Exception exception) => exception switch
     {
+        ValidationException => (StatusCodes.Status400BadRequest, "validation_failed", "Ошибка валидации", "Проверьте поля запроса."),
+        BadRequestException e => (StatusCodes.Status400BadRequest, e.Code, "Некорректный запрос", e.Message),
+        ConflictException e => (StatusCodes.Status409Conflict, e.Code, "Конфликт", e.Message),
         InvalidStateTransitionException e => (StatusCodes.Status409Conflict, e.Code, "Недопустимый переход статуса", e.Message),
         // Оптимистичная блокировка по xmin (раздел 10.2 ТЗ): запись изменили параллельно.
         DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "concurrency_conflict", "Конфликт одновременного изменения", "Запись была изменена другим запросом. Повторите действие."),
