@@ -13,6 +13,7 @@ public static class DependencyInjection
 
         services.AddScoped<AuthTokenService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<TwoFactorService>();
 
         return services;
     }

@@ -51,6 +51,7 @@ public static class DependencyInjection
 
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();
+        services.AddSingleton<ITwoFactorChallengeTokens, JwtTwoFactorChallengeTokens>();
 
         // TODO: заменить на SMTP-отправитель до выхода за пределы разработки.
         services.AddScoped<IMailSender, ConsoleMailSender>();

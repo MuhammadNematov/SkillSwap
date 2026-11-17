@@ -71,6 +71,55 @@ public sealed partial class AuthApi
     public Task<HttpResponseMessage> LoginAsync(string email, string password = Password) =>
         Client.PostAsJsonAsync($"{Base}/auth/login", new { email, password });
 
+    // ---------- 2FA ----------
+
+    public Task<HttpResponseMessage> TwoFactorSetupAsync(string? accessToken, string? twoFactorToken = null) =>
+        PostAsync("/auth/2fa/setup", new { twoFactorToken }, accessToken);
+
+    public Task<HttpResponseMessage> TwoFactorVerifyAsync(string? accessToken, string code, string? twoFactorToken = null) =>
+        PostAsync("/auth/2fa/verify", new { code, twoFactorToken }, accessToken);
+
+    public Task<HttpResponseMessage> LoginTwoFactorAsync(string twoFactorToken, string code, bool isRecoveryCode = false) =>
+        PostAsync("/auth/login/2fa", new { twoFactorToken, code, isRecoveryCode }, null);
+
+    public Task<HttpResponseMessage> TwoFactorDisableAsync(string accessToken, string password, string code) =>
+        PostAsync("/auth/2fa/disable", new { password, code }, accessToken);
+
+    /// <summary>Полная настройка 2FA обычным пользователем; возвращает ключ аутентификатора и резервные коды.</summary>
+    public async Task<(string Key, IReadOnlyList<string> RecoveryCodes)> EnableTwoFactorAsync(string accessToken)
+    {
+        var setup = await TwoFactorSetupAsync(accessToken);
+        setup.EnsureSuccessStatusCode();
+        var key = (await setup.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sharedKey").GetString()!;
+
+        var verify = await TwoFactorVerifyAsync(accessToken, Totp.Now(key));
+        verify.EnsureSuccessStatusCode();
+        var codes = (await verify.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("recoveryCodes")
+            .EnumerateArray().Select(c => c.GetString()!).ToList();
+        return (key, codes);
+    }
+
+    /// <summary>Из ответа /auth/login достаёт промежуточный токен 2FA.</summary>
+    public static async Task<string> ReadTwoFactorTokenAsync(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("twoFactorToken").GetString()!;
+
+    public static async Task<bool> ReadFlagAsync(HttpResponseMessage response, string name)
+    {
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return json.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+    }
+
+    private Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}{path}") { Content = JsonContent.Create(body) };
+        if (accessToken is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        return Client.SendAsync(request);
+    }
+
     public Task<HttpResponseMessage> RefreshAsync(string? refreshToken)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}/auth/refresh");

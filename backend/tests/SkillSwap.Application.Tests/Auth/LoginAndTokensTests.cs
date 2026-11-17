@@ -19,8 +19,20 @@ public class LoginAndTokensTests
         return user;
     }
 
-    private Task<AuthResult> Login(string password = "abc12345") =>
+    private Task<LoginResult> LoginRaw(string password = "abc12345") =>
         _fx.Service.LoginAsync(new LoginRequest("ali@example.com", password), Client);
+
+    /// <summary>Вход, который должен завершиться выдачей токенов (без 2FA).</summary>
+    private async Task<AuthResult> Login(string password = "abc12345")
+    {
+        var r = await LoginRaw(password);
+        Assert.False(r.Response.Requires2fa);
+        Assert.False(r.Response.Requires2faSetup);
+        return new AuthResult(
+            new AuthResponse(r.Response.AccessToken!, r.Response.AccessTokenExpiresAt!.Value, r.Response.User!),
+            r.RefreshToken!,
+            r.RefreshTokenExpiresAt!.Value);
+    }
 
     // ---------- вход ----------
 
@@ -112,28 +124,48 @@ public class LoginAndTokensTests
     }
 
     [Fact]
-    public async Task Login_with_two_factor_enabled_is_refused_until_2FA_is_implemented()
+    public async Task Login_with_two_factor_enabled_asks_for_a_code_and_issues_no_tokens()
     {
         var user = AddUser();
         user.TwoFactorEnabled = true;
 
-        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => Login());
+        var result = await LoginRaw();
 
-        Assert.Equal("two_factor_required", ex.Code);
+        Assert.True(result.Response.Requires2fa);
+        Assert.False(result.Response.Requires2faSetup);
+        Assert.Equal($"challenge:Login:{user.Id}", result.Response.TwoFactorToken);
+        Assert.Null(result.Response.AccessToken);
+        Assert.Null(result.RefreshToken);
         Assert.Empty(_fx.RefreshTokens.Tokens);
     }
 
     [Fact]
-    public async Task Login_to_a_staff_account_is_refused_without_2FA()
+    public async Task Login_to_a_staff_account_without_2FA_asks_to_set_it_up_first()
     {
         var user = AddUser();
         typeof(User).GetProperty(nameof(User.AccountType))!.SetValue(user, AccountType.Staff);
 
-        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => Login());
+        var result = await LoginRaw();
 
-        Assert.Equal("two_factor_required", ex.Code);
+        Assert.True(result.Response.Requires2faSetup);
+        Assert.False(result.Response.Requires2fa);
+        Assert.Equal($"challenge:Setup:{user.Id}", result.Response.TwoFactorToken);
+        Assert.Null(result.Response.AccessToken);
+        Assert.Empty(_fx.RefreshTokens.Tokens);
     }
 
+    [Fact]
+    public async Task Login_to_a_staff_account_with_2FA_asks_for_a_code()
+    {
+        var user = AddUser();
+        typeof(User).GetProperty(nameof(User.AccountType))!.SetValue(user, AccountType.Staff);
+        user.TwoFactorEnabled = true;
+
+        var result = await LoginRaw();
+
+        Assert.True(result.Response.Requires2fa);
+        Assert.Equal($"challenge:Login:{user.Id}", result.Response.TwoFactorToken);
+    }
     // ---------- refresh ----------
 
     [Fact]

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
@@ -89,6 +89,49 @@ internal sealed class FakeUserManager : UserManager<User>
 
     public override Task<IdentityResult> UpdateAsync(User user) => Task.FromResult(IdentityResult.Success);
 
+    // 2FA
+    public string? AuthenticatorKey { get; set; }
+    public string ValidTotp { get; set; } = "123456";
+    public List<string> RecoveryCodes { get; } = [];
+    private int _keyCounter;
+
+    public override Task<string?> GetAuthenticatorKeyAsync(User user) => Task.FromResult(AuthenticatorKey);
+
+    public override Task<IdentityResult> ResetAuthenticatorKeyAsync(User user)
+    {
+        AuthenticatorKey = $"KEY{++_keyCounter}";
+        return Task.FromResult(IdentityResult.Success);
+    }
+
+    public override Task<bool> VerifyTwoFactorTokenAsync(User user, string tokenProvider, string token) =>
+        Task.FromResult(token == ValidTotp);
+
+    public override Task<IdentityResult> SetTwoFactorEnabledAsync(User user, bool enabled)
+    {
+        user.TwoFactorEnabled = enabled;
+        return Task.FromResult(IdentityResult.Success);
+    }
+
+    public override Task<IEnumerable<string>?> GenerateNewTwoFactorRecoveryCodesAsync(User user, int number)
+    {
+        RecoveryCodes.Clear();
+        RecoveryCodes.AddRange(Enumerable.Range(1, number).Select(i => $"code{i:00}-aaaaa"));
+        return Task.FromResult<IEnumerable<string>?>(RecoveryCodes.ToList());
+    }
+
+    public override Task<IdentityResult> RedeemTwoFactorRecoveryCodeAsync(User user, string code)
+    {
+        // Как настоящий Identity: код сравнивается как есть, вместе с дефисом.
+        var match = RecoveryCodes.FirstOrDefault(c => c == code);
+        if (match is null)
+        {
+            return Task.FromResult(IdentityResult.Failed());
+        }
+
+        RecoveryCodes.Remove(match);
+        return Task.FromResult(IdentityResult.Success);
+    }
+
     private sealed class NoopStore : IUserStore<User>
     {
         public void Dispose() { }
@@ -137,6 +180,24 @@ internal sealed class FakeAccessTokenGenerator : IAccessTokenGenerator
     public AccessToken Create(User user) => new($"access-for-{user.Id}", DateTime.UtcNow.AddMinutes(15));
 }
 
+/// <summary>Промежуточные токены 2FA без криптографии: «challenge:{purpose}:{userId}».</summary>
+internal sealed class FakeChallengeTokens : ITwoFactorChallengeTokens
+{
+    public string Create(Guid userId, ChallengePurpose purpose) => $"challenge:{purpose}:{userId}";
+
+    public Task<Challenge?> ValidateAsync(string token)
+    {
+        var parts = token.Split(':');
+        if (parts.Length == 3 && parts[0] == "challenge" &&
+            Enum.TryParse<ChallengePurpose>(parts[1], out var purpose) && Guid.TryParse(parts[2], out var id))
+        {
+            return Task.FromResult<Challenge?>(new Challenge(id, purpose));
+        }
+
+        return Task.FromResult<Challenge?>(null);
+    }
+}
+
 /// <summary>Собранный AuthService со всеми заглушками. «Сегодня» — 2026-06-01 12:00 UTC.</summary>
 internal sealed class AuthFixture
 {
@@ -145,6 +206,8 @@ internal sealed class AuthFixture
     public FakeMailSender Mail { get; } = new();
     public FakeRefreshTokenRepository RefreshTokens { get; } = new();
     public AuthService Service { get; }
+    public TwoFactorService TwoFactor { get; }
+    public FakeChallengeTokens Challenges { get; } = new();
 
     public AuthFixture()
     {
@@ -163,8 +226,18 @@ internal sealed class AuthFixture
             new ResendConfirmationRequestValidator(),
             new LoginRequestValidator(),
             tokens,
+            Challenges,
             Clock,
             Microsoft.Extensions.Options.Options.Create(new FrontendOptions { BaseUrl = "https://app.test/" }),
             NullLogger<AuthService>.Instance);
+
+        TwoFactor = new TwoFactorService(
+            Users,
+            Challenges,
+            tokens,
+            new LoginTwoFactorRequestValidator(),
+            new TwoFactorVerifyRequestValidator(),
+            new TwoFactorDisableRequestValidator(),
+            Clock);
     }
 }

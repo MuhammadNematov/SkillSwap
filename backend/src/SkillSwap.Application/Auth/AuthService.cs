@@ -20,6 +20,7 @@ public sealed class AuthService
     private readonly IValidator<ResendConfirmationRequest> _resendValidator;
     private readonly IValidator<LoginRequest> _loginValidator;
     private readonly AuthTokenService _tokens;
+    private readonly ITwoFactorChallengeTokens _challenges;
     private readonly TimeProvider _clock;
     private readonly FrontendOptions _frontend;
     private readonly ILogger<AuthService> _logger;
@@ -32,6 +33,7 @@ public sealed class AuthService
         IValidator<ResendConfirmationRequest> resendValidator,
         IValidator<LoginRequest> loginValidator,
         AuthTokenService tokens,
+        ITwoFactorChallengeTokens challenges,
         TimeProvider clock,
         IOptions<FrontendOptions> frontend,
         ILogger<AuthService> logger)
@@ -43,16 +45,18 @@ public sealed class AuthService
         _resendValidator = resendValidator;
         _loginValidator = loginValidator;
         _tokens = tokens;
+        _challenges = challenges;
         _clock = clock;
         _frontend = frontend.Value;
         _logger = logger;
     }
 
     /// <summary>
-    /// Вход по email и паролю. Блокировка на 15 минут после 5 неверных паролей настроена в Identity (FR-5).
-    /// TODO (следующий шаг): 2FA — для пользователей с включённой 2FA и служебных аккаунтов вернуть requires2fa.
+    /// Первый шаг входа: email и пароль (блокировка на 15 минут после 5 неверных попыток настроена в Identity, FR-5).
+    /// Если включена 2FA — вернёт requires2fa и промежуточный токен; если это служебный аккаунт без 2FA —
+    /// requires2faSetup (служебным 2FA обязательна, раздел 3 ТЗ).
     /// </summary>
-    public async Task<AuthResult> LoginAsync(LoginRequest request, ClientInfo client, CancellationToken ct = default)
+    public async Task<LoginResult> LoginAsync(LoginRequest request, ClientInfo client, CancellationToken ct = default)
     {
         await _loginValidator.ValidateAndThrowAsync(request, ct);
 
@@ -86,16 +90,20 @@ public sealed class AuthService
             throw new ForbiddenException("account_blocked", "Аккаунт заблокирован.");
         }
 
-        if (user.TwoFactorEnabled || user.AccountType == AccountType.Staff)
+        if (user.TwoFactorEnabled)
         {
-            // Пока 2FA не реализована, такие аккаунты не пускаем вовсе, а не пускаем без второго фактора.
-            throw new ForbiddenException("two_factor_required", "Для этого аккаунта требуется 2FA (пока не поддерживается).");
+            return new LoginResult(LoginResponse.NeedsCode(_challenges.Create(user.Id, ChallengePurpose.Login)), null, null);
+        }
+
+        if (user.AccountType == AccountType.Staff)
+        {
+            return new LoginResult(LoginResponse.NeedsSetup(_challenges.Create(user.Id, ChallengePurpose.Setup)), null, null);
         }
 
         user.LastActiveAt = _clock.GetUtcNow().UtcDateTime;
         await _users.UpdateAsync(user);
 
-        return await _tokens.IssueAsync(user, client, ct);
+        return LoginResult.From(await _tokens.IssueAsync(user, client, ct));
     }
 
     public Task<AuthResult> RefreshAsync(string? refreshToken, ClientInfo client, CancellationToken ct = default) =>

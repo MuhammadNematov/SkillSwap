@@ -27,4 +27,8 @@ public sealed class JwtOptions
     /// <summary>Refresh-токен живёт 30 дней (раздел 10.1 ТЗ).</summary>
     [Range(1, 365)]
     public int RefreshTokenDays { get; set; } = 30;
+
+    /// <summary>Промежуточный токен между паролем и кодом 2FA живёт 5 минут.</summary>
+    [Range(1, 60)]
+    public int TwoFactorChallengeMinutes { get; set; } = 5;
 }
