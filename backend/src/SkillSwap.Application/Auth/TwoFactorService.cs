@@ -20,6 +20,9 @@ public sealed class TwoFactorService
     private readonly UserManager<User> _users;
     private readonly ITwoFactorChallengeTokens _challenges;
     private readonly AuthTokenService _tokens;
+    private readonly IRecoveryCodeStore _recoveryCodes;
+    private readonly ITwoFactorStepStore _steps;
+    private readonly IUserActivityStore _activity;
     private readonly IValidator<LoginTwoFactorRequest> _loginValidator;
     private readonly IValidator<TwoFactorVerifyRequest> _verifyValidator;
     private readonly IValidator<TwoFactorDisableRequest> _disableValidator;
@@ -29,6 +32,9 @@ public sealed class TwoFactorService
         UserManager<User> users,
         ITwoFactorChallengeTokens challenges,
         AuthTokenService tokens,
+        IRecoveryCodeStore recoveryCodes,
+        ITwoFactorStepStore steps,
+        IUserActivityStore activity,
         IValidator<LoginTwoFactorRequest> loginValidator,
         IValidator<TwoFactorVerifyRequest> verifyValidator,
         IValidator<TwoFactorDisableRequest> disableValidator,
@@ -37,6 +43,9 @@ public sealed class TwoFactorService
         _users = users;
         _challenges = challenges;
         _tokens = tokens;
+        _recoveryCodes = recoveryCodes;
+        _steps = steps;
+        _activity = activity;
         _loginValidator = loginValidator;
         _verifyValidator = verifyValidator;
         _disableValidator = disableValidator;
@@ -59,8 +68,8 @@ public sealed class TwoFactorService
         await EnsureNotLockedOutAsync(user);
 
         var valid = request.IsRecoveryCode
-            ? (await _users.RedeemTwoFactorRecoveryCodeAsync(user, NormalizeRecoveryCode(request.Code))).Succeeded
-            : await VerifyTotpAsync(user, request.Code);
+            ? await _recoveryCodes.TryRedeemAsync(user.Id, RecoveryCodes.Hash(request.Code), ct)
+            : await VerifyTotpAsync(user, request.Code, ct);
 
         if (!valid)
         {
@@ -69,8 +78,7 @@ public sealed class TwoFactorService
         }
 
         await _users.ResetAccessFailedCountAsync(user);
-        user.LastActiveAt = _clock.GetUtcNow().UtcDateTime;
-        await _users.UpdateAsync(user);
+        await _activity.TouchAsync(user.Id, _clock.GetUtcNow().UtcDateTime, ct);
 
         return LoginResult.From(await _tokens.IssueAsync(user, client, ct));
     }
@@ -88,7 +96,8 @@ public sealed class TwoFactorService
             throw new ConflictException("two_factor_already_enabled", "2FA уже включена.");
         }
 
-        await _users.ResetAuthenticatorKeyAsync(user);
+        EnsureSucceeded(await _users.ResetAuthenticatorKeyAsync(user));
+        await _steps.ResetAsync(user.Id);
         var key = await _users.GetAuthenticatorKeyAsync(user)
                   ?? throw new InvalidOperationException("Не удалось создать ключ аутентификатора.");
 
@@ -116,16 +125,18 @@ public sealed class TwoFactorService
         }
 
         await EnsureNotLockedOutAsync(user);
-        if (!await VerifyTotpAsync(user, request.Code))
+        if (!await VerifyTotpAsync(user, request.Code, ct))
         {
             await _users.AccessFailedAsync(user);
             throw new BadRequestException("invalid_two_factor_code", "Неверный код.");
         }
 
         await _users.ResetAccessFailedCountAsync(user);
-        await _users.SetTwoFactorEnabledAsync(user, true);
-        var codes = (await _users.GenerateNewTwoFactorRecoveryCodesAsync(user, RecoveryCodeCount))?.ToList()
-                    ?? throw new InvalidOperationException("Не удалось создать резервные коды.");
+        EnsureSucceeded(await _users.SetTwoFactorEnabledAsync(user, true));
+
+        // В БД уходят только хеши; открытые коды вернутся пользователю один раз, в этом ответе.
+        var codes = RecoveryCodes.Generate(RecoveryCodeCount);
+        await _recoveryCodes.ReplaceAsync(user.Id, codes.Select(RecoveryCodes.Hash).ToList(), ct);
 
         if (!viaSetupToken)
         {
@@ -133,8 +144,7 @@ public sealed class TwoFactorService
         }
 
         // Служебный аккаунт прошёл первую настройку: пускаем сразу, чтобы не вводить код второй раз.
-        user.LastActiveAt = _clock.GetUtcNow().UtcDateTime;
-        await _users.UpdateAsync(user);
+        await _activity.TouchAsync(user.Id, _clock.GetUtcNow().UtcDateTime, ct);
         var auth = await _tokens.IssueAsync(user, client, ct);
         return new TwoFactorVerifyResult(new TwoFactorVerifyResponse(codes, auth.Response), auth.RefreshToken, auth.RefreshTokenExpiresAt);
     }
@@ -162,15 +172,17 @@ public sealed class TwoFactorService
             throw new BadRequestException("invalid_password", "Неверный пароль.");
         }
 
-        if (!await VerifyTotpAsync(user, request.Code))
+        if (!await VerifyTotpAsync(user, request.Code, ct))
         {
             await _users.AccessFailedAsync(user);
             throw new BadRequestException("invalid_two_factor_code", "Неверный код.");
         }
 
         await _users.ResetAccessFailedCountAsync(user);
-        await _users.SetTwoFactorEnabledAsync(user, false);
-        await _users.ResetAuthenticatorKeyAsync(user);
+        EnsureSucceeded(await _users.SetTwoFactorEnabledAsync(user, false));
+        EnsureSucceeded(await _users.ResetAuthenticatorKeyAsync(user));
+        await _recoveryCodes.DeleteAllAsync(user.Id, ct);
+        await _steps.ResetAsync(user.Id, ct);
     }
 
     private async Task<(User User, bool ViaSetupToken)> ResolveUserAsync(Guid? authenticatedUserId, string? twoFactorToken)
@@ -190,6 +202,18 @@ public sealed class TwoFactorService
         var fromToken = await FindActiveUserAsync(challenge.UserId) ?? throw InvalidChallenge();
         EnsureEmailConfirmedAndNotBlocked(fromToken);
         return (fromToken, true);
+    }
+
+    /// <summary>
+    /// Результат критичной операции Identity нельзя игнорировать: при параллельном изменении той же строки
+    /// Identity возвращает ConcurrencyFailure, а не бросает исключение. Тогда 2FA могла бы «включиться» только на словах.
+    /// </summary>
+    private static void EnsureSucceeded(IdentityResult result)
+    {
+        if (!result.Succeeded)
+        {
+            throw new ConflictException("concurrency_conflict", "Запись была изменена другим запросом. Повторите действие.");
+        }
     }
 
     private async Task<User?> FindActiveUserAsync(Guid id)
@@ -219,17 +243,25 @@ public sealed class TwoFactorService
         }
     }
 
-    private Task<bool> VerifyTotpAsync(User user, string code) =>
-        _users.VerifyTwoFactorTokenAsync(user, _users.Options.Tokens.AuthenticatorTokenProvider, NormalizeCode(code));
+    /// <summary>
+    /// Код подходит, если он верен для шага из окна ±1 И этот шаг новее последнего использованного.
+    /// Один и тот же код (и любой более старый) во второй раз не пройдёт.
+    /// </summary>
+    private async Task<bool> VerifyTotpAsync(User user, string code, CancellationToken ct)
+    {
+        var key = await _users.GetAuthenticatorKeyAsync(user);
+        if (key is null)
+        {
+            return false;
+        }
+
+        var step = Totp.FindMatchingStep(key, NormalizeCode(code), _clock.GetUtcNow());
+        return step is { } s && await _steps.TryUseStepAsync(user.Id, s, ct);
+    }
 
     /// <summary>Код из приложения вводят с пробелом или дефисом («123 456», «123-456»).</summary>
     private static string NormalizeCode(string code) => code.Replace(" ", string.Empty).Replace("-", string.Empty);
 
-    /// <summary>
-    /// Резервные коды Identity содержат дефис («xxxxxxxx-xxxxxxxx») и сравниваются как есть,
-    /// поэтому убираем только пробелы по краям и внутри.
-    /// </summary>
-    private static string NormalizeRecoveryCode(string code) => code.Trim().Replace(" ", string.Empty);
 
     private static string BuildAuthenticatorUri(string email, string key) =>
         $"otpauth://totp/{Uri.EscapeDataString(Issuer)}:{Uri.EscapeDataString(email)}" +

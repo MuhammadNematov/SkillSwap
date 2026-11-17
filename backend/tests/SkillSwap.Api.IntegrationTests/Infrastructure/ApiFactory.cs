@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Time.Testing;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
@@ -19,6 +20,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     // Тесты читают письма отсюда вместо консоли.
     public CapturingMailSender Mail { get; } = new();
+
+    /// <summary>
+    /// Часы приложения, замороженные на моменте создания фабрики. Благодаря этому шаг TOTP в тесте не «ускользает»
+    /// посреди теста, и можно детерминированно брать коды прошлого (−1), текущего (0) и следующего (+1) окна.
+    /// </summary>
+    public FakeTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
 
     public async Task InitializeAsync()
     {
@@ -54,6 +61,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<IMailSender>();
             services.AddSingleton<IMailSender>(Mail);
+
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(Clock);
         });
     }
 

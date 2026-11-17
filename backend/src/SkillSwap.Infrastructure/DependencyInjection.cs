@@ -56,6 +56,9 @@ public static class DependencyInjection
         services.AddHostedService<SuperadminSeeder>();
 
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IRecoveryCodeStore, RecoveryCodeStore>();
+        services.AddScoped<ITwoFactorStepStore, TwoFactorStepStore>();
+        services.AddScoped<IUserActivityStore, UserActivityStore>();
         services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();
         services.AddSingleton<ITwoFactorChallengeTokens, JwtTwoFactorChallengeTokens>();
 

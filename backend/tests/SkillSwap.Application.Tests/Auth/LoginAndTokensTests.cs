@@ -54,7 +54,7 @@ public class LoginAndTokensTests
         Assert.Equal(result.RefreshTokenExpiresAt, stored.ExpiresAt);
         Assert.Equal("Firefox", stored.DeviceInfo);
         Assert.Equal(1, _fx.Users.ResetFailedCalls);
-        Assert.NotNull(user.LastActiveAt);
+        Assert.Equal(_fx.Clock.GetUtcNow().UtcDateTime, _fx.Activity.Touched[user.Id]);   // отметка активности записана
     }
 
     [Fact]

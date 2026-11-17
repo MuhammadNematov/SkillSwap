@@ -20,6 +20,7 @@ public sealed class AuthService
     private readonly IValidator<ResendConfirmationRequest> _resendValidator;
     private readonly IValidator<LoginRequest> _loginValidator;
     private readonly AuthTokenService _tokens;
+    private readonly IUserActivityStore _activity;
     private readonly ITwoFactorChallengeTokens _challenges;
     private readonly TimeProvider _clock;
     private readonly FrontendOptions _frontend;
@@ -33,6 +34,7 @@ public sealed class AuthService
         IValidator<ResendConfirmationRequest> resendValidator,
         IValidator<LoginRequest> loginValidator,
         AuthTokenService tokens,
+        IUserActivityStore activity,
         ITwoFactorChallengeTokens challenges,
         TimeProvider clock,
         IOptions<FrontendOptions> frontend,
@@ -45,6 +47,7 @@ public sealed class AuthService
         _resendValidator = resendValidator;
         _loginValidator = loginValidator;
         _tokens = tokens;
+        _activity = activity;
         _challenges = challenges;
         _clock = clock;
         _frontend = frontend.Value;
@@ -100,8 +103,7 @@ public sealed class AuthService
             return new LoginResult(LoginResponse.NeedsSetup(_challenges.Create(user.Id, ChallengePurpose.Setup)), null, null);
         }
 
-        user.LastActiveAt = _clock.GetUtcNow().UtcDateTime;
-        await _users.UpdateAsync(user);
+        await _activity.TouchAsync(user.Id, _clock.GetUtcNow().UtcDateTime, ct);
 
         return LoginResult.From(await _tokens.IssueAsync(user, client, ct));
     }

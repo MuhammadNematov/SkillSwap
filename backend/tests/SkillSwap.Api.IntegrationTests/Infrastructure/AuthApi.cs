@@ -85,14 +85,27 @@ public sealed partial class AuthApi
     public Task<HttpResponseMessage> TwoFactorDisableAsync(string accessToken, string password, string code) =>
         PostAsync("/auth/2fa/disable", new { password, code }, accessToken);
 
-    /// <summary>Полная настройка 2FA обычным пользователем; возвращает ключ аутентификатора и резервные коды.</summary>
+    /// <summary>
+    /// TOTP-код для ключа: шаг считается по часам приложения (они заморожены в тестах).
+    /// offset: −1 — прошлое окно, 0 — текущее, +1 — следующее. Каждый код можно использовать один раз,
+    /// и только в порядке возрастания шагов, поэтому тесты берут коды по возрастанию offset.
+    /// </summary>
+    public string TotpCode(string key, int stepOffset = 0) => Totp.Now(key, _factory.Clock.GetUtcNow(), stepOffset);
+
+    /// <summary>Шаг TOTP, соответствующий «сейчас» по часам приложения.</summary>
+    public long CurrentStep() => _factory.Clock.GetUtcNow().ToUnixTimeSeconds() / 30;
+
+    /// <summary>
+    /// Полная настройка 2FA обычным пользователем; возвращает ключ аутентификатора и резервные коды.
+    /// Подтверждение тратит код ПРОШЛОГО окна (−1), чтобы тесту остались текущий (0) и следующий (+1).
+    /// </summary>
     public async Task<(string Key, IReadOnlyList<string> RecoveryCodes)> EnableTwoFactorAsync(string accessToken)
     {
         var setup = await TwoFactorSetupAsync(accessToken);
         setup.EnsureSuccessStatusCode();
         var key = (await setup.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sharedKey").GetString()!;
 
-        var verify = await TwoFactorVerifyAsync(accessToken, Totp.Now(key));
+        var verify = await TwoFactorVerifyAsync(accessToken, TotpCode(key, -1));
         verify.EnsureSuccessStatusCode();
         var codes = (await verify.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("recoveryCodes")
             .EnumerateArray().Select(c => c.GetString()!).ToList();

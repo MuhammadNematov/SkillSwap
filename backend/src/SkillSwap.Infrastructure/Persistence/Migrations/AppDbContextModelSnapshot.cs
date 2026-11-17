@@ -159,6 +159,39 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TwoFactorRecoveryCodes", (string)null);
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -267,6 +300,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
 
+                    b.Property<long?>("TwoFactorLastUsedStep")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("UiLanguage")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -322,6 +358,15 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>
                 {
                     b.HasOne("SkillSwap.Domain.Entities.User", null)
                         .WithMany()

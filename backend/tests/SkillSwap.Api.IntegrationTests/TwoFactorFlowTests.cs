@@ -118,7 +118,7 @@ public class TwoFactorFlowTests
         var (email, _, key, _) = await UserWithTwoFactorAsync();
         var token = await AuthApi.ReadTwoFactorTokenAsync(await _api.LoginAsync(email));
 
-        var response = await _api.LoginTwoFactorAsync(token, Totp.Now(key));
+        var response = await _api.LoginTwoFactorAsync(token, _api.TotpCode(key));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var access = await AuthApi.ReadAccessTokenAsync(response);
@@ -131,7 +131,7 @@ public class TwoFactorFlowTests
     {
         var (email, _, key, _) = await UserWithTwoFactorAsync();
         var token = await AuthApi.ReadTwoFactorTokenAsync(await _api.LoginAsync(email));
-        var code = Totp.Now(key);
+        var code = _api.TotpCode(key);
 
         var response = await _api.LoginTwoFactorAsync(token, $"{code[..3]} {code[3..]}");
 
@@ -143,7 +143,7 @@ public class TwoFactorFlowTests
     {
         var (email, _, key, _) = await UserWithTwoFactorAsync();
         var token = await AuthApi.ReadTwoFactorTokenAsync(await _api.LoginAsync(email));
-        var wrong = Totp.Now(key, stepOffset: 5);   // код из другого окна — гарантированно не подходит
+        var wrong = _api.TotpCode(key, 5);   // код из другого окна — гарантированно не подходит
 
         var response = await _api.LoginTwoFactorAsync(token, wrong);
 
@@ -157,7 +157,7 @@ public class TwoFactorFlowTests
     {
         var (email, _, key, _) = await UserWithTwoFactorAsync();
         var token = await AuthApi.ReadTwoFactorTokenAsync(await _api.LoginAsync(email));
-        var wrong = Totp.Now(key, stepOffset: 5);
+        var wrong = _api.TotpCode(key, 5);
 
         for (var i = 0; i < 5; i++)
         {
@@ -165,7 +165,7 @@ public class TwoFactorFlowTests
         }
 
         // Теперь не пускает даже с верным кодом, и пароль тоже не поможет: аккаунт заблокирован на 15 минут.
-        var withRightCode = await _api.LoginTwoFactorAsync(token, Totp.Now(key));
+        var withRightCode = await _api.LoginTwoFactorAsync(token, _api.TotpCode(key));
         Assert.Equal(HttpStatusCode.TooManyRequests, withRightCode.StatusCode);
         Assert.Equal(HttpStatusCode.TooManyRequests, (await _api.LoginAsync(email)).StatusCode);
     }
@@ -175,7 +175,7 @@ public class TwoFactorFlowTests
     {
         var (_, _, key, _) = await UserWithTwoFactorAsync();
 
-        var response = await _api.LoginTwoFactorAsync("garbage", Totp.Now(key));
+        var response = await _api.LoginTwoFactorAsync("garbage", _api.TotpCode(key));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("invalid_two_factor_token", await AuthApi.ReadCodeAsync(response));
@@ -199,7 +199,7 @@ public class TwoFactorFlowTests
         var (_, _, keyB, _) = await UserWithTwoFactorAsync();
         var tokenA = await AuthApi.ReadTwoFactorTokenAsync(await _api.LoginAsync(emailA));
 
-        var response = await _api.LoginTwoFactorAsync(tokenA, Totp.Now(keyB));
+        var response = await _api.LoginTwoFactorAsync(tokenA, _api.TotpCode(keyB));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -231,7 +231,7 @@ public class TwoFactorFlowTests
     {
         var (email, access, key, _) = await UserWithTwoFactorAsync();
 
-        var response = await _api.TwoFactorDisableAsync(access, AuthApi.Password, Totp.Now(key));
+        var response = await _api.TwoFactorDisableAsync(access, AuthApi.Password, _api.TotpCode(key));
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         var login = await _api.LoginAsync(email);
@@ -244,7 +244,7 @@ public class TwoFactorFlowTests
     {
         var (email, access, key, _) = await UserWithTwoFactorAsync();
 
-        var response = await _api.TwoFactorDisableAsync(access, "wrong-pass1", Totp.Now(key));
+        var response = await _api.TwoFactorDisableAsync(access, "wrong-pass1", _api.TotpCode(key));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("invalid_password", await AuthApi.ReadCodeAsync(response));

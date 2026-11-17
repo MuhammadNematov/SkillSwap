@@ -24,6 +24,16 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.RatingAvg).HasPrecision(3, 2).HasDefaultValue(0m);
         builder.Property(u => u.RatingCount).HasDefaultValue(0);
 
+        // Последний шаг TOTP меняет только TwoFactorStepStore одним атомарным UPDATE. Обычные сохранения
+        // (UserManager.UpdateAsync помечает ВСЕ поля изменёнными) не должны его трогать: иначе устаревшее
+        // значение из памяти перезапишет свежий шаг и повторное использование кода снова станет возможным.
+        builder.Property(u => u.TwoFactorLastUsedStep)
+            .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+
+        // Так же и LastActiveAt: его пишет только UserActivityStore точечным UPDATE.
+        builder.Property(u => u.LastActiveAt)
+            .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+
         // Не более одного служебного аккаунта на личный (раздел 3 ТЗ).
         builder.HasIndex(u => u.LinkedUserId).IsUnique();
         builder.HasOne<User>().WithMany().HasForeignKey(u => u.LinkedUserId).OnDelete(DeleteBehavior.Restrict);

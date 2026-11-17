@@ -89,49 +89,24 @@ internal sealed class FakeUserManager : UserManager<User>
 
     public override Task<IdentityResult> UpdateAsync(User user) => Task.FromResult(IdentityResult.Success);
 
-    // 2FA
+    // 2FA: ключ аутентификатора. Остальное (коды, шаги) — в отдельных заглушках хранилищ.
     public string? AuthenticatorKey { get; set; }
-    public string ValidTotp { get; set; } = "123456";
-    public List<string> RecoveryCodes { get; } = [];
     private int _keyCounter;
 
     public override Task<string?> GetAuthenticatorKeyAsync(User user) => Task.FromResult(AuthenticatorKey);
 
     public override Task<IdentityResult> ResetAuthenticatorKeyAsync(User user)
     {
-        AuthenticatorKey = $"KEY{++_keyCounter}";
+        // Корректный base32: 16 символов, первый меняется с каждым новым ключом.
+        AuthenticatorKey = $"{(char)('A' + (_keyCounter++ % 26))}BSWY3DPEHPK3PXP";
         return Task.FromResult(IdentityResult.Success);
     }
-
-    public override Task<bool> VerifyTwoFactorTokenAsync(User user, string tokenProvider, string token) =>
-        Task.FromResult(token == ValidTotp);
 
     public override Task<IdentityResult> SetTwoFactorEnabledAsync(User user, bool enabled)
     {
         user.TwoFactorEnabled = enabled;
         return Task.FromResult(IdentityResult.Success);
     }
-
-    public override Task<IEnumerable<string>?> GenerateNewTwoFactorRecoveryCodesAsync(User user, int number)
-    {
-        RecoveryCodes.Clear();
-        RecoveryCodes.AddRange(Enumerable.Range(1, number).Select(i => $"code{i:00}-aaaaa"));
-        return Task.FromResult<IEnumerable<string>?>(RecoveryCodes.ToList());
-    }
-
-    public override Task<IdentityResult> RedeemTwoFactorRecoveryCodeAsync(User user, string code)
-    {
-        // Как настоящий Identity: код сравнивается как есть, вместе с дефисом.
-        var match = RecoveryCodes.FirstOrDefault(c => c == code);
-        if (match is null)
-        {
-            return Task.FromResult(IdentityResult.Failed());
-        }
-
-        RecoveryCodes.Remove(match);
-        return Task.FromResult(IdentityResult.Success);
-    }
-
     private sealed class NoopStore : IUserStore<User>
     {
         public void Dispose() { }
@@ -175,6 +150,77 @@ internal sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
     }
 }
 
+internal sealed class FakeRecoveryCodeStore : IRecoveryCodeStore
+{
+    public sealed class Stored(Guid userId, string hash)
+    {
+        public Guid UserId { get; } = userId;
+        public string Hash { get; } = hash;
+        public bool Used { get; set; }
+    }
+
+    public List<Stored> Codes { get; } = [];
+
+    public Task ReplaceAsync(Guid userId, IReadOnlyCollection<string> codeHashes, CancellationToken ct = default)
+    {
+        Codes.RemoveAll(c => c.UserId == userId);
+        Codes.AddRange(codeHashes.Select(h => new Stored(userId, h)));
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> TryRedeemAsync(Guid userId, string codeHash, CancellationToken ct = default)
+    {
+        var code = Codes.FirstOrDefault(c => c.UserId == userId && c.Hash == codeHash && !c.Used);
+        if (code is null)
+        {
+            return Task.FromResult(false);
+        }
+
+        code.Used = true;
+        return Task.FromResult(true);
+    }
+
+    public Task DeleteAllAsync(Guid userId, CancellationToken ct = default)
+    {
+        Codes.RemoveAll(c => c.UserId == userId);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeTwoFactorStepStore : ITwoFactorStepStore
+{
+    public Dictionary<Guid, long> LastStep { get; } = [];
+
+    // То же правило, что и у настоящего хранилища: шаг принимается, только если он строго больше последнего.
+    public Task<bool> TryUseStepAsync(Guid userId, long step, CancellationToken ct = default)
+    {
+        if (LastStep.TryGetValue(userId, out var last) && last >= step)
+        {
+            return Task.FromResult(false);
+        }
+
+        LastStep[userId] = step;
+        return Task.FromResult(true);
+    }
+
+    public Task ResetAsync(Guid userId, CancellationToken ct = default)
+    {
+        LastStep.Remove(userId);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeUserActivityStore : IUserActivityStore
+{
+    public Dictionary<Guid, DateTime> Touched { get; } = [];
+
+    public Task TouchAsync(Guid userId, DateTime nowUtc, CancellationToken ct = default)
+    {
+        Touched[userId] = nowUtc;
+        return Task.CompletedTask;
+    }
+}
+
 internal sealed class FakeAccessTokenGenerator : IAccessTokenGenerator
 {
     public AccessToken Create(User user) => new($"access-for-{user.Id}", DateTime.UtcNow.AddMinutes(15));
@@ -208,6 +254,13 @@ internal sealed class AuthFixture
     public AuthService Service { get; }
     public TwoFactorService TwoFactor { get; }
     public FakeChallengeTokens Challenges { get; } = new();
+    public FakeRecoveryCodeStore RecoveryCodes { get; } = new();
+    public FakeTwoFactorStepStore Steps { get; } = new();
+    public FakeUserActivityStore Activity { get; } = new();
+
+    /// <summary>Настоящий TOTP-код для ключа пользователя; offset — сдвиг в шагах по 30 секунд (−1 прошлый, +1 следующий).</summary>
+    public string TotpCode(int offset = 0) =>
+        Totp.Compute(Users.AuthenticatorKey!, Totp.StepAt(Clock.GetUtcNow()) + offset);
 
     public AuthFixture()
     {
@@ -226,6 +279,7 @@ internal sealed class AuthFixture
             new ResendConfirmationRequestValidator(),
             new LoginRequestValidator(),
             tokens,
+            Activity,
             Challenges,
             Clock,
             Microsoft.Extensions.Options.Options.Create(new FrontendOptions { BaseUrl = "https://app.test/" }),
@@ -235,6 +289,9 @@ internal sealed class AuthFixture
             Users,
             Challenges,
             tokens,
+            RecoveryCodes,
+            Steps,
+            Activity,
             new LoginTwoFactorRequestValidator(),
             new TwoFactorVerifyRequestValidator(),
             new TwoFactorDisableRequestValidator(),

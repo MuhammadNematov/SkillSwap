@@ -142,6 +142,19 @@ public class AuthFlowTests
     }
 
     [Fact]
+    public async Task A_successful_login_records_the_last_activity_time()
+    {
+        var email = await _api.RegisterConfirmedUserAsync();
+        Assert.Null((await FindUserAsync(email)).LastActiveAt);
+
+        (await _api.LoginAsync(email)).EnsureSuccessStatusCode();
+
+        var user = await FindUserAsync(email);
+        Assert.NotNull(user.LastActiveAt);
+        Assert.Equal(_factory.Clock.GetUtcNow().UtcDateTime, user.LastActiveAt!.Value, TimeSpan.FromMilliseconds(1));
+    }
+
+    [Fact]
     public async Task Login_with_a_wrong_password_gives_401()
     {
         var email = await _api.RegisterConfirmedUserAsync();

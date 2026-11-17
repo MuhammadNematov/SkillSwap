@@ -124,10 +124,10 @@ public class SuperadminFlowTests
         Assert.Equal(HttpStatusCode.OK, setup.StatusCode);
         var key = (await setup.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sharedKey").GetString()!;
 
-        var wrongCode = await _api.TwoFactorVerifyAsync(null, Totp.Now(key, stepOffset: 5), setupToken);
+        var wrongCode = await _api.TwoFactorVerifyAsync(null, _api.TotpCode(key, 5), setupToken);
         Assert.Equal(HttpStatusCode.BadRequest, wrongCode.StatusCode);
 
-        var verify = await _api.TwoFactorVerifyAsync(null, Totp.Now(key), setupToken);
+        var verify = await _api.TwoFactorVerifyAsync(null, _api.TotpCode(key, -1), setupToken);
         Assert.Equal(HttpStatusCode.OK, verify.StatusCode);
         var verified = await verify.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(10, verified.GetProperty("recoveryCodes").GetArrayLength());
@@ -153,13 +153,13 @@ public class SuperadminFlowTests
         // Токен входа не годится для настройки.
         Assert.Equal(HttpStatusCode.Unauthorized, (await _api.TwoFactorSetupAsync(null, loginToken)).StatusCode);
 
-        var final = await _api.LoginTwoFactorAsync(loginToken, Totp.Now(key));
+        var final = await _api.LoginTwoFactorAsync(loginToken, _api.TotpCode(key));
         Assert.Equal(HttpStatusCode.OK, final.StatusCode);
         var finalAccess = await AuthApi.ReadAccessTokenAsync(final);
         Assert.NotNull(AuthApi.RefreshTokenFrom(final));
 
         // 5. Отключить 2FA нельзя, даже с верными паролем и кодом.
-        var disable = await _api.TwoFactorDisableAsync(finalAccess, ApiFactory.SuperadminPassword, Totp.Now(key));
+        var disable = await _api.TwoFactorDisableAsync(finalAccess, ApiFactory.SuperadminPassword, _api.TotpCode(key, 1));
         Assert.Equal(HttpStatusCode.Forbidden, disable.StatusCode);
         Assert.Equal("two_factor_mandatory", await AuthApi.ReadCodeAsync(disable));
         Assert.True((await FindSuperadminAsync()).TwoFactorEnabled);

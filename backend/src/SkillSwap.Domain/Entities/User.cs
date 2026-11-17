@@ -38,6 +38,12 @@ public class User : IdentityUser<Guid>, ITimestamped
     public int RatingCount { get; private set; }
     public DateTime? LastActiveAt { get; set; }
 
+    /// <summary>
+    /// Последний использованный временной шаг TOTP. Код принимается, только если его шаг строго больше:
+    /// так один и тот же код нельзя использовать дважды. Меняется только атомарным UPDATE в хранилище шагов.
+    /// </summary>
+    public long? TwoFactorLastUsedStep { get; private set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
