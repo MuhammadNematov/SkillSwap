@@ -211,6 +211,483 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Skill", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NameRu")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NameTg")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.PrimitiveCollection<string[]>("Synonyms")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Synonyms");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Synonyms"), "gin");
+
+                    b.HasIndex("CategoryId", "NameEn")
+                        .IsUnique();
+
+                    b.ToTable("Skills", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000001"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Python",
+                            NameRu = "Python",
+                            NameTg = "Python",
+                            Synonyms = new[] { "питон", "пайтон" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000002"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "JavaScript",
+                            NameRu = "JavaScript",
+                            NameTg = "JavaScript",
+                            Synonyms = new[] { "js", "джаваскрипт", "жс" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000003"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "C#",
+                            NameRu = "C#",
+                            NameTg = "C#",
+                            Synonyms = new[] { "си шарп", "сишарп", "csharp", "c sharp" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000004"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Java",
+                            NameRu = "Java",
+                            NameTg = "Java",
+                            Synonyms = new[] { "джава" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000005"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "SQL and databases",
+                            NameRu = "SQL и базы данных",
+                            NameTg = "SQL ва пойгоҳи маълумот",
+                            Synonyms = new[] { "sql", "бд", "database", "postgres", "mysql" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000006"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "HTML and CSS",
+                            NameRu = "HTML и CSS",
+                            NameTg = "HTML ва CSS",
+                            Synonyms = new[] { "html", "css", "верстка", "вёрстка" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000007"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Git",
+                            NameRu = "Git",
+                            NameTg = "Git",
+                            Synonyms = new[] { "гит", "version control" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000008"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "React",
+                            NameRu = "React",
+                            NameTg = "React",
+                            Synonyms = new[] { "реакт" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000009"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Data analysis",
+                            NameRu = "Анализ данных",
+                            NameTg = "Таҳлили маълумот",
+                            Synonyms = new[] { "excel", "pandas", "аналитика" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000000a"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Machine learning basics",
+                            NameRu = "Основы машинного обучения",
+                            NameTg = "Асосҳои омӯзиши мошинӣ",
+                            Synonyms = new[] { "ml", "ии", "ai", "нейросети" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000000b"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Software testing",
+                            NameRu = "Тестирование ПО",
+                            NameTg = "Санҷиши барномаҳо",
+                            Synonyms = new[] { "qa", "тестировщик" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000000c"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "English",
+                            NameRu = "Английский язык",
+                            NameTg = "Забони англисӣ",
+                            Synonyms = new[] { "english", "англ" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000000d"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Russian",
+                            NameRu = "Русский язык",
+                            NameTg = "Забони русӣ",
+                            Synonyms = new[] { "russian", "русӣ" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000000e"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Tajik",
+                            NameRu = "Таджикский язык",
+                            NameTg = "Забони тоҷикӣ",
+                            Synonyms = new[] { "tajik", "тоҷикӣ" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000000f"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "German",
+                            NameRu = "Немецкий язык",
+                            NameTg = "Забони олмонӣ",
+                            Synonyms = new[] { "deutsch", "german" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000010"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "French",
+                            NameRu = "Французский язык",
+                            NameTg = "Забони фаронсавӣ",
+                            Synonyms = new[] { "français", "francais" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000011"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Chinese",
+                            NameRu = "Китайский язык",
+                            NameTg = "Забони хитоӣ",
+                            Synonyms = new[] { "mandarin", "中文" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000012"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Arabic",
+                            NameRu = "Арабский язык",
+                            NameTg = "Забони арабӣ",
+                            Synonyms = new[] { "arabic" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000013"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Turkish",
+                            NameRu = "Турецкий язык",
+                            NameTg = "Забони туркӣ",
+                            Synonyms = new[] { "türkçe", "turkce" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000014"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Persian",
+                            NameRu = "Персидский язык",
+                            NameTg = "Забони форсӣ",
+                            Synonyms = new[] { "farsi", "фарси" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000015"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Spanish",
+                            NameRu = "Испанский язык",
+                            NameTg = "Забони испанӣ",
+                            Synonyms = new[] { "español", "espanol" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000016"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "UI/UX design",
+                            NameRu = "UI/UX-дизайн",
+                            NameTg = "Дизайни UI/UX",
+                            Synonyms = new[] { "ui", "ux", "интерфейсы" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000017"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Graphic design",
+                            NameRu = "Графический дизайн",
+                            NameTg = "Дизайни графикӣ",
+                            Synonyms = new[] { "graphic" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000018"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Figma",
+                            NameRu = "Figma",
+                            NameTg = "Figma",
+                            Synonyms = new[] { "фигма" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000019"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Adobe Photoshop",
+                            NameRu = "Adobe Photoshop",
+                            NameTg = "Adobe Photoshop",
+                            Synonyms = new[] { "фотошоп", "photoshop" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000001a"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Adobe Illustrator",
+                            NameRu = "Adobe Illustrator",
+                            NameTg = "Adobe Illustrator",
+                            Synonyms = new[] { "иллюстратор", "illustrator" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000001b"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Video editing",
+                            NameRu = "Видеомонтаж",
+                            NameTg = "Таҳрири видео",
+                            Synonyms = new[] { "монтаж", "premiere", "davinci" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000001c"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "3D modeling",
+                            NameRu = "3D-моделирование",
+                            NameTg = "Моделсозии 3D",
+                            Synonyms = new[] { "blender", "блендер" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-00000000001d"),
+                            CategoryId = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Typography",
+                            NameRu = "Типографика",
+                            NameTg = "Типографика",
+                            Synonyms = new[] { "шрифты", "fonts" },
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.SkillCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NameRu")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NameTg")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NameEn")
+                        .IsUnique();
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("SkillCategories", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("c0000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "IT",
+                            NameRu = "IT",
+                            NameTg = "Технологияҳои иттилоотӣ",
+                            SortOrder = 1,
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("c0000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Foreign languages",
+                            NameRu = "Иностранные языки",
+                            NameTg = "Забонҳои хориҷӣ",
+                            SortOrder = 2,
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = new Guid("c0000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            NameEn = "Design",
+                            NameRu = "Дизайн",
+                            NameTg = "Дизайн",
+                            SortOrder = 3,
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -418,6 +895,17 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Skill", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.SkillCategory", "Category")
+                        .WithMany("Skills")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>
                 {
                     b.HasOne("SkillSwap.Domain.Entities.User", null)
@@ -433,6 +921,11 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("LinkedUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.SkillCategory", b =>
+                {
+                    b.Navigation("Skills");
                 });
 #pragma warning restore 612, 618
         }

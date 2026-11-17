@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Options;
+using SkillSwap.Application.Skills;
+using SkillSwap.Infrastructure.Skills;
 using SkillSwap.Infrastructure.Seeding;
 using SkillSwap.Domain.Entities;
 using Microsoft.Extensions.Options;
@@ -96,6 +98,8 @@ public static class DependencyInjection
 
         // TODO: заменить на SMTP-отправитель до выхода за пределы разработки.
         services.AddScoped<IMailSender, ConsoleMailSender>();
+
+        services.AddScoped<ISkillCatalogReader, SkillCatalogReader>();
 
         return services;
     }

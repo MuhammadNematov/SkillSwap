@@ -70,6 +70,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         ServiceUnavailableException e => (StatusCodes.Status503ServiceUnavailable, e.Code, "Сервис временно недоступен", e.Message),
         TooManyRequestsException e => (StatusCodes.Status429TooManyRequests, e.Code, "Слишком много попыток", e.Message),
         ConflictException e => (StatusCodes.Status409Conflict, e.Code, "Конфликт", e.Message),
+        DomainValidationException e => (StatusCodes.Status400BadRequest, e.Code, "Некорректные данные", e.Message),
         InvalidStateTransitionException e => (StatusCodes.Status409Conflict, e.Code, "Недопустимый переход статуса", e.Message),
         // Оптимистичная блокировка по xmin (раздел 10.2 ТЗ): запись изменили параллельно.
         DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "concurrency_conflict", "Конфликт одновременного изменения", "Запись была изменена другим запросом. Повторите действие."),
