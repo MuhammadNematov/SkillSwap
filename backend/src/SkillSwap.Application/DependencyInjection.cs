@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Auth;
+using SkillSwap.Application.LiveKit;
 
 namespace SkillSwap.Application;
 
@@ -16,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<TwoFactorService>();
         services.AddScoped<PasswordResetService>();
         services.AddScoped<SessionService>();
+        services.AddScoped<LiveKitWebhookService>();
 
         return services;
     }

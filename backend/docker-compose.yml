@@ -19,5 +19,25 @@ services:
       timeout: 3s
       retries: 10
 
+  # Прототип медиасервера (этап 2): только проверка связки «выдача токена + подключение + webhook».
+  # Боевой LiveKit с TURN на 443/TLS ставится на отдельный VPS позже (docs/DEFERRED.md).
+  livekit:
+    image: livekit/livekit-server:v1.13.11
+    container_name: skillswap-livekit
+    # --dev: режим разработки. Ключ API берётся из LIVEKIT_KEYS ниже; остальное — в livekit.yaml.
+    command: ["--dev", "--config", "/etc/livekit.yaml"]
+    environment:
+      # Формат «имя_ключа: секрет». Секрет из backend/.env; длинный, потому что API подписывает токены HS256.
+      LIVEKIT_KEYS: "devkey: ${LIVEKIT_API_SECRET:?Задайте LIVEKIT_API_SECRET в backend/.env (случайная строка от 32 символов)}"
+    ports:
+      - "7880:7880"        # HTTP и WebSocket сигнализации
+      - "7881:7881"        # WebRTC по TCP
+      - "7882:7882/udp"    # WebRTC по UDP
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    extra_hosts:
+      # На Windows и macOS host.docker.internal есть сам; на Linux его нужно добавить, чтобы webhook доходил до API.
+      - "host.docker.internal:host-gateway"
+
 volumes:
   postgres-data:

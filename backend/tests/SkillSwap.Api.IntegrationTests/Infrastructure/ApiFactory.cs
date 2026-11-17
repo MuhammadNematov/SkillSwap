@@ -38,6 +38,11 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Публичный тестовый секрет Cloudflare: допустим в окружении Testing.</summary>
     public const string TurnstileTestSecret = "1x0000000000000000000000000000000AA";
 
+    /// <summary>Ключ и секрет «LiveKit» для тестов (секрет не короче 32 символов, как требует приложение).</summary>
+    public const string LiveKitApiKey = "devkey";
+    public const string LiveKitApiSecret = "livekit-integration-test-secret-0123456789-abcdef";
+    public const string LiveKitUrl = "ws://livekit.test:7880";
+
     public async Task InitializeAsync()
     {
         await _postgres.StartAsync();
@@ -70,7 +75,27 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // Капча выключена: остальные тесты не передают токен. Секрет задан всё равно, как в реальном окружении.
         settings["Turnstile:Enabled"] = "false";
         settings["Turnstile:SecretKey"] = TurnstileTestSecret;
+
+        settings["LiveKit:ApiKey"] = LiveKitApiKey;
+        settings["LiveKit:ApiSecret"] = LiveKitApiSecret;
+        settings["LiveKit:Url"] = LiveKitUrl;
     }
+
+    /// <summary>
+    /// Копия приложения на ТОЙ ЖЕ БД с дополнительными настройками и (при желании) другой средой, например Development.
+    /// Новый контейнер не нужен: проверка «только в Development» и «LiveKit не настроен» обходится дёшево.
+    /// </summary>
+    public WebApplicationFactory<Program> WithSettings(string? environment = null, params (string Key, string? Value)[] settings) =>
+        WithWebHostBuilder(builder =>
+        {
+            if (environment is not null)
+            {
+                builder.UseEnvironment(environment);
+            }
+
+            builder.ConfigureAppConfiguration((_, config) =>
+                config.AddInMemoryCollection(settings.Select(s => new KeyValuePair<string, string?>(s.Key, s.Value))));
+        });
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

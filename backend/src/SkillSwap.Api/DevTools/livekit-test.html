@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LiveKit: тест связки</title>
+  <style>
+    :root { color-scheme: light dark; --gap: 12px; }
+    * { box-sizing: border-box; }
+    body { font: 15px/1.45 system-ui, sans-serif; margin: 0; padding: 16px; max-width: 1100px; margin-inline: auto; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h1 small { font-weight: 400; opacity: .65; font-size: 13px; margin-left: 8px; }
+    h2 { font-size: 14px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+    p.hint { margin: 4px 0 12px; opacity: .8; }
+    .panel { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: end; padding: 12px; border: 1px solid #8884; border-radius: 8px; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+    label.inline { flex-direction: row; align-items: center; gap: 6px; }
+    input[type=text] { padding: 6px 8px; border: 1px solid #8886; border-radius: 6px; font: inherit; min-width: 190px; background: transparent; color: inherit; }
+    button { padding: 7px 14px; border: 1px solid #8886; border-radius: 6px; font: inherit; cursor: pointer; background: #2563eb; color: white; }
+    button.secondary { background: transparent; color: inherit; }
+    button:disabled { opacity: .45; cursor: default; }
+    #status { margin: 10px 0; font-weight: 600; }
+    #status[data-state="connected"] { color: #16a34a; }
+    #status[data-state="disconnected"], #status[data-state="error"] { color: #dc2626; }
+    #stage { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); margin-top: 8px; }
+    .tile { position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4 / 3; }
+    .tile video { width: 100%; height: 100%; object-fit: cover; }
+    .tile .label { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 4px; background: #000a; color: #fff; font-size: 12px; }
+    ul { margin: 0; padding-left: 20px; }
+    pre { margin: 0; padding: 10px; max-height: 260px; overflow: auto; background: #8881; border-radius: 8px; font-size: 12px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>LiveKit: тест связки <small>только Development, прототип этапа 2</small></h1>
+  <p class="hint">
+    Откройте эту страницу во <b>второй вкладке</b>, зайдите в ту же комнату (имена можно оставить разные) и нажмите «Войти»
+    в обеих: вы должны увидеть и услышать друг друга. Нет камеры или микрофона — снимите галочки: связь всё равно
+    проверяется (список участников, кнопка «Пинг» передаёт сообщение между вкладками).
+  </p>
+
+  <div class="panel">
+    <label>Комната (начинается с «dev-»)
+      <input id="room" type="text" autocomplete="off" spellcheck="false">
+    </label>
+    <label>Ваше имя
+      <input id="name" type="text" autocomplete="off" spellcheck="false">
+    </label>
+    <label class="inline"><input id="cam" type="checkbox" checked> камера</label>
+    <label class="inline"><input id="mic" type="checkbox" checked> микрофон</label>
+    <button id="join">Войти</button>
+    <button id="leave" class="secondary" disabled>Выйти</button>
+    <button id="ping" class="secondary" disabled>Пинг</button>
+  </div>
+
+  <div id="status" data-state="idle">Состояние: <span id="state">не подключено</span></div>
+
+  <div id="stage"></div>
+
+  <h2>Участники</h2>
+  <ul id="participants"></ul>
+
+  <h2>Журнал</h2>
+  <pre id="log"></pre>
+
+  <!-- Клиент LiveKit с CDN: версия закреплена, а целостность проверяется хешем (SRI). Если CDN отдаст другой файл, браузер его не выполнит. -->
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.23.0/dist/livekit-client.umd.min.js"
+          integrity="sha384-5Eup/y0O0HaGMTnRv9dQddV/+npZKkzbmhjrFfyJsiMgphEG4bpxscOotD6/NPPj"
+          crossorigin="anonymous"></script>
+  <script>
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+
+    // Значения по умолчанию можно задать в адресе: ?room=dev-x&name=Аня&cam=0&mic=0&auto=1
+    $('room').value = params.get('room') || 'dev-test-room';
+    $('name').value = params.get('name') || 'tab-' + Math.random().toString(36).slice(2, 6);
+    $('cam').checked = params.get('cam') !== '0';
+    $('mic').checked = params.get('mic') !== '0';
+
+    let room = null;
+    const tiles = new Map();   // sid дорожки -> элемент на экране
+
+    function log(text) {
+      const line = new Date().toLocaleTimeString() + '  ' + text;
+      $('log').textContent = line + '\n' + $('log').textContent;
+    }
+
+    // Все строки от других участников выводим через textContent: имя в чужой вкладке не должно быть разметкой.
+    function setState(state, human) {
+      $('status').dataset.state = state;
+      $('state').textContent = human || state;
+      document.body.dataset.state = state;   // удобно для автоматических проверок
+    }
+
+    function renderParticipants() {
+      const list = $('participants');
+      list.replaceChildren();
+      if (!room) { document.body.dataset.participants = '0'; return; }
+      const everyone = [room.localParticipant, ...room.remoteParticipants.values()];
+      for (const p of everyone) {
+        const li = document.createElement('li');
+        li.textContent = (p.name || p.identity) + (p === room.localParticipant ? ' (вы)' : '');
+        list.appendChild(li);
+      }
+      document.body.dataset.participants = String(everyone.length);
+    }
+
+    function addTile(track, who, isLocal) {
+      if (track.kind === 'audio') {
+        if (isLocal) return;                      // свой звук не воспроизводим: будет эхо
+        const audio = track.attach();             // воспроизведётся сам: «Войти» было действием пользователя
+        document.body.appendChild(audio);
+        tiles.set(track.sid, audio);
+        return;
+      }
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = who + (isLocal ? ' (вы)' : '');
+      const video = track.attach();
+      video.muted = true;                          // звук идёт отдельной дорожкой
+      tile.append(video, label);
+      $('stage').appendChild(tile);
+      tiles.set(track.sid, tile);
+    }
+
+    function removeTile(track) {
+      const element = tiles.get(track.sid);
+      track.detach();
+      element?.remove();
+      tiles.delete(track.sid);
+    }
+
+    function cleanup() {
+      for (const element of tiles.values()) element.remove();
+      tiles.clear();
+      room = null;
+      $('join').disabled = false;
+      $('leave').disabled = true;
+      $('ping').disabled = true;
+      renderParticipants();
+    }
+
+    async function join() {
+      if (room) return;
+      $('join').disabled = true;
+      setState('connecting', 'подключаемся…');
+      try {
+        const name = $('name').value.trim() || 'tab';
+        // У каждой вкладки свой идентификатор: LiveKit отключает прежнего участника с таким же идентификатором.
+        const identity = 'dev-' + name.toLowerCase().replace(/[^a-z0-9_.-]/g, '-').slice(0, 40) + '-' + Math.random().toString(36).slice(2, 6);
+        const query = new URLSearchParams({ room: $('room').value.trim(), name, identity });
+        const response = await fetch('/dev/livekit/token?' + query);
+        if (!response.ok) {
+          log('Токен не выдан: HTTP ' + response.status + ' ' + (await response.text()));
+          setState('error', 'ошибка: токен не выдан');
+          $('join').disabled = false;
+          return;
+        }
+        const { url, token, room: roomName, expiresAt } = await response.json();
+        log('Токен получен для комнаты ' + roomName + ', действует до ' + new Date(expiresAt).toLocaleTimeString());
+
+        const { Room, RoomEvent } = LivekitClient;
+        const r = new Room({ adaptiveStream: true, dynacast: true });
+        room = r;
+
+        r.on(RoomEvent.ConnectionStateChanged, (state) => { setState(state); log('Состояние: ' + state); });
+        r.on(RoomEvent.ParticipantConnected, (p) => { log('Вошёл: ' + (p.name || p.identity)); renderParticipants(); });
+        r.on(RoomEvent.ParticipantDisconnected, (p) => { log('Вышел: ' + (p.name || p.identity)); renderParticipants(); });
+        r.on(RoomEvent.TrackSubscribed, (track, publication, p) => { addTile(track, p.name || p.identity, false); log('Получаем ' + track.kind + ' от ' + (p.name || p.identity)); });
+        r.on(RoomEvent.TrackUnsubscribed, (track) => removeTile(track));
+        r.on(RoomEvent.LocalTrackPublished, (publication) => { if (publication.track) addTile(publication.track, $('name').value.trim(), true); });
+        r.on(RoomEvent.LocalTrackUnpublished, (publication) => { if (publication.track) removeTile(publication.track); });
+        r.on(RoomEvent.DataReceived, (payload, p) => {
+          try { const msg = JSON.parse(new TextDecoder().decode(payload)); log('Сообщение от ' + (p?.name || p?.identity || '?') + ': ' + msg.type); }
+          catch { log('Данные от ' + (p?.name || p?.identity || '?')); }
+        });
+        r.on(RoomEvent.MediaDevicesError, (e) => log('Устройства: ' + e.message));
+        r.on(RoomEvent.Disconnected, () => { log('Отключено'); setState('disconnected', 'отключено'); cleanup(); });
+
+        await r.connect(url, token);
+        log('Подключено к ' + url);
+        $('leave').disabled = false;
+        $('ping').disabled = false;
+        renderParticipants();
+
+        if ($('cam').checked) await r.localParticipant.setCameraEnabled(true).catch((e) => log('Камера: ' + e.message));
+        if ($('mic').checked) await r.localParticipant.setMicrophoneEnabled(true).catch((e) => log('Микрофон: ' + e.message));
+      } catch (e) {
+        log('Ошибка: ' + (e?.message || e));
+        setState('error', 'ошибка: ' + (e?.message || e));
+        try { await room?.disconnect(); } catch { /* уже отключены */ }
+        cleanup();
+      }
+    }
+
+    async function leave() { if (room) await room.disconnect(); }
+
+    async function ping() {
+      if (!room) return;
+      const data = new TextEncoder().encode(JSON.stringify({ type: 'ping', from: $('name').value.trim(), at: Date.now() }));
+      await room.localParticipant.publishData(data, { reliable: true });
+      log('Пинг отправлен');
+    }
+
+    $('join').addEventListener('click', join);
+    $('leave').addEventListener('click', leave);
+    $('ping').addEventListener('click', ping);
+    window.addEventListener('beforeunload', () => { room?.disconnect(); });
+
+    if (params.get('auto') === '1') join();
+  </script>
+</body>
+</html>

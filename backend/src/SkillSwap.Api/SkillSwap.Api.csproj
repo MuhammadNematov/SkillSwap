@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -16,6 +16,11 @@
     </PackageReference>
     <PackageReference Include="Microsoft.OpenApi" Version="2.13.1" />
     <PackageReference Include="Scalar.AspNetCore" Version="3.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Тестовая страница LiveKit (только Development): вшита в сборку, отдаётся из DevTools/LiveKitDevTools.cs. -->
+    <EmbeddedResource Include="DevTools\livekit-test.html" LogicalName="livekit-test.html" />
   </ItemGroup>
 
   <ItemGroup>

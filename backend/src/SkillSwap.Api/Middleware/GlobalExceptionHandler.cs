@@ -66,6 +66,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         UnauthorizedException e => (StatusCodes.Status401Unauthorized, e.Code, "Не авторизован", e.Message),
         ForbiddenException e => (StatusCodes.Status403Forbidden, e.Code, "Доступ запрещён", e.Message),
         NotFoundException e => (StatusCodes.Status404NotFound, e.Code, "Не найдено", e.Message),
+        PayloadTooLargeException e => (StatusCodes.Status413PayloadTooLarge, e.Code, "Запрос слишком большой", e.Message),
         ServiceUnavailableException e => (StatusCodes.Status503ServiceUnavailable, e.Code, "Сервис временно недоступен", e.Message),
         TooManyRequestsException e => (StatusCodes.Status429TooManyRequests, e.Code, "Слишком много попыток", e.Message),
         ConflictException e => (StatusCodes.Status409Conflict, e.Code, "Конфликт", e.Message),

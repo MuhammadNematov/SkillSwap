@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 using SkillSwap.Api.Auth;
 using SkillSwap.Api.Captcha;
+using SkillSwap.Api.DevTools;
 using SkillSwap.Api.Middleware;
 using SkillSwap.Api.OpenApi;
 using SkillSwap.Api.RateLimiting;
@@ -49,9 +50,21 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+    app.MapLiveKitDevTools();   // тестовая страница и выдача токена: только в Development
 }
 
-app.UseHttpsRedirection();
+// В Development LiveKit (в Docker) шлёт webhook по обычному http на localhost; редирект на https с самоподписанным
+// сертификатом его бы сломал. Для остальных путей и сред редирект работает как обычно.
+if (app.Environment.IsDevelopment())
+{
+    app.UseWhen(
+        context => !context.Request.Path.StartsWithSegments("/api/v1/webhooks"),
+        branch => branch.UseHttpsRedirection());
+}
+else
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors();
 app.UseAuthentication();

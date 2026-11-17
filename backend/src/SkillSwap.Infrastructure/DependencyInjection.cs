@@ -10,6 +10,7 @@ using SkillSwap.Domain.Entities;
 using Microsoft.Extensions.Options;
 using SkillSwap.Infrastructure.Auth;
 using SkillSwap.Infrastructure.Captcha;
+using SkillSwap.Infrastructure.LiveKit;
 using SkillSwap.Infrastructure.Email;
 using SkillSwap.Infrastructure.Persistence;
 
@@ -77,6 +78,18 @@ public static class DependencyInjection
             .ConfigureHttpClient((sp, client) =>
                 client.Timeout = TimeSpan.FromSeconds(sp.GetRequiredService<IOptions<TurnstileOptions>>().Value.TimeoutSeconds));
         services.AddScoped<ICaptchaVerifier, TurnstileCaptchaVerifier>();
+
+        // Медиасервер LiveKit: токены доступа в комнату и приём webhook (раздел 7.2 ТЗ). Секрета в репозитории нет.
+        services.AddOptions<LiveKitOptions>()
+            .Bind(configuration.GetSection(LiveKitOptions.SectionName))
+            .ValidateDataAnnotations()
+            .Validate(
+                o => string.IsNullOrEmpty(o.ApiSecret) || o.ApiSecret.Length >= LiveKitOptions.MinSecretLength,
+                $"LiveKit:ApiSecret короче {LiveKitOptions.MinSecretLength} символов: такой секрет слишком слаб для подписи токенов.")
+            .ValidateOnStart();
+        services.AddSingleton<ILiveKitTokenService, LiveKitTokenService>();
+        services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();
+        services.AddScoped<ILiveKitWebhookEventStore, LiveKitWebhookEventStore>();
 
         // TODO: заменить на SMTP-отправитель до выхода за пределы разработки.
         services.AddScoped<IMailSender, ConsoleMailSender>();

@@ -62,6 +62,14 @@ public sealed class ServiceUnavailableException : AppException
     }
 }
 
+/// <summary>HTTP 413: тело запроса больше допустимого.</summary>
+public sealed class PayloadTooLargeException : AppException
+{
+    public PayloadTooLargeException(string code, string message) : base(code, message)
+    {
+    }
+}
+
 /// <summary>HTTP 409: конфликт с текущим состоянием (например, email уже занят).</summary>
 public sealed class ConflictException : AppException
 {

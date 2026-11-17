@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\SkillSwap.Domain\SkillSwap.Domain.csproj" />
@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="SkillSwap.Application.Tests" />
+    <InternalsVisibleTo Include="SkillSwap.Api.IntegrationTests" />
   </ItemGroup>
 
   <PropertyGroup>
