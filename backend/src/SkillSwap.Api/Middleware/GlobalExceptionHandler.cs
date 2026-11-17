@@ -63,6 +63,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     {
         ValidationException => (StatusCodes.Status400BadRequest, "validation_failed", "Ошибка валидации", "Проверьте поля запроса."),
         BadRequestException e => (StatusCodes.Status400BadRequest, e.Code, "Некорректный запрос", e.Message),
+        UnauthorizedException e => (StatusCodes.Status401Unauthorized, e.Code, "Не авторизован", e.Message),
+        ForbiddenException e => (StatusCodes.Status403Forbidden, e.Code, "Доступ запрещён", e.Message),
+        TooManyRequestsException e => (StatusCodes.Status429TooManyRequests, e.Code, "Слишком много попыток", e.Message),
         ConflictException e => (StatusCodes.Status409Conflict, e.Code, "Конфликт", e.Message),
         InvalidStateTransitionException e => (StatusCodes.Status409Conflict, e.Code, "Недопустимый переход статуса", e.Message),
         // Оптимистичная блокировка по xmin (раздел 10.2 ТЗ): запись изменили параллельно.

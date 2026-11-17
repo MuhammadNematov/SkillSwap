@@ -49,6 +49,15 @@ public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest
     }
 }
 
+public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
+{
+    public LoginRequestValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().WithErrorCode("required").MaximumLength(256).WithErrorCode("too_long");
+        RuleFor(x => x.Password).NotEmpty().WithErrorCode("required").MaximumLength(128).WithErrorCode("too_long");
+    }
+}
+
 public sealed class ConfirmEmailRequestValidator : AbstractValidator<ConfirmEmailRequest>
 {
     public ConfirmEmailRequestValidator()

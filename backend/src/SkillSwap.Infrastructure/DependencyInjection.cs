@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Domain.Entities;
+using SkillSwap.Infrastructure.Auth;
 using SkillSwap.Infrastructure.Email;
 using SkillSwap.Infrastructure.Persistence;
 
@@ -47,6 +48,9 @@ public static class DependencyInjection
             })
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
+
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();
 
         // TODO: заменить на SMTP-отправитель до выхода за пределы разработки.
         services.AddScoped<IMailSender, ConsoleMailSender>();

@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
+        services.AddScoped<AuthTokenService>();
         services.AddScoped<AuthService>();
 
         return services;

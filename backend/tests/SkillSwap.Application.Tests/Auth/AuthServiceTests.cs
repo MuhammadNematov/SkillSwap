@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -13,22 +13,10 @@ namespace SkillSwap.Application.Tests.Auth;
 
 public class AuthServiceTests
 {
-    private readonly FakeUserManager _users = new();
-    private readonly FakeMailSender _mail = new();
-    private readonly AuthService _service;
-
-    public AuthServiceTests()
-    {
-        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero));
-        _service = new AuthService(
-            _users,
-            _mail,
-            new RegisterRequestValidator(clock),
-            new ConfirmEmailRequestValidator(),
-            new ResendConfirmationRequestValidator(),
-            Microsoft.Extensions.Options.Options.Create(new FrontendOptions { BaseUrl = "https://app.test/" }),
-            NullLogger<AuthService>.Instance);
-    }
+    private readonly AuthFixture _fx = new();
+    private FakeUserManager _users => _fx.Users;
+    private FakeMailSender _mail => _fx.Mail;
+    private AuthService _service => _fx.Service;
 
     private static RegisterRequest ValidRequest(string? language = "ru") => new(
         "ali@example.com", "abc12345", "Ali", new DateOnly(2000, 1, 1), language, true, true);
@@ -149,78 +137,5 @@ public class AuthServiceTests
         await _service.ResendConfirmationAsync(new ResendConfirmationRequest("ali@example.com"));
 
         Assert.Single(_mail.Sent);
-    }
-
-    // ---- заглушки ----
-
-    private sealed class FakeMailSender : IMailSender
-    {
-        public List<(string To, string Subject, string Body)> Sent { get; } = [];
-        public bool Fail { get; set; }
-
-        public Task SendAsync(string to, string subject, string body, CancellationToken cancellationToken = default)
-        {
-            if (Fail)
-            {
-                throw new InvalidOperationException("SMTP недоступен");
-            }
-
-            Sent.Add((to, subject, body));
-            return Task.CompletedTask;
-        }
-    }
-
-    // UserManager с подменёнными методами: настоящего хранилища в юнит-тестах нет.
-    private sealed class FakeUserManager : UserManager<User>
-    {
-        public FakeUserManager() : base(
-            new NoopStore(), null!, null!, null!, null!, null!, null!, null!, NullLogger<UserManager<User>>.Instance)
-        {
-        }
-
-        public List<User> Created { get; } = [];
-        public User? Existing { get; set; }
-        public IdentityResult CreateResult { get; set; } = IdentityResult.Success;
-        public IdentityResult ConfirmResult { get; set; } = IdentityResult.Success;
-        public string? ConfirmedWithToken { get; private set; }
-
-        public override Task<IdentityResult> CreateAsync(User user, string password)
-        {
-            if (CreateResult.Succeeded)
-            {
-                Created.Add(user);
-            }
-
-            return Task.FromResult(CreateResult);
-        }
-
-        public override Task<string> GenerateEmailConfirmationTokenAsync(User user) => Task.FromResult("tok/en+1");
-
-        public override Task<User?> FindByIdAsync(string userId) =>
-            Task.FromResult(Existing is not null && Existing.Id.ToString() == userId ? Existing : null);
-
-        public override Task<User?> FindByEmailAsync(string email) =>
-            Task.FromResult(Existing is not null && Existing.Email == email ? Existing : null);
-
-        public override Task<IdentityResult> ConfirmEmailAsync(User user, string token)
-        {
-            ConfirmedWithToken = token;
-            return Task.FromResult(ConfirmResult);
-        }
-    }
-
-    private sealed class NoopStore : IUserStore<User>
-    {
-        public void Dispose() { }
-        public Task<string> GetUserIdAsync(User user, CancellationToken ct) => Task.FromResult(user.Id.ToString());
-        public Task<string?> GetUserNameAsync(User user, CancellationToken ct) => Task.FromResult(user.UserName);
-        public Task SetUserNameAsync(User user, string? userName, CancellationToken ct) => Task.CompletedTask;
-        public Task<string?> GetNormalizedUserNameAsync(User user, CancellationToken ct) => Task.FromResult(user.NormalizedUserName);
-        public Task SetNormalizedUserNameAsync(User user, string? normalizedName, CancellationToken ct) => Task.CompletedTask;
-        public Task<IdentityResult> CreateAsync(User user, CancellationToken ct) => Task.FromResult(IdentityResult.Success);
-        public Task<IdentityResult> UpdateAsync(User user, CancellationToken ct) => Task.FromResult(IdentityResult.Success);
-        public Task<IdentityResult> DeleteAsync(User user, CancellationToken ct) => Task.FromResult(IdentityResult.Success);
-        public Task<User?> FindByIdAsync(string userId, CancellationToken ct) => Task.FromResult<User?>(null);
-        public Task<User?> FindByNameAsync(string normalizedUserName, CancellationToken ct) => Task.FromResult<User?>(null);
     }
 }

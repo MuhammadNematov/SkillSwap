@@ -1,4 +1,5 @@
 using Scalar.AspNetCore;
+using SkillSwap.Api.Auth;
 using SkillSwap.Api.Middleware;
 using SkillSwap.Api.OpenApi;
 using SkillSwap.Application;
@@ -11,6 +12,15 @@ builder.Services.AddControllers();
 builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddJwtAuthentication(builder.Configuration);
+
+// CORS: refresh-токен едет в cookie, поэтому нужен AllowCredentials и точный адрес фронтенда (не "*").
+var frontendOrigin = builder.Configuration[$"{FrontendOptions.SectionName}:BaseUrl"] ?? new FrontendOptions().BaseUrl;
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
+    .WithOrigins(frontendOrigin.TrimEnd('/'))
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
 
 // Ошибки — ProblemDetails, обработка в одном месте (раздел 11.1 ТЗ).
 builder.Services.AddProblemDetails();
@@ -34,6 +44,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

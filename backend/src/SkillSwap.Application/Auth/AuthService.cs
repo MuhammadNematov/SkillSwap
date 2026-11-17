@@ -18,6 +18,9 @@ public sealed class AuthService
     private readonly IValidator<RegisterRequest> _registerValidator;
     private readonly IValidator<ConfirmEmailRequest> _confirmValidator;
     private readonly IValidator<ResendConfirmationRequest> _resendValidator;
+    private readonly IValidator<LoginRequest> _loginValidator;
+    private readonly AuthTokenService _tokens;
+    private readonly TimeProvider _clock;
     private readonly FrontendOptions _frontend;
     private readonly ILogger<AuthService> _logger;
 
@@ -27,6 +30,9 @@ public sealed class AuthService
         IValidator<RegisterRequest> registerValidator,
         IValidator<ConfirmEmailRequest> confirmValidator,
         IValidator<ResendConfirmationRequest> resendValidator,
+        IValidator<LoginRequest> loginValidator,
+        AuthTokenService tokens,
+        TimeProvider clock,
         IOptions<FrontendOptions> frontend,
         ILogger<AuthService> logger)
     {
@@ -35,9 +41,71 @@ public sealed class AuthService
         _registerValidator = registerValidator;
         _confirmValidator = confirmValidator;
         _resendValidator = resendValidator;
+        _loginValidator = loginValidator;
+        _tokens = tokens;
+        _clock = clock;
         _frontend = frontend.Value;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Вход по email и паролю. Блокировка на 15 минут после 5 неверных паролей настроена в Identity (FR-5).
+    /// TODO (следующий шаг): 2FA — для пользователей с включённой 2FA и служебных аккаунтов вернуть requires2fa.
+    /// </summary>
+    public async Task<AuthResult> LoginAsync(LoginRequest request, ClientInfo client, CancellationToken ct = default)
+    {
+        await _loginValidator.ValidateAndThrowAsync(request, ct);
+
+        var user = await _users.FindByEmailAsync(request.Email.Trim());
+        if (user is null || user.Status == UserStatus.Deleted)
+        {
+            throw InvalidCredentials();
+        }
+
+        if (await _users.IsLockedOutAsync(user))
+        {
+            throw new TooManyRequestsException("account_locked_out", "Слишком много неудачных попыток. Попробуйте через 15 минут.");
+        }
+
+        if (!await _users.CheckPasswordAsync(user, request.Password))
+        {
+            await _users.AccessFailedAsync(user);
+            throw InvalidCredentials();
+        }
+
+        await _users.ResetAccessFailedCountAsync(user);
+
+        // Ниже — только после верного пароля, чтобы не раскрывать состояние чужих аккаунтов.
+        if (!user.EmailConfirmed)
+        {
+            throw new ForbiddenException("email_not_confirmed", "Подтвердите email: ссылка отправлена в письме при регистрации.");
+        }
+
+        if (user.IsBlocked)
+        {
+            throw new ForbiddenException("account_blocked", "Аккаунт заблокирован.");
+        }
+
+        if (user.TwoFactorEnabled || user.AccountType == AccountType.Staff)
+        {
+            // Пока 2FA не реализована, такие аккаунты не пускаем вовсе, а не пускаем без второго фактора.
+            throw new ForbiddenException("two_factor_required", "Для этого аккаунта требуется 2FA (пока не поддерживается).");
+        }
+
+        user.LastActiveAt = _clock.GetUtcNow().UtcDateTime;
+        await _users.UpdateAsync(user);
+
+        return await _tokens.IssueAsync(user, client, ct);
+    }
+
+    public Task<AuthResult> RefreshAsync(string? refreshToken, ClientInfo client, CancellationToken ct = default) =>
+        _tokens.RefreshAsync(refreshToken, client, ct);
+
+    public Task LogoutAsync(string? refreshToken, CancellationToken ct = default) =>
+        _tokens.RevokeAsync(refreshToken, ct);
+
+    private static UnauthorizedException InvalidCredentials() =>
+        new("invalid_credentials", "Неверный email или пароль.");
 
     /// <param name="acceptLanguageHeader">Заголовок Accept-Language: используется, если язык в запросе не указан (FR-2).</param>
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, string? acceptLanguageHeader, CancellationToken ct = default)
