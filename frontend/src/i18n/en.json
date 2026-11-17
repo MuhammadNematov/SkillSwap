@@ -1,0 +1,147 @@
+{
+  "common": {
+    "appName": "SkillSwap",
+    "loading": "Loading...",
+    "language": "Language",
+    "logout": "Log out",
+    "backHome": "Back to home"
+  },
+  "landing": {
+    "title1": "Exchange knowledge.",
+    "title2": "Grow together.",
+    "subtitle": "A platform for mutual learning where everyone can teach and learn.",
+    "openApp": "Open the app",
+    "nav": { "home": "Home", "features": "Features", "about": "About", "faq": "FAQ" },
+    "cta": { "start": "Start for free", "more": "Learn more" },
+    "hero": { "teach": "Can teach", "learn": "Wants to learn" },
+    "facts": {
+      "languages": { "value": "3", "label": "interface languages" },
+      "lesson": { "value": "45 min", "label": "one lesson in a video call" },
+      "free": { "value": "Free", "label": "mutual exchange, no money" }
+    },
+    "how": {
+      "title": "How it works",
+      "s1": { "title": "Create a profile", "text": "List what you can teach and what you want to learn" },
+      "s2": { "title": "Find a partner", "text": "Matching by mutual skills, language and time zone" },
+      "s3": { "title": "Start learning", "text": "Agree on a time in chat and meet for a video lesson" }
+    },
+    "features": {
+      "title": "Everything you need, in one place",
+      "f1": { "title": "Smart matching", "text": "Full and partial matches by skills, language and time zone" },
+      "f2": { "title": "Chat and video calls", "text": "Text, voice messages, files and a 45-minute video lesson with no extra software" },
+      "f3": { "title": "Lesson balance", "text": "A counter shows who taught how many lessons, so the exchange stays fair" },
+      "f4": { "title": "Honest reviews", "text": "Blind mutual reviews and dispute resolution by a moderator" }
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "q1": { "q": "Is it really free?", "a": "Yes. The exchange is mutual, and money transfers between users are forbidden." },
+      "q2": { "q": "Do I need to install anything?", "a": "No. Chat and video calls work right in the browser." },
+      "q3": { "q": "How long does an exchange last?", "a": "30 or 60 days. If both agree, it can be extended once by 30 days." },
+      "q4": { "q": "What is the minimum age?", "a": "16. Extra protection rules apply to users aged 16–17." }
+    }
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Sign up"
+  },
+  "loginPage": {
+    "title": "Log in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Log in",
+    "noAccount": "Don't have an account?"
+  },
+  "twoFactor": {
+    "title": "Confirm sign-in",
+    "hint": "Enter the 6-digit code from your authenticator app",
+    "recoveryHint": "Enter your recovery code",
+    "code": "Code",
+    "useRecovery": "Use a recovery code",
+    "useApp": "Use a code from the app",
+    "submit": "Confirm",
+    "back": "Back"
+  },
+  "registerPage": {
+    "title": "Sign up",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "At least 8 characters, letters and digits",
+    "confirmPassword": "Repeat password",
+    "dateOfBirth": "Date of birth",
+    "dateOfBirthHint": "The service is available from age 16",
+    "acceptTerms": "I accept the rules and terms of service",
+    "consentModerator": "I agree that a moderator may read the pair's chat in case of a dispute",
+    "submit": "Create account",
+    "haveAccount": "Already have an account?",
+    "successTitle": "Check your email",
+    "successText": "We sent a confirmation link to {{email}}. Follow it to finish signing up.",
+    "toLogin": "Go to log in"
+  },
+  "validation": {
+    "required": "Required field",
+    "email": "Enter a valid email",
+    "passwordRule": "At least 8 characters, letters and digits",
+    "passwordMismatch": "Passwords do not match",
+    "underage": "Sign-up is available from age 16",
+    "futureDate": "The date cannot be in the future",
+    "codeFormat": "Enter 6 digits",
+    "mustAccept": "Consent is required"
+  },
+  "app": {
+    "title": "Dashboard"
+  },
+  "nav": {
+    "home": "Home",
+    "matches": "Find partners",
+    "exchanges": "My exchanges",
+    "messages": "Messages",
+    "calendar": "Calendar",
+    "reviews": "Reviews",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "shell": {
+    "searchPlaceholder": "Search skills...",
+    "menu": "Menu",
+    "close": "Close",
+    "soon": "This section will appear in the next steps"
+  },
+  "dashboard": {
+    "greeting": "Hi, {{name}}!",
+    "activeExchanges": "Active exchanges",
+    "upcomingLessons": "Upcoming lessons",
+    "rating": "Rating",
+    "findPartnerTitle": "Find a new exchange partner!",
+    "find": "Find",
+    "nextLesson": "Next lesson",
+    "noLesson": "No lessons scheduled yet",
+    "today": "Today at {{time}}",
+    "join": "Join",
+    "joinHint": "The room opens 10 minutes before the start",
+    "recommended": "Recommended partners",
+    "all": "All",
+    "write": "Message"
+  },
+  "moderation": {
+    "title": "Moderation"
+  },
+  "admin": {
+    "title": "Admin panel"
+  },
+  "errors": {
+    "notFound": "Page not found",
+    "codes": {
+      "INVALID_CREDENTIALS": "Wrong email or password",
+      "ACCOUNT_LOCKED": "Too many failed attempts. Login is temporarily blocked, please try again later",
+      "EMAIL_NOT_CONFIRMED": "Confirm your email using the link in the message",
+      "INVALID_2FA_CODE": "Wrong code",
+      "EMAIL_TAKEN": "This email is already registered",
+      "UNDERAGE": "Sign-up is available from age 16",
+      "ACCOUNT_BLOCKED": "Account is blocked",
+      "NETWORK_ERROR": "Cannot reach the server",
+      "UNKNOWN": "Something went wrong. Please try again"
+    }
+  }
+}
