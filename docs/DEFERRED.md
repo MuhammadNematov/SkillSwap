@@ -34,7 +34,6 @@
 - [ ] Список сеансов и их завершение: `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `DELETE /auth/sessions`.
 - [ ] Сброс пароля: `/forgot-password`, `/reset-password` (токен 1 час).
 - [ ] Прототип LiveKit в локальном Docker: выдача токена и подключение.
-- [ ] Интеграционные тесты на Testcontainers (PostgreSQL + Redis) — когда будет Docker.
 - [ ] CI на GitHub Actions (в самом конце этапа).
 
 Локальная БД: Postgres из `backend/docker-compose.yml` слушает порт **5433** (а не 5432), потому что на машине разработчика уже работает локальная служба PostgreSQL на 5432. В строке подключения (user-secrets) указывается `Port=5433`.
