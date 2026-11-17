@@ -13,7 +13,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Name).HasMaxLength(100).IsRequired();
         builder.Property(u => u.AvatarUrl).HasMaxLength(500);
         builder.Property(u => u.Bio).HasMaxLength(1000);
-        builder.Property(u => u.DateOfBirth).IsRequired();
 
         // Enum хранятся строками varchar(32) (раздел 13 ТЗ).
         builder.Property(u => u.AccountType).HasConversion<string>().HasMaxLength(32).IsRequired();

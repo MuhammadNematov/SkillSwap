@@ -44,4 +44,36 @@ public class UserTests
 
         Assert.Equal(expected, user.IsMinor(DateOnly.Parse(today)));
     }
+
+    [Theory]
+    [InlineData(UserRole.Moderator)]
+    [InlineData(UserRole.Admin)]
+    [InlineData(UserRole.SuperAdmin)]
+    public void CreateStaff_makes_a_staff_account_without_profile_and_without_2FA_yet(UserRole role)
+    {
+        var user = User.CreateStaff("root@b.com", "Root", role);
+
+        Assert.Equal(AccountType.Staff, user.AccountType);
+        Assert.Equal(role, user.Role);
+        Assert.Equal("root@b.com", user.UserName);
+        Assert.Equal(UserStatus.Active, user.Status);
+        Assert.Null(user.DateOfBirth);
+        Assert.False(user.IsSearchable);       // в подборе служебных аккаунтов нет
+        Assert.False(user.TwoFactorEnabled);   // включится при первом входе
+    }
+
+    [Fact]
+    public void CreateStaff_rejects_the_plain_user_role()
+    {
+        Assert.Throws<ArgumentException>(() => User.CreateStaff("a@b.com", "A", UserRole.User));
+    }
+
+    [Fact]
+    public void A_staff_account_has_no_age_and_is_never_a_minor()
+    {
+        var user = User.CreateStaff("root@b.com", "Root", UserRole.SuperAdmin);
+
+        Assert.Null(user.GetAge(new DateOnly(2026, 6, 1)));
+        Assert.False(user.IsMinor(new DateOnly(2026, 6, 1)));
+    }
 }

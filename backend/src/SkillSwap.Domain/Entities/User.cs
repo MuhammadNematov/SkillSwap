@@ -22,7 +22,8 @@ public class User : IdentityUser<Guid>, ITimestamped
     public string Name { get; private set; } = string.Empty;
     public string? AvatarUrl { get; set; }
     public string? Bio { get; set; }
-    public DateOnly DateOfBirth { get; private set; }
+    /// <summary>Обязательна у обычных пользователей; у служебных аккаунтов анкеты нет (раздел 3 ТЗ).</summary>
+    public DateOnly? DateOfBirth { get; private set; }
     public AccountType AccountType { get; private set; } = AccountType.Regular;
     public UserRole Role { get; private set; } = UserRole.User;
     public string UiLanguage { get; set; } = DefaultUiLanguage;
@@ -58,11 +59,41 @@ public class User : IdentityUser<Guid>, ITimestamped
         };
     }
 
-    /// <summary>Полных лет на указанную дату (UTC).</summary>
-    public int GetAge(DateOnly today)
+    /// <summary>
+    /// Создаёт служебный аккаунт (модератор, админ, суперадмин): без анкеты, подбора и рейтинга.
+    /// 2FA у него ещё не настроена; войти без неё он не сможет, при первом входе её нужно включить.
+    /// </summary>
+    public static User CreateStaff(string email, string name, UserRole role)
     {
-        var age = today.Year - DateOfBirth.Year;
-        if (DateOfBirth > today.AddYears(-age))
+        if (role == UserRole.User)
+        {
+            throw new ArgumentException("Служебный аккаунт не может иметь роль User.", nameof(role));
+        }
+
+        return new User
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            UserName = email,
+            Name = name,
+            UiLanguage = DefaultUiLanguage,
+            AccountType = AccountType.Staff,
+            Role = role,
+            Status = UserStatus.Active,
+            IsSearchable = false,
+        };
+    }
+
+    /// <summary>Полных лет на указанную дату (UTC); null, если даты рождения нет (служебный аккаунт).</summary>
+    public int? GetAge(DateOnly today)
+    {
+        if (DateOfBirth is not { } birth)
+        {
+            return null;
+        }
+
+        var age = today.Year - birth.Year;
+        if (birth > today.AddYears(-age))
         {
             age--;
         }
@@ -70,7 +101,7 @@ public class User : IdentityUser<Guid>, ITimestamped
         return age;
     }
 
-    public bool IsMinor(DateOnly today) => GetAge(today) < AdultAge;
+    public bool IsMinor(DateOnly today) => GetAge(today) is { } age && age < AdultAge;
 
     public bool IsBlocked => Status == UserStatus.Blocked;
 }

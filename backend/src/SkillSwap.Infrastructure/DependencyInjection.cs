@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Abstractions;
+using SkillSwap.Application.Options;
+using SkillSwap.Infrastructure.Seeding;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Infrastructure.Auth;
 using SkillSwap.Infrastructure.Email;
@@ -48,6 +50,10 @@ public static class DependencyInjection
             })
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
+
+        // Первый суперадмин из переменных окружения (раздел 3 ТЗ).
+        services.Configure<SuperadminOptions>(configuration.GetSection(SuperadminOptions.SectionName));
+        services.AddHostedService<SuperadminSeeder>();
 
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();

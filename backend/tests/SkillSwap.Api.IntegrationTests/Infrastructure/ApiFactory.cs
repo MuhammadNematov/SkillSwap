@@ -26,13 +26,26 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         // Настройки задаём переменными окружения: они видны приложению сразу при старте,
         // а Program.cs читает конфигурацию до ConfigureAppConfiguration.
-        Environment.SetEnvironmentVariable("ConnectionStrings__Default", _postgres.GetConnectionString());
+        var connectionString = _postgres.GetConnectionString();
+        Environment.SetEnvironmentVariable("ConnectionStrings__Default", connectionString);
         Environment.SetEnvironmentVariable("Jwt__SigningKey", "integration-tests-signing-key-0123456789-abcdef");
+        Environment.SetEnvironmentVariable("Superadmin__Email", SuperadminEmail);
+        Environment.SetEnvironmentVariable("Superadmin__Password", SuperadminPassword);
 
-        // Применяем настоящие миграции проекта.
-        using var scope = Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+        // Настоящие миграции проекта применяем ДО старта приложения: при старте сидер суперадмина
+        // уже обращается к таблице Users.
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connectionString).Options;
+        await using (var db = new AppDbContext(options))
+        {
+            await db.Database.MigrateAsync();
+        }
+
+        _ = Services;   // стартуем приложение (и сидер суперадмина)
     }
+
+    // Суперадмин, которого приложение создаёт при старте из переменных окружения.
+    public const string SuperadminEmail = "root@skillswap.test";
+    public const string SuperadminPassword = "Root-pass-123";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -57,6 +70,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await _postgres.DisposeAsync();
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", null);
         Environment.SetEnvironmentVariable("Jwt__SigningKey", null);
+        Environment.SetEnvironmentVariable("Superadmin__Email", null);
+        Environment.SetEnvironmentVariable("Superadmin__Password", null);
     }
 }
 
