@@ -1,4 +1,5 @@
 using FluentValidation;
+using SkillSwap.Application.Common;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -40,7 +41,7 @@ public sealed class ProfileService
             throw new ForbiddenException("account_not_active", "Аккаунт недоступен.");
         }
 
-        var languages = request.Languages!.Select(c => c.Trim().ToLowerInvariant()).Distinct().Order(StringComparer.Ordinal).ToArray();
+        var languages = request.Languages!.Select(LessonLanguages.Normalize).Distinct().Order(StringComparer.Ordinal).ToArray();
         user.UpdateProfile(request.Name, request.Bio, request.UiLanguage, request.TimeZone, request.IsSearchable!.Value);
 
         if (!await _store.SaveProfileAsync(user, languages, ct))

@@ -212,12 +212,62 @@ public class ProfileTests
         Assert.Equal(HttpStatusCode.BadRequest, (await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(bio: new string('я', 1001)))).StatusCode);
     }
 
-    [Fact]
-    public async Task Unknown_languages_and_missing_required_fields_are_refused()
+    [Theory]
+    [InlineData("xx")]          // нет такого кода
+    [InlineData("zz")]
+    [InlineData("eng")]         // ISO 639-2, не 639-1
+    [InlineData("r")]
+    [InlineData("")]
+    [InlineData("русский")]
+    [InlineData("r u")]
+    [InlineData("bh")]          // составной код, не язык
+    public async Task A_lesson_language_must_be_an_iso_639_1_code_from_the_list(string code)
     {
         var person = await NewPersonAsync();
 
-        Assert.Equal(HttpStatusCode.BadRequest, (await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(languages: ["de"]))).StatusCode);
+        var response = await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(languages: ["ru", code]));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("validation_failed", await AuthApi.ReadCodeAsync(response));
+    }
+
+    [Fact]
+    public async Task Lesson_languages_are_not_limited_to_the_interface_languages()
+    {
+        var person = await NewPersonAsync();
+
+        var put = await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(uiLanguage: "ru", languages: ["fr", " DE ", "zh", "ar", "fa", "uz"]));
+
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        Assert.Equal(["ar", "de", "fa", "fr", "uz", "zh"],
+            (await JsonAsync(put)).GetProperty("languages").EnumerateArray().Select(l => l.GetString()));   // верхний регистр и пробелы приведены к виду из списка
+    }
+
+    [Fact]
+    public async Task The_interface_language_is_still_only_tg_ru_or_en()
+    {
+        var person = await NewPersonAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(uiLanguage: "fr"))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(uiLanguage: "en"))).StatusCode);
+    }
+
+    [Fact]
+    public async Task At_most_ten_lesson_languages_can_be_listed()
+    {
+        var person = await NewPersonAsync();
+        var ten = new[] { "tg", "ru", "en", "de", "fr", "es", "it", "zh", "ar", "fa" };
+
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(languages: ten))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(languages: [.. ten, "ja"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(languages: [.. ten, "ru", "RU"]))).StatusCode);   // повторы не считаются
+    }
+
+    [Fact]
+    public async Task Missing_required_fields_are_refused()
+    {
+        var person = await NewPersonAsync();
+
         Assert.Equal(HttpStatusCode.BadRequest, (await SendAsync(person.Token, HttpMethod.Put, "/me",
             new { name = "A", uiLanguage = "ru", timeZone = "UTC", isSearchable = false })).StatusCode);          // нет languages
         Assert.Equal(HttpStatusCode.BadRequest, (await SendAsync(person.Token, HttpMethod.Put, "/me",
