@@ -56,6 +56,18 @@ public sealed class RateLimitingOptions
     [ValidateObjectMembers]
     public RateLimitRule RegisterPerIp { get; set; } = new(5, 3600);
 
+    /// <summary>Сброс пароля по ссылке (reset-password), с одного IP: 10 в час.</summary>
+    [ValidateObjectMembers]
+    public RateLimitRule ResetPasswordPerIp { get; set; } = new(10, 3600);
+
+    /// <summary>Подтверждение email по ссылке (confirm-email), с одного IP: 20 в час.</summary>
+    [ValidateObjectMembers]
+    public RateLimitRule ConfirmEmailPerIp { get; set; } = new(20, 3600);
+
+    /// <summary>Обновление токена (refresh), с одного IP: 30 в минуту.</summary>
+    [ValidateObjectMembers]
+    public RateLimitRule RefreshPerIp { get; set; } = new(30, 60);
+
     /// <summary>Остальные запросы авторизованного пользователя: 100 в минуту (считается по пользователю, не по IP).</summary>
     [ValidateObjectMembers]
     public RateLimitRule AuthenticatedPerUser { get; set; } = new(100, 60);

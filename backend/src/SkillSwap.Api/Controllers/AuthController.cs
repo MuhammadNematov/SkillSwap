@@ -76,6 +76,7 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("2fa/setup")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitingExtensions.LoginPerIpPolicy)]
     [ProducesResponseType<TwoFactorSetupResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
@@ -90,6 +91,7 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("2fa/verify")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitingExtensions.LoginPerIpPolicy)]
     [ProducesResponseType<TwoFactorVerifyResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -124,6 +126,7 @@ public class AuthController : ControllerBase
     /// чтобы восстановить сеанс.
     /// </summary>
     [HttpPost("refresh")]
+    [EnableRateLimiting(RateLimitingExtensions.RefreshPerIpPolicy)]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
@@ -157,6 +160,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Подтверждение email по одноразовой ссылке из письма.</summary>
     [HttpPost("confirm-email")]
+    [EnableRateLimiting(RateLimitingExtensions.ConfirmEmailPerIpPolicy)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest request, CancellationToken ct)
@@ -186,6 +190,7 @@ public class AuthController : ControllerBase
     /// (отзываются все refresh-токены), а блокировка входа после неверных паролей снимается; 2FA не отключается.
     /// </summary>
     [HttpPost("reset-password")]
+    [EnableRateLimiting(RateLimitingExtensions.ResetPasswordPerIpPolicy)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]

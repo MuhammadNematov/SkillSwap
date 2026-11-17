@@ -75,8 +75,11 @@ dotnet test
 | --- | --- | --- |
 | `forgot-password` и `resend-confirmation`, на один email | `MailPerEmail` | 3 в час |
 | те же эндпоинты, на один IP | `MailPerIp` | 10 в час |
-| `login` и `login/2fa` вместе, на один IP | `LoginPerIp` | 10 в минуту |
+| `login`, `login/2fa`, `2fa/setup` и `2fa/verify` вместе, на один IP | `LoginPerIp` | 10 в минуту |
 | `register`, на один IP | `RegisterPerIp` | 5 в час |
+| `reset-password`, на один IP | `ResetPasswordPerIp` | 10 в час |
+| `confirm-email`, на один IP | `ConfirmEmailPerIp` | 20 в час |
+| `refresh`, на один IP | `RefreshPerIp` | 30 в минуту |
 | остальные запросы авторизованного пользователя, на пользователя | `AuthenticatedPerUser` | 100 в минуту |
 
 Каждое правило: `PermitLimit` (сколько запросов) и `WindowSeconds` (за сколько секунд). Любое значение можно переопределить

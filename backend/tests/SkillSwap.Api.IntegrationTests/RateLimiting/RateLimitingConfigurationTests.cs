@@ -29,6 +29,10 @@ public class RateLimitingConfigurationTests : IClassFixture<CustomLimitsApiFacto
         Assert.Equal(1, o.MailPerEmail.PermitLimit);
         Assert.Equal(2, o.MailPerIp.PermitLimit);
         Assert.Equal(5, o.AuthenticatedPerUser.PermitLimit);
+        Assert.Equal(1, o.ResetPasswordPerIp.PermitLimit);
+        Assert.Equal(2, o.ConfirmEmailPerIp.PermitLimit);
+        Assert.Equal(3, o.RefreshPerIp.PermitLimit);
+        Assert.Equal(60, o.RefreshPerIp.WindowSeconds);          // окно не переопределяли
         Assert.Equal(3600, o.MailPerEmail.WindowSeconds);
     }
 
@@ -73,6 +77,29 @@ public class RateLimitingConfigurationTests : IClassFixture<CustomLimitsApiFacto
         Assert.Equal(HttpStatusCode.NoContent, (await api.ForgotPasswordAsync(AuthApi.NewEmail())).StatusCode);
 
         await RateLimitAssert.RateLimitedAsync(await api.ForgotPasswordAsync(AuthApi.NewEmail()), 3600);   // третье письмо с IP
+    }
+
+    [Fact]
+    public async Task The_reset_confirm_and_refresh_limits_follow_the_configured_values()
+    {
+        var api = NewClient();
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123")).StatusCode);
+        await RateLimitAssert.RateLimitedAsync(await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123"), 3600);
+
+        await ConsumeAsync(2, () => api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x"));
+        await RateLimitAssert.RateLimitedAsync(await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x"), 3600);
+
+        await ConsumeAsync(3, () => api.RefreshAsync("never-issued"));
+        await RateLimitAssert.RateLimitedAsync(await api.RefreshAsync("never-issued"), 60);
+    }
+
+    private static async Task ConsumeAsync(int count, Func<Task<HttpResponseMessage>> request)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            RateLimitAssert.NotRateLimited(await request());
+        }
     }
 
     [Fact]

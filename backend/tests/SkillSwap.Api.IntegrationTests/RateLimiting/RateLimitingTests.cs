@@ -52,6 +52,9 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
         Assert.Equal((10, Hour), (o.MailPerIp.PermitLimit, o.MailPerIp.WindowSeconds));
         Assert.Equal((10, Minute), (o.LoginPerIp.PermitLimit, o.LoginPerIp.WindowSeconds));
         Assert.Equal((5, Hour), (o.RegisterPerIp.PermitLimit, o.RegisterPerIp.WindowSeconds));
+        Assert.Equal((10, Hour), (o.ResetPasswordPerIp.PermitLimit, o.ResetPasswordPerIp.WindowSeconds));
+        Assert.Equal((20, Hour), (o.ConfirmEmailPerIp.PermitLimit, o.ConfirmEmailPerIp.WindowSeconds));
+        Assert.Equal((30, Minute), (o.RefreshPerIp.PermitLimit, o.RefreshPerIp.WindowSeconds));
         Assert.Equal((100, Minute), (o.AuthenticatedPerUser.PermitLimit, o.AuthenticatedPerUser.WindowSeconds));
     }
 
@@ -412,20 +415,113 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
         Assert.All(statuses, s => Assert.Equal(HttpStatusCode.Unauthorized, s));
     }
 
-    // ---------- что лимитами не охвачено (по ТЗ) ----------
+    // ---------- остальные публичные эндпоинты ----------
 
     [Fact]
-    public async Task Anonymous_endpoints_outside_the_listed_groups_are_not_limited()
+    public async Task Reset_password_allows_ten_requests_per_ip_per_hour_then_429()
     {
-        // Зафиксировано как есть: по заданию лимитируются почта, вход, регистрация и авторизованный пользователь.
-        // refresh, reset-password, confirm-email и 2fa/setup|verify без токена пока не ограничены.
         var api = NewClient();
 
-        var statuses = await StatusesAsync(120, _ => api.RefreshAsync("never-issued"));
+        var statuses = await StatusesAsync(10, _ => api.ResetPasswordAsync(Guid.NewGuid().ToString(), "no-such-token", "newpass123"));
+        var eleventh = await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "no-such-token", "newpass123");
 
-        Assert.All(statuses, s => Assert.Equal(HttpStatusCode.Unauthorized, s));
+        Assert.All(statuses, s => Assert.Equal(HttpStatusCode.BadRequest, s));   // обработчик отвечает: ссылка недействительна
+        await RateLimitAssert.RateLimitedAsync(eleventh, Hour);
     }
 
+    [Fact]
+    public async Task Confirm_email_allows_twenty_requests_per_ip_per_hour_then_429()
+    {
+        var api = NewClient();
+
+        var statuses = await StatusesAsync(20, _ => api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "no-such-token"));
+        var next = await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "no-such-token");
+
+        Assert.All(statuses, s => Assert.Equal(HttpStatusCode.BadRequest, s));
+        await RateLimitAssert.RateLimitedAsync(next, Hour);
+    }
+
+    [Fact]
+    public async Task Refresh_allows_thirty_requests_per_ip_per_minute_then_429_and_recovers()
+    {
+        var api = NewClient();
+
+        var statuses = await StatusesAsync(30, _ => api.RefreshAsync("never-issued"));
+        await RateLimitAssert.RateLimitedAsync(await api.RefreshAsync("never-issued"), Minute);
+
+        Assert.All(statuses, s => Assert.Equal(HttpStatusCode.Unauthorized, s));
+        _factory.Clock.Advance(TimeSpan.FromSeconds(Minute));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await api.RefreshAsync("never-issued")).StatusCode);   // окно прошло
+    }
+
+    [Fact]
+    public async Task A_valid_refresh_is_limited_the_same_way_as_a_failed_one()
+    {
+        var api = NewClient();
+        var (_, refresh) = await api.LoginTokensAsync(await NewClient().RegisterConfirmedUserAsync());
+
+        // Каждый успешный refresh выдаёт новый токен; пользуемся самым свежим.
+        for (var i = 0; i < 30; i++)
+        {
+            var response = await api.RefreshAsync(refresh);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            refresh = AuthApi.RefreshTokenFrom(response)!;
+        }
+
+        await RateLimitAssert.RateLimitedAsync(await api.RefreshAsync(refresh), Minute);
+    }
+
+    [Fact]
+    public async Task The_2fa_setup_and_verify_share_the_login_counter()
+    {
+        var api = NewClient();
+
+        await StatusesAsync(4, _ => api.LoginAsync(AuthApi.NewEmail(), "wrong-pass1"));
+        var setups = await StatusesAsync(3, _ => api.TwoFactorSetupAsync(null, "garbage"));
+        var verifies = await StatusesAsync(3, _ => api.TwoFactorVerifyAsync(null, "123456", "garbage"));
+
+        Assert.All(setups, s => Assert.Equal(HttpStatusCode.Unauthorized, s));     // дошли до обработчика
+        Assert.All(verifies, s => Assert.Equal(HttpStatusCode.Unauthorized, s));
+        // Десять попыток исчерпаны вместе: ни вход, ни настройка, ни подтверждение больше не проходят.
+        await RateLimitAssert.RateLimitedAsync(await api.LoginAsync(AuthApi.NewEmail(), "x"), Minute);
+        await RateLimitAssert.RateLimitedAsync(await api.TwoFactorSetupAsync(null, "garbage"), Minute);
+        await RateLimitAssert.RateLimitedAsync(await api.TwoFactorVerifyAsync(null, "123456", "garbage"), Minute);
+        await RateLimitAssert.RateLimitedAsync(await api.LoginTwoFactorAsync("garbage", "123456"), Minute);
+    }
+
+    [Fact]
+    public async Task The_2fa_setup_is_limited_by_ip_even_with_a_valid_bearer_token()
+    {
+        var api = NewClient();
+        var (access, _) = await api.LoginTokensAsync(await NewClient().RegisterConfirmedUserAsync());   // вход с другого IP
+        await StatusesAsync(10, _ => api.TwoFactorSetupAsync(access));
+
+        await RateLimitAssert.RateLimitedAsync(await api.TwoFactorSetupAsync(access), Minute);
+    }
+
+    [Fact]
+    public async Task The_new_limits_are_independent_of_each_other_and_of_login()
+    {
+        var api = NewClient();
+        await StatusesAsync(31, _ => api.RefreshAsync("never-issued"));   // refresh исчерпан
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await api.LoginAsync(AuthApi.NewEmail(), "wrong-pass1")).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_new_limits_are_per_ip()
+    {
+        var exhausted = NewClient();
+        await StatusesAsync(31, _ => exhausted.RefreshAsync("never-issued"));
+        await StatusesAsync(11, _ => exhausted.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123"));
+
+        var other = NewClient();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await other.RefreshAsync("never-issued")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await other.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123")).StatusCode);
+    }
     // ---------- формат ответа ----------
 
     [Fact]

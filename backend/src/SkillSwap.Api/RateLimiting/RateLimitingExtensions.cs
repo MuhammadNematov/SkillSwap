@@ -10,11 +10,18 @@ public static class RateLimitingExtensions
     /// <summary>Политика для эндпоинтов, которые шлют письма (forgot-password, resend-confirmation): общий счётчик на IP.</summary>
     public const string MailPerIpPolicy = "mail-per-ip";
 
-    /// <summary>Политика для login и login/2fa: общий счётчик на IP.</summary>
+    /// <summary>
+    /// Политика для login, login/2fa, 2fa/setup и 2fa/verify: один общий счётчик на IP
+    /// (все четыре дают шанс подобрать код или пароль).
+    /// </summary>
     public const string LoginPerIpPolicy = "login-per-ip";
 
     /// <summary>Политика для register.</summary>
     public const string RegisterPerIpPolicy = "register-per-ip";
+
+    public const string ResetPasswordPerIpPolicy = "reset-password-per-ip";
+    public const string ConfirmEmailPerIpPolicy = "confirm-email-per-ip";
+    public const string RefreshPerIpPolicy = "refresh-per-ip";
 
     public static IServiceCollection AddRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
@@ -50,6 +57,12 @@ public static class RateLimitingExtensions
                 SlidingLog(ClientIp.KeyFor(http), cfg.LoginPerIp, clock));
             limiter.AddPolicy(RegisterPerIpPolicy, http =>
                 SlidingLog(ClientIp.KeyFor(http), cfg.RegisterPerIp, clock));
+            limiter.AddPolicy(ResetPasswordPerIpPolicy, http =>
+                SlidingLog(ClientIp.KeyFor(http), cfg.ResetPasswordPerIp, clock));
+            limiter.AddPolicy(ConfirmEmailPerIpPolicy, http =>
+                SlidingLog(ClientIp.KeyFor(http), cfg.ConfirmEmailPerIp, clock));
+            limiter.AddPolicy(RefreshPerIpPolicy, http =>
+                SlidingLog(ClientIp.KeyFor(http), cfg.RefreshPerIp, clock));
 
             // Остальные запросы авторизованного пользователя: общий лимит по пользователю (не по IP,
             // чтобы офис за одним NAT не мешал друг другу). Запросы без токена этим лимитом не считаются:

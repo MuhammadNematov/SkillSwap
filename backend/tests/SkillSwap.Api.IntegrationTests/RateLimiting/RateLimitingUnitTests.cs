@@ -112,6 +112,9 @@ public class RateLimitingUnitTests
         Assert.Equal((10, 3600), (o.MailPerIp.PermitLimit, o.MailPerIp.WindowSeconds));
         Assert.Equal((10, 60), (o.LoginPerIp.PermitLimit, o.LoginPerIp.WindowSeconds));
         Assert.Equal((5, 3600), (o.RegisterPerIp.PermitLimit, o.RegisterPerIp.WindowSeconds));
+        Assert.Equal((10, 3600), (o.ResetPasswordPerIp.PermitLimit, o.ResetPasswordPerIp.WindowSeconds));
+        Assert.Equal((20, 3600), (o.ConfirmEmailPerIp.PermitLimit, o.ConfirmEmailPerIp.WindowSeconds));
+        Assert.Equal((30, 60), (o.RefreshPerIp.PermitLimit, o.RefreshPerIp.WindowSeconds));
         Assert.Equal((100, 60), (o.AuthenticatedPerUser.PermitLimit, o.AuthenticatedPerUser.WindowSeconds));
     }
 
@@ -142,6 +145,9 @@ public class RateLimitingUnitTests
     [InlineData("LoginPerIp", 10, 0)]
     [InlineData("RegisterPerIp", 5, -5)]
     [InlineData("AuthenticatedPerUser", 0, 0)]
+    [InlineData("ResetPasswordPerIp", 0, 3600)]
+    [InlineData("ConfirmEmailPerIp", 20, 0)]
+    [InlineData("RefreshPerIp", -3, 60)]
     public void Nonsense_values_are_rejected_instead_of_silently_disabling_the_limit(string rule, int permits, int window)
     {
         var services = new ServiceCollection();

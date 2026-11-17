@@ -25,6 +25,9 @@ public sealed class CustomLimitsApiFactory : ApiFactory
         settings["RateLimiting:MailPerEmail:PermitLimit"] = "1";
         settings["RateLimiting:MailPerIp:PermitLimit"] = "2";
         settings["RateLimiting:AuthenticatedPerUser:PermitLimit"] = "5";
+        settings["RateLimiting:ResetPasswordPerIp:PermitLimit"] = "1";
+        settings["RateLimiting:ConfirmEmailPerIp:PermitLimit"] = "2";
+        settings["RateLimiting:RefreshPerIp:PermitLimit"] = "3";
     }
 }
 
