@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SkillSwap.Api.Auth;
+using SkillSwap.Api.RateLimiting;
 using SkillSwap.Application.Auth;
 using SkillSwap.Application.Exceptions;
 
@@ -25,9 +27,11 @@ public class AuthController : ControllerBase
 
     /// <summary>Регистрация по email и паролю. На почту уходит ссылка подтверждения.</summary>
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimitingExtensions.RegisterPerIpPolicy)]
     [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken ct)
     {
         var response = await _auth.RegisterAsync(request, Request.Headers.AcceptLanguage.ToString(), ct);
@@ -40,6 +44,7 @@ public class AuthController : ControllerBase
     /// Служебным аккаунтам без 2FA придёт <c>requires2faSetup: true</c> и <c>twoFactorToken</c> для настройки.
     /// </summary>
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitingExtensions.LoginPerIpPolicy)]
     [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -53,6 +58,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Второй шаг входа: код из приложения-аутентификатора или резервный код.</summary>
     [HttpPost("login/2fa")]
+    [EnableRateLimiting(RateLimitingExtensions.LoginPerIpPolicy)]
     [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -164,8 +170,11 @@ public class AuthController : ControllerBase
     /// зарегистрированного, и для неизвестного email, чтобы нельзя было узнать, кто зарегистрирован.
     /// </summary>
     [HttpPost("forgot-password")]
+    [EnableRateLimiting(RateLimitingExtensions.MailPerIpPolicy)]
+    [RateLimitByEmail]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
     {
         await _passwordReset.ForgotPasswordAsync(request, ct);
@@ -188,8 +197,11 @@ public class AuthController : ControllerBase
 
     /// <summary>Повторная отправка письма подтверждения. Всегда 204, чтобы не раскрывать, зарегистрирован ли email.</summary>
     [HttpPost("resend-confirmation")]
+    [EnableRateLimiting(RateLimitingExtensions.MailPerIpPolicy)]
+    [RateLimitByEmail]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ResendConfirmation(ResendConfirmationRequest request, CancellationToken ct)
     {
         await _auth.ResendConfirmationAsync(request, ct);

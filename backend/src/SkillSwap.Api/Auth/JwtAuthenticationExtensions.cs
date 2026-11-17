@@ -20,7 +20,7 @@ public static class JwtAuthenticationExtensions
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<JwtOptions>>((bearer, jwtOptions) =>
+            .Configure<IOptions<JwtOptions>, TimeProvider>((bearer, jwtOptions, clock) =>
             {
                 var jwt = jwtOptions.Value;
 
@@ -37,6 +37,15 @@ public static class JwtAuthenticationExtensions
                     ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30),
+                    // Срок жизни проверяем по тому же TimeProvider, которым выпускаются токены (в боевой работе это
+                    // системные часы): один источник времени и в коде, и в тестах с управляемыми часами.
+                    LifetimeValidator = (notBefore, expires, _, _) =>
+                    {
+                        var now = clock.GetUtcNow().UtcDateTime;
+                        var skew = TimeSpan.FromSeconds(30);
+                        return (notBefore is null || notBefore.Value <= now + skew) &&
+                               expires is { } exp && exp > now - skew;   // токен без exp не принимаем
+                    },
                     NameClaimType = "sub",
                     RoleClaimType = JwtAccessTokenGenerator.RoleClaim,
                 };

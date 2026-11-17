@@ -3,6 +3,7 @@ using Scalar.AspNetCore;
 using SkillSwap.Api.Auth;
 using SkillSwap.Api.Middleware;
 using SkillSwap.Api.OpenApi;
+using SkillSwap.Api.RateLimiting;
 using SkillSwap.Application;
 using SkillSwap.Application.Options;
 using SkillSwap.Infrastructure;
@@ -16,6 +17,7 @@ builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(Fro
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddRateLimiting(builder.Configuration);
 
 // CORS: refresh-токен едет в cookie, поэтому нужен AllowCredentials и точный адрес фронтенда (не "*").
 var frontendOrigin = builder.Configuration[$"{FrontendOptions.SectionName}:BaseUrl"] ?? new FrontendOptions().BaseUrl;
@@ -23,7 +25,9 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(frontendOrigin.TrimEnd('/'))
     .AllowAnyHeader()
     .AllowAnyMethod()
-    .AllowCredentials()));
+    .AllowCredentials()
+    // Фронтенд должен видеть, через сколько повторить запрос после 429.
+    .WithExposedHeaders("Retry-After")));
 
 // Ошибки — ProblemDetails, обработка в одном месте (раздел 11.1 ТЗ).
 builder.Services.AddProblemDetails();
@@ -49,6 +53,7 @@ app.UseHttpsRedirection();
 
 app.UseCors();
 app.UseAuthentication();
+app.UseConfiguredRateLimiter();   // после UseAuthentication: общий лимит считается по авторизованному пользователю
 app.UseAuthorization();
 
 app.MapControllers();

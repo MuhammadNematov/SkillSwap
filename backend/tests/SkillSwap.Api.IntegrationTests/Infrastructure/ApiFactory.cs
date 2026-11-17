@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,10 +15,13 @@ namespace SkillSwap.Api.IntegrationTests.Infrastructure;
 /// <summary>
 /// Поднимает настоящее приложение поверх настоящего PostgreSQL в Docker (Testcontainers).
 /// Один контейнер и одно приложение на все тесты коллекции; каждый тест работает со своим email.
+/// Все настройки передаются конфигурацией приложения (а не переменными окружения процесса), поэтому
+/// несколько независимых экземпляров с разными настройками (например, лимитами) могут работать параллельно.
 /// </summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17").Build();
+    private string _connectionString = string.Empty;
 
     // Тесты читают письма отсюда вместо консоли.
     public CapturingMailSender Mail { get; } = new();
@@ -32,17 +36,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await _postgres.StartAsync();
 
-        // Настройки задаём переменными окружения: они видны приложению сразу при старте,
-        // а Program.cs читает конфигурацию до ConfigureAppConfiguration.
-        var connectionString = _postgres.GetConnectionString();
-        Environment.SetEnvironmentVariable("ConnectionStrings__Default", connectionString);
-        Environment.SetEnvironmentVariable("Jwt__SigningKey", "integration-tests-signing-key-0123456789-abcdef");
-        Environment.SetEnvironmentVariable("Superadmin__Email", SuperadminEmail);
-        Environment.SetEnvironmentVariable("Superadmin__Password", SuperadminPassword);
+        _connectionString = _postgres.GetConnectionString();
 
         // Настоящие миграции проекта применяем ДО старта приложения: при старте сидер суперадмина
         // уже обращается к таблице Users.
-        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(_connectionString).Options;
         await using (var db = new AppDbContext(options))
         {
             await db.Database.MigrateAsync();
@@ -51,13 +49,37 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         _ = Services;   // стартуем приложение (и сидер суперадмина)
     }
 
-    // Суперадмин, которого приложение создаёт при старте из переменных окружения.
+    // Суперадмин, которого приложение создаёт при старте из настроек Superadmin.
     public const string SuperadminEmail = "root@skillswap.test";
     public const string SuperadminPassword = "Root-pass-123";
+
+    /// <summary>
+    /// Настройки приложения для этого экземпляра. По умолчанию ограничение частоты ВЫКЛЮЧЕНО: тысячи запросов
+    /// тестов идут с нескольких адресов и упёрлись бы в лимиты. Наследники, которые проверяют лимиты, включают его.
+    /// </summary>
+    protected virtual void ConfigureSettings(IDictionary<string, string?> settings)
+    {
+        settings["RateLimiting:Enabled"] = "false";
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");   // не Development: user-secrets разработчика не подмешиваются
+
+        // Выполняется при создании хоста, то есть после StartAsync контейнера: строка подключения уже известна.
+        // Остальные настройки приложение читает лениво, поэтому порядок источников конфигурации не важен.
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            var settings = new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = _connectionString,
+                ["Jwt:SigningKey"] = "integration-tests-signing-key-0123456789-abcdef",
+                ["Superadmin:Email"] = SuperadminEmail,
+                ["Superadmin:Password"] = SuperadminPassword,
+            };
+            ConfigureSettings(settings);
+            config.AddInMemoryCollection(settings);
+        });
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IMailSender>();
@@ -82,10 +104,6 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await base.DisposeAsync();
         await _postgres.DisposeAsync();
-        Environment.SetEnvironmentVariable("ConnectionStrings__Default", null);
-        Environment.SetEnvironmentVariable("Jwt__SigningKey", null);
-        Environment.SetEnvironmentVariable("Superadmin__Email", null);
-        Environment.SetEnvironmentVariable("Superadmin__Password", null);
     }
 }
 

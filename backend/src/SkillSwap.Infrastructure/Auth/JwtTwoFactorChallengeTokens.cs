@@ -67,8 +67,9 @@ public sealed class JwtTwoFactorChallengeTokens : ITwoFactorChallengeTokens
             {
                 var now = _clock.GetUtcNow().UtcDateTime;
                 var skew = TimeSpan.FromSeconds(30);
+                // Токен без срока действия не принимаем: все наши токены его содержат.
                 return (notBefore is null || notBefore.Value <= now + skew) &&
-                       (expires is null || expires.Value > now - skew);
+                       expires is { } exp && exp > now - skew;
             },
         });
 

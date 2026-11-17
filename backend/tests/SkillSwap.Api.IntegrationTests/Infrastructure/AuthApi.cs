@@ -16,7 +16,11 @@ public sealed partial class AuthApi
 
     private readonly ApiFactory _factory;
 
-    public AuthApi(ApiFactory factory)
+    /// <param name="remoteIp">
+    /// Адрес, с которого «приходят» все запросы этого экземпляра (иначе общий адрес по умолчанию).
+    /// Тесты лимитов берут для каждого теста свой адрес через <see cref="TestIps.Next"/>.
+    /// </param>
+    public AuthApi(ApiFactory factory, string? remoteIp = null)
     {
         _factory = factory;
         // Cookie с флагом Secure не уходит по http, поэтому cookie передаём вручную, как это делает браузер по https.
@@ -25,6 +29,10 @@ public sealed partial class AuthApi
             HandleCookies = false,
             AllowAutoRedirect = false,
         });
+        if (remoteIp is not null)
+        {
+            Client.DefaultRequestHeaders.Add(TestRemoteIpStartupFilter.HeaderName, remoteIp);
+        }
     }
 
     public HttpClient Client { get; }
@@ -56,6 +64,9 @@ public sealed partial class AuthApi
 
         return Client.SendAsync(request);
     }
+
+    public Task<HttpResponseMessage> ResendConfirmationAsync(string email) =>
+        Client.PostAsJsonAsync($"{Base}/auth/resend-confirmation", new { email });
 
     public Task<HttpResponseMessage> ConfirmEmailAsync(string userId, string token) =>
         Client.PostAsJsonAsync($"{Base}/auth/confirm-email", new { userId, token });
@@ -190,7 +201,7 @@ public sealed partial class AuthApi
         return json.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
     }
 
-    private Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken)
+    public Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}{path}") { Content = JsonContent.Create(body) };
         if (accessToken is not null)

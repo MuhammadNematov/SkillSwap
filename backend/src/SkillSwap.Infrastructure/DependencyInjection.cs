@@ -19,12 +19,11 @@ public static class DependencyInjection
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString(ConnectionStringName)
-            ?? throw new InvalidOperationException(
-                $"Не задана строка подключения ConnectionStrings:{ConnectionStringName}. " +
-                "Задайте её через user-secrets или переменную окружения ConnectionStrings__Default.");
-
-        services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+        // Строка подключения читается лениво (при создании DbContext), а её наличие проверяет ConnectionStringCheck
+        // при старте хоста: так не важно, каким источником и в какой момент конфигурация была дополнена.
+        services.AddHostedService<ConnectionStringCheck>();
+        services.AddDbContext<AppDbContext>((sp, options) => options.UseNpgsql(
+            sp.GetRequiredService<IConfiguration>().GetConnectionString(ConnectionStringName)));
 
         // TODO (этап 2, позже): защитить ключи сертификатом вне БД (раздел 10.3 ТЗ).
         services.AddDataProtection()
