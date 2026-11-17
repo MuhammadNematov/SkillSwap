@@ -126,6 +126,8 @@ dotnet test
 
 Интеграционные тесты сами поднимают PostgreSQL в Docker (Testcontainers), Docker должен быть запущен.
 
+То же самое на каждый push в main делает CI (`.github/workflows/backend-ci.yml`: restore, сборка в Release, все тесты на Ubuntu с Docker, .NET 10). Секретов он не требует: тесты сами создают временные ключи и сертификат. Результаты (`.trx`) сохраняются как артефакт запуска на 7 дней. Если CI красный, а локально зелёный, сначала смотрите различия Windows/Linux (регистр в путях, переводы строк).
+
 ## Ограничение частоты запросов
 
 Встроенный в .NET Rate Limiter, счётчики в памяти процесса. Настройки в `backend/src/SkillSwap.Api/appsettings.json`, секция `RateLimiting`:

@@ -18,7 +18,7 @@
 
 - Служебные аккаунты: только суперадмин из переменных окружения и обязательная 2FA для служебных ролей. Приглашения (`StaffInvitation`) и панели — этап 7.
 - Капча Turnstile в разработке — с тестовыми ключами Cloudflare.
-- CI (GitHub Actions) — в конце этапа 2.
+- CI (GitHub Actions) — сделан в конце этапа 2.
 
 ## Этап 2: что осталось (состояние на 2026-11-17)
 
@@ -34,7 +34,7 @@
 - [x] Список сеансов и их завершение: `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `DELETE /auth/sessions` (2026-11-17).
 - [x] Сброс пароля: `/forgot-password`, `/reset-password` (токен 1 час) (2026-11-17).
 - [x] Прототип LiveKit в локальном Docker: выдача токена, подключение двух вкладок, приём webhook с проверкой подписи и записью в `LiveKitWebhookEvents` (2026-11-17). Подробности и запуск в `docs/BACKEND-DEV.md`.
-- [ ] CI на GitHub Actions (в самом конце этапа).
+- [x] CI на GitHub Actions (`.github/workflows/backend-ci.yml`): сборка и все тесты на каждый push в main, .NET 10 (2026-11-18). Ключи шифрования защищены сертификатом (docs/BACKEND-DEV.md, раздел 2.1).
 
 Локальная БД: Postgres из `backend/docker-compose.yml` слушает порт **5433** (а не 5432), потому что на машине разработчика уже работает локальная служба PostgreSQL на 5432. В строке подключения (user-secrets) указывается `Port=5433`.
 
