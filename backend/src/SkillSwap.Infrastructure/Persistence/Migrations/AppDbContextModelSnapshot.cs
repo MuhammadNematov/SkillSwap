@@ -859,6 +859,20 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.UserLanguage", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LanguageCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.HasKey("UserId", "LanguageCode");
+
+                    b.ToTable("UserLanguages", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.HasOne("SkillSwap.Domain.Entities.User", null)
@@ -921,6 +935,15 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("LinkedUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.UserLanguage", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.SkillCategory", b =>

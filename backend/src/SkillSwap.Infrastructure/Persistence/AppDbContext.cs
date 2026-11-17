@@ -16,6 +16,7 @@ public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyC
     /// <summary>Ключи Data Protection (раздел 10.3 ТЗ): ими защищены токены Identity, позже — и чаты.</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
+    public DbSet<UserLanguage> UserLanguages => Set<UserLanguage>();
     public DbSet<SkillCategory> SkillCategories => Set<SkillCategory>();
     public DbSet<Skill> Skills => Set<Skill>();
 

@@ -5,7 +5,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Options;
+using SkillSwap.Application.Profile;
 using SkillSwap.Application.Skills;
+using SkillSwap.Infrastructure.Profile;
 using SkillSwap.Infrastructure.Skills;
 using SkillSwap.Infrastructure.Seeding;
 using SkillSwap.Domain.Entities;
@@ -101,6 +103,7 @@ public static class DependencyInjection
 
         services.AddScoped<ISkillCatalogReader, SkillCatalogReader>();
         services.AddScoped<ISkillCatalogRepository, SkillCatalogRepository>();
+        services.AddScoped<IProfileStore, ProfileStore>();
 
         return services;
     }

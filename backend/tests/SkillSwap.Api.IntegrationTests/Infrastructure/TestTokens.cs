@@ -11,12 +11,18 @@ namespace SkillSwap.Api.IntegrationTests.Infrastructure;
 /// </summary>
 public static class TestTokens
 {
+    /// <summary>Токен для несуществующего в БД пользователя с указанной ролью (достаточно, чтобы проверить доступ по роли).</summary>
     public static string For(ApiFactory factory, UserRole role)
     {
         var user = role == UserRole.User
             ? User.CreateRegular(AuthApi.NewEmail(), "Token User", new DateOnly(1995, 5, 5), "en")
             : User.CreateStaff(AuthApi.NewEmail(), "Token Staff", role);
 
+        return ForUser(factory, user);
+    }
+
+    public static string ForUser(ApiFactory factory, User user)
+    {
         using var scope = factory.Services.CreateScope();
         return scope.ServiceProvider.GetRequiredService<IAccessTokenGenerator>().Create(user, Guid.NewGuid()).Value;
     }

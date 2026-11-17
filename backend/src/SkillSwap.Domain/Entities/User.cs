@@ -109,5 +109,46 @@ public class User : IdentityUser<Guid>, ITimestamped
 
     public bool IsMinor(DateOnly today) => GetAge(today) is { } age && age < AdultAge;
 
+    /// <summary>Пока отзывов меньше этого числа, профиль показывается как «Новичок» без средней оценки (раздел 8.1 ТЗ).</summary>
+    public const int NewcomerReviewThreshold = 3;
+
+    public const int NameMaxLength = 100;
+    public const int BioMaxLength = 1000;
+
+    public bool IsNewcomer => RatingCount < NewcomerReviewThreshold;
+
+    /// <summary>Есть анкета, подбор и рейтинг только у обычных аккаунтов (раздел 3 ТЗ).</summary>
+    public bool IsRegular => AccountType == AccountType.Regular;
+
+    /// <summary>
+    /// Меняет то, что пользователь правит в профиле. Всё проверяется до записи: при ошибке ничего не меняется.
+    /// Язык и часовой пояс проверяет сервис (список языков и поясов живёт там).
+    /// </summary>
+    public void UpdateProfile(string name, string? bio, string uiLanguage, string timeZone, bool isSearchable)
+    {
+        if (!IsRegular)
+        {
+            throw new Exceptions.DomainValidationException("staff_has_no_profile", "У служебного аккаунта нет профиля.");
+        }
+
+        var trimmedName = name?.Trim() ?? string.Empty;
+        if (trimmedName.Length == 0 || trimmedName.Length > NameMaxLength)
+        {
+            throw new Exceptions.DomainValidationException("invalid_name", $"Имя: от 1 до {NameMaxLength} символов.");
+        }
+
+        var trimmedBio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim();
+        if (trimmedBio is { Length: > BioMaxLength })
+        {
+            throw new Exceptions.DomainValidationException("invalid_bio", $"О себе: не больше {BioMaxLength} символов.");
+        }
+
+        Name = trimmedName;
+        Bio = trimmedBio;
+        UiLanguage = uiLanguage;
+        TimeZone = timeZone;
+        IsSearchable = isSearchable;
+    }
+
     public bool IsBlocked => Status == UserStatus.Blocked;
 }

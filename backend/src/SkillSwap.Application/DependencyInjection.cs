@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Auth;
 using SkillSwap.Application.LiveKit;
+using SkillSwap.Application.Profile;
 using SkillSwap.Application.Skills;
 
 namespace SkillSwap.Application;
@@ -20,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<SessionService>();
         services.AddScoped<SkillCatalogService>();
         services.AddScoped<SkillCatalogAdminService>();
+        services.AddScoped<ProfileService>();
         services.AddScoped<LiveKitWebhookService>();
 
         return services;
