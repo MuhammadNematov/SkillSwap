@@ -1,16 +1,24 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using SkillSwap.Domain.Common;
+using SkillSwap.Domain.Entities;
 
 namespace SkillSwap.Infrastructure.Persistence;
 
-public class AppDbContext : DbContext
+// Роли хранятся колонкой Users.Role (раздел 13 ТЗ), поэтому таблицы ролей Identity не нужны.
+public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
 
+    /// <summary>Ключи Data Protection (раздел 10.3 ТЗ): ими защищены токены Identity, позже — и чаты.</summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 
@@ -30,7 +38,7 @@ public class AppDbContext : DbContext
     private void ApplyTimestamps()
     {
         var now = DateTime.UtcNow;
-        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        foreach (var entry in ChangeTracker.Entries<ITimestamped>())
         {
             if (entry.State == EntityState.Added)
             {
