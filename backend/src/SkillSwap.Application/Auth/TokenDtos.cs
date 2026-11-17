@@ -1,8 +1,10 @@
+using SkillSwap.Application.Abstractions;
 using SkillSwap.Domain.Enums;
 
 namespace SkillSwap.Application.Auth;
 
-public sealed record LoginRequest(string Email, string Password);
+/// <summary>Вход (FR-5/FR-6). CaptchaToken — токен Cloudflare Turnstile, проверяется раньше всего остального.</summary>
+public sealed record LoginRequest(string Email, string Password, string? CaptchaToken = null) : ICaptchaRequest;
 
 /// <summary>Краткие данные пользователя для интерфейса.</summary>
 public sealed record UserSummary(Guid Id, string Email, string Name, UserRole Role, string UiLanguage);

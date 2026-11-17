@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SkillSwap.Api.Auth;
+using SkillSwap.Api.Captcha;
 using SkillSwap.Api.RateLimiting;
 using SkillSwap.Application.Auth;
 using SkillSwap.Application.Exceptions;
@@ -28,6 +29,7 @@ public class AuthController : ControllerBase
     /// <summary>Регистрация по email и паролю. На почту уходит ссылка подтверждения.</summary>
     [HttpPost("register")]
     [EnableRateLimiting(RateLimitingExtensions.RegisterPerIpPolicy)]
+    [RequireCaptcha]
     [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
@@ -45,6 +47,7 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("login")]
     [EnableRateLimiting(RateLimitingExtensions.LoginPerIpPolicy)]
+    [RequireCaptcha]
     [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -175,6 +178,7 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("forgot-password")]
     [EnableRateLimiting(RateLimitingExtensions.MailPerIpPolicy)]
+    [RequireCaptcha]
     [RateLimitByEmail]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]

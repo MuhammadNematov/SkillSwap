@@ -1,6 +1,11 @@
+using SkillSwap.Application.Abstractions;
+
 namespace SkillSwap.Application.Auth;
 
-/// <summary>Регистрация (FR-1, FR-2, FR-3). UiLanguage необязателен: тогда берётся из Accept-Language.</summary>
+/// <summary>
+/// Регистрация (FR-1, FR-2, FR-3). UiLanguage необязателен: тогда берётся из Accept-Language.
+/// CaptchaToken — токен Cloudflare Turnstile (FR-5), проверяется раньше всего остального.
+/// </summary>
 public sealed record RegisterRequest(
     string Email,
     string Password,
@@ -8,7 +13,8 @@ public sealed record RegisterRequest(
     DateOnly DateOfBirth,
     string? UiLanguage,
     bool AcceptTerms,
-    bool AcceptChatModeration);
+    bool AcceptChatModeration,
+    string? CaptchaToken = null) : ICaptchaRequest;
 
 public sealed record RegisterResponse(Guid UserId, string Email);
 

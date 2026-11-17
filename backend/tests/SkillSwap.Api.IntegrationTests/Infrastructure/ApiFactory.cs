@@ -32,6 +32,12 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// </summary>
     public FakeTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
 
+    /// <summary>Подставной сервер Cloudflare Turnstile: настоящих обращений в интернет в тестах нет.</summary>
+    public FakeCloudflareHandler Cloudflare { get; } = new();
+
+    /// <summary>Публичный тестовый секрет Cloudflare: допустим в окружении Testing.</summary>
+    public const string TurnstileTestSecret = "1x0000000000000000000000000000000AA";
+
     public async Task InitializeAsync()
     {
         await _postgres.StartAsync();
@@ -60,6 +66,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     protected virtual void ConfigureSettings(IDictionary<string, string?> settings)
     {
         settings["RateLimiting:Enabled"] = "false";
+
+        // Капча выключена: остальные тесты не передают токен. Секрет задан всё равно, как в реальном окружении.
+        settings["Turnstile:Enabled"] = "false";
+        settings["Turnstile:SecretKey"] = TurnstileTestSecret;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -87,6 +97,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);
+
+            // Запросы к Cloudflare идут в заглушку (последняя регистрация первичного обработчика побеждает).
+            services.AddHttpClient(SkillSwap.Infrastructure.Captcha.TurnstileCaptchaVerifier.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => Cloudflare);
 
             // У TestServer нет настоящего соединения, и RemoteIpAddress пуст. Задаём адрес клиента, как это сделал бы сокет.
             services.AddTransient<IStartupFilter, TestRemoteIpStartupFilter>();

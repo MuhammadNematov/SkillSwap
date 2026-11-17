@@ -8,6 +8,7 @@ public sealed class RateLimitedApiFactory : ApiFactory
 {
     protected override void ConfigureSettings(IDictionary<string, string?> settings)
     {
+        base.ConfigureSettings(settings);   // капча выключена, секрет задан
         settings["RateLimiting:Enabled"] = "true";
     }
 }
@@ -19,6 +20,7 @@ public sealed class CustomLimitsApiFactory : ApiFactory
 {
     protected override void ConfigureSettings(IDictionary<string, string?> settings)
     {
+        base.ConfigureSettings(settings);
         settings["RateLimiting:Enabled"] = "true";
         settings["RateLimiting:LoginPerIp:PermitLimit"] = "2";
         settings["RateLimiting:RegisterPerIp:PermitLimit"] = "1";
@@ -31,6 +33,32 @@ public sealed class CustomLimitsApiFactory : ApiFactory
     }
 }
 
+/// <summary>
+/// Приложение с ВКЛЮЧЁННОЙ капчей Turnstile (против заглушки Cloudflare) и включённым ограничением частоты:
+/// так проверяется и сама капча, и порядок защит (лимит по IP → капча → лимит по email).
+/// Таймаут проверки — 1 секунда, чтобы сбой «Cloudflare не отвечает» проверялся быстро.
+/// </summary>
+public sealed class CaptchaApiFactory : ApiFactory
+{
+    protected override void ConfigureSettings(IDictionary<string, string?> settings)
+    {
+        base.ConfigureSettings(settings);
+        settings["Turnstile:Enabled"] = "true";
+        settings["Turnstile:TimeoutSeconds"] = "1";
+        settings["RateLimiting:Enabled"] = "true";
+    }
+}
+
+/// <summary>Капча включена и разрешено передавать Cloudflare IP клиента (Turnstile:SendClientIp=true).</summary>
+public sealed class CaptchaSendIpApiFactory : ApiFactory
+{
+    protected override void ConfigureSettings(IDictionary<string, string?> settings)
+    {
+        base.ConfigureSettings(settings);
+        settings["Turnstile:Enabled"] = "true";
+        settings["Turnstile:SendClientIp"] = "true";
+    }
+}
 /// <summary>Уникальные адреса клиентов: каждый тест лимитов «приходит» со своего IP и не мешает остальным.</summary>
 public static class TestIps
 {

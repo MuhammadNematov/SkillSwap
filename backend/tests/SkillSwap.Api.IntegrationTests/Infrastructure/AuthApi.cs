@@ -43,7 +43,16 @@ public sealed partial class AuthApi
 
     public static string NewEmail() => $"{Guid.NewGuid():N}@example.com";
 
-    public Task<HttpResponseMessage> RegisterAsync(string email, string? acceptLanguage = null, bool? acceptTerms = true)
+    /// <summary>
+    /// Токен капчи, который подставляют register, login и forgot-password, если он не задан явно.
+    /// По умолчанию нет (приложение без капчи его не требует); тесты капчи задают «решающий» токен.
+    /// Чтобы вообще не передавать поле, используйте <see cref="PostAsync"/> с собственным телом.
+    /// </summary>
+    public Func<string?>? DefaultCaptcha { get; set; }
+
+    private string? Captcha(string? explicitToken) => explicitToken ?? DefaultCaptcha?.Invoke();
+
+    public Task<HttpResponseMessage> RegisterAsync(string email, string? acceptLanguage = null, bool? acceptTerms = true, string? captchaToken = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}/auth/register")
         {
@@ -55,6 +64,7 @@ public sealed partial class AuthApi
                 dateOfBirth = "2000-01-01",
                 acceptTerms,
                 acceptChatModeration = true,
+                captchaToken = Captcha(captchaToken),
             }),
         };
         if (acceptLanguage is not null)
@@ -81,11 +91,12 @@ public sealed partial class AuthApi
         return email;
     }
 
-    public Task<HttpResponseMessage> LoginAsync(string email, string password = Password, string? userAgent = null, string? remoteIp = null)
+    public Task<HttpResponseMessage> LoginAsync(
+        string email, string password = Password, string? userAgent = null, string? remoteIp = null, string? captchaToken = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}/auth/login")
         {
-            Content = JsonContent.Create(new { email, password }),
+            Content = JsonContent.Create(new { email, password, captchaToken = Captcha(captchaToken) }),
         };
         if (userAgent is not null)
         {
@@ -102,8 +113,8 @@ public sealed partial class AuthApi
 
     // ---------- сброс пароля ----------
 
-    public Task<HttpResponseMessage> ForgotPasswordAsync(string email) =>
-        Client.PostAsJsonAsync($"{Base}/auth/forgot-password", new { email });
+    public Task<HttpResponseMessage> ForgotPasswordAsync(string email, string? captchaToken = null) =>
+        Client.PostAsJsonAsync($"{Base}/auth/forgot-password", new { email, captchaToken = Captcha(captchaToken) });
 
     public Task<HttpResponseMessage> ResetPasswordAsync(string userId, string token, string newPassword) =>
         Client.PostAsJsonAsync($"{Base}/auth/reset-password", new { userId, token, newPassword });

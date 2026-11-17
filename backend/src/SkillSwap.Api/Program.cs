@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 using SkillSwap.Api.Auth;
+using SkillSwap.Api.Captcha;
 using SkillSwap.Api.Middleware;
 using SkillSwap.Api.OpenApi;
 using SkillSwap.Api.RateLimiting;
@@ -18,6 +19,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddRateLimiting(builder.Configuration);
+builder.Services.AddScoped<TurnstileFilter>();
 
 // CORS: refresh-токен едет в cookie, поэтому нужен AllowCredentials и точный адрес фронтенда (не "*").
 var frontendOrigin = builder.Configuration[$"{FrontendOptions.SectionName}:BaseUrl"] ?? new FrontendOptions().BaseUrl;

@@ -7,7 +7,9 @@ using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Options;
 using SkillSwap.Infrastructure.Seeding;
 using SkillSwap.Domain.Entities;
+using Microsoft.Extensions.Options;
 using SkillSwap.Infrastructure.Auth;
+using SkillSwap.Infrastructure.Captcha;
 using SkillSwap.Infrastructure.Email;
 using SkillSwap.Infrastructure.Persistence;
 
@@ -64,6 +66,17 @@ public static class DependencyInjection
         services.AddScoped<IUserActivityStore, UserActivityStore>();
         services.AddSingleton<IAccessTokenGenerator, JwtAccessTokenGenerator>();
         services.AddSingleton<ITwoFactorChallengeTokens, JwtTwoFactorChallengeTokens>();
+
+        // Капча Cloudflare Turnstile (FR-5): настройки проверяются при старте, секрета в репозитории нет.
+        services.AddOptions<TurnstileOptions>()
+            .Bind(configuration.GetSection(TurnstileOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddHostedService<TurnstileStartupCheck>();
+        services.AddHttpClient(TurnstileCaptchaVerifier.HttpClientName)
+            .ConfigureHttpClient((sp, client) =>
+                client.Timeout = TimeSpan.FromSeconds(sp.GetRequiredService<IOptions<TurnstileOptions>>().Value.TimeoutSeconds));
+        services.AddScoped<ICaptchaVerifier, TurnstileCaptchaVerifier>();
 
         // TODO: заменить на SMTP-отправитель до выхода за пределы разработки.
         services.AddScoped<IMailSender, ConsoleMailSender>();

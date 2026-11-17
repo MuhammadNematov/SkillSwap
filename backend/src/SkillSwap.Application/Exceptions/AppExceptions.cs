@@ -54,6 +54,14 @@ public sealed class NotFoundException : AppException
     }
 }
 
+/// <summary>HTTP 503: нужная внешняя проверка сейчас невозможна (например, не отвечает Cloudflare). Запрос не выполняется.</summary>
+public sealed class ServiceUnavailableException : AppException
+{
+    public ServiceUnavailableException(string code, string message) : base(code, message)
+    {
+    }
+}
+
 /// <summary>HTTP 409: конфликт с текущим состоянием (например, email уже занят).</summary>
 public sealed class ConflictException : AppException
 {
