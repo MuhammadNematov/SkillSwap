@@ -1,0 +1,22 @@
+# Локальная инфраструктура для разработки. Запуск: docker compose up -d
+# Пароль берётся из backend/.env (шаблон — .env.example), в репозиторий .env не попадает.
+services:
+  postgres:
+    image: postgres:17
+    container_name: skillswap-postgres
+    environment:
+      POSTGRES_DB: skillswap
+      POSTGRES_USER: skillswap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в backend/.env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillswap -d skillswap"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
