@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using SkillSwap.Api.IntegrationTests.Infrastructure;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
+using SkillSwap.Infrastructure.Persistence.Seed;
 
 namespace SkillSwap.Api.IntegrationTests.Profile;
 
@@ -24,11 +25,22 @@ public class ProfileTests
 
     private sealed record Person(string Token, Guid Id, string Email);
 
-    private async Task<Person> NewPersonAsync()
+    /// <param name="anketa">Заполнить анкету (по навыку в каждом направлении): без неё нельзя показываться в подборе.</param>
+    private async Task<Person> NewPersonAsync(bool anketa = true)
     {
         var email = await _api.RegisterConfirmedUserAsync();
         var token = (await _api.LoginSessionAsync(email)).AccessToken;
         var me = await (await SendAsync(token, HttpMethod.Get, "/me")).Content.ReadFromJsonAsync<JsonElement>();
+        if (anketa)
+        {
+            var put = await SendAsync(token, HttpMethod.Put, "/me/skills", new
+            {
+                teach = new[] { new { skillId = SkillCatalogSeed.SkillId(1), level = "Advanced", description = (string?)null } },
+                learn = new[] { new { skillId = SkillCatalogSeed.SkillId(24), level = "Beginner", description = (string?)null } },
+            });
+            put.EnsureSuccessStatusCode();
+        }
+
         return new Person(token, me.GetProperty("id").GetGuid(), email);
     }
 
@@ -82,7 +94,7 @@ public class ProfileTests
     [Fact]
     public async Task A_new_profile_has_safe_defaults_and_shows_the_owners_private_data()
     {
-        var person = await NewPersonAsync();
+        var person = await NewPersonAsync(anketa: false);
 
         var me = await JsonAsync(await SendAsync(person.Token, HttpMethod.Get, "/me"));
 
@@ -93,6 +105,7 @@ public class ProfileTests
         Assert.Equal("Test User", me.GetProperty("name").GetString());
         Assert.Equal("2000-01-01", me.GetProperty("dateOfBirth").GetString());
         Assert.False(me.GetProperty("isSearchable").GetBoolean());       // скрыт, пока сам не включит
+        Assert.False(me.GetProperty("anketaComplete").GetBoolean());
         Assert.Equal(0, me.GetProperty("languages").GetArrayLength());
         Assert.Equal(JsonValueKind.Null, me.GetProperty("ratingAvg").ValueKind);
         Assert.True(me.GetProperty("isNewcomer").GetBoolean());

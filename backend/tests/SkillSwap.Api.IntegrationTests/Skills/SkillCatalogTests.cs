@@ -66,7 +66,11 @@ public class SkillCatalogTests : IAsyncLifetime
     [Fact]
     public async Task The_three_starting_categories_come_in_order_with_names_in_all_languages()
     {
-        var categories = (await JsonAsync("/skill-categories")).EnumerateArray().ToList();
+        // Другие тесты добавляют свои категории в общую БД (с большим sortOrder), поэтому смотрим на стартовые три.
+        var seeded = new[] { SkillCatalogSeed.It, SkillCatalogSeed.Languages, SkillCatalogSeed.Design }.Select(g => g.ToString()).ToHashSet();
+        var all = (await JsonAsync("/skill-categories")).EnumerateArray().ToList();
+        var categories = all.Where(c => seeded.Contains(c.GetProperty("id").GetString()!)).ToList();
+        Assert.Equal(all.Take(3).Select(c => c.GetProperty("id").GetString()), categories.Select(c => c.GetProperty("id").GetString()));   // они идут первыми
 
         Assert.Equal(["IT", "Foreign languages", "Design"], categories.Select(c => c.GetProperty("nameEn").GetString()));
         Assert.Equal("Иностранные языки", categories[1].GetProperty("nameRu").GetString());

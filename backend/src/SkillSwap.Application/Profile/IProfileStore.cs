@@ -13,6 +13,20 @@ public interface IProfileStore
     /// <summary>Языки занятий, по алфавиту.</summary>
     Task<string[]> GetLanguagesAsync(Guid userId, CancellationToken ct);
 
-    /// <summary>Сохраняет изменения пользователя и заменяет его языки одной транзакцией. false — параллельное изменение, повторить.</summary>
-    Task<bool> SaveProfileAsync(User user, IReadOnlyCollection<string> languages, CancellationToken ct);
+    /// <summary>
+    /// Сохраняет изменения пользователя и заменяет его языки одной транзакцией. Если пользователь хочет быть виден
+    /// в подборе (<c>IsSearchable</c>), а анкета неполная, ничего не сохраняется (<see cref="ProfileSaveResult.AnketaIncomplete"/>).
+    /// </summary>
+    Task<ProfileSaveResult> SaveProfileAsync(User user, IReadOnlyCollection<string> languages, CancellationToken ct);
+}
+
+public enum ProfileSaveResult
+{
+    Saved,
+
+    /// <summary>Параллельное изменение: повторить.</summary>
+    Conflict,
+
+    /// <summary>Показываться в подборе можно только с заполненной анкетой.</summary>
+    AnketaIncomplete,
 }

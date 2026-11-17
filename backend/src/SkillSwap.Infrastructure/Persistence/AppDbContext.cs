@@ -17,6 +17,7 @@ public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyC
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     public DbSet<UserLanguage> UserLanguages => Set<UserLanguage>();
+    public DbSet<UserSkill> UserSkills => Set<UserSkill>();
     public DbSet<SkillCategory> SkillCategories => Set<SkillCategory>();
     public DbSet<Skill> Skills => Set<Skill>();
 

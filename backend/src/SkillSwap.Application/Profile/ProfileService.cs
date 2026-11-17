@@ -10,12 +10,14 @@ namespace SkillSwap.Application.Profile;
 public sealed class ProfileService
 {
     private readonly IProfileStore _store;
+    private readonly IUserSkillStore _skills;
     private readonly IValidator<UpdateProfileRequest> _validator;
     private readonly TimeProvider _clock;
 
-    public ProfileService(IProfileStore store, IValidator<UpdateProfileRequest> validator, TimeProvider clock)
+    public ProfileService(IProfileStore store, IUserSkillStore skills, IValidator<UpdateProfileRequest> validator, TimeProvider clock)
     {
         _store = store;
+        _skills = skills;
         _validator = validator;
         _clock = clock;
     }
@@ -23,7 +25,7 @@ public sealed class ProfileService
     public async Task<MyProfileDto> GetMineAsync(Guid userId, CancellationToken ct)
     {
         var user = await _store.FindUserAsync(userId, ct) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
-        return ToMine(user, await _store.GetLanguagesAsync(userId, ct));
+        return ToMine(user, await _store.GetLanguagesAsync(userId, ct), await _skills.IsAnketaCompleteAsync(userId, ct));
     }
 
     public async Task<MyProfileDto> UpdateMineAsync(Guid userId, UpdateProfileRequest request, CancellationToken ct)
@@ -44,12 +46,16 @@ public sealed class ProfileService
         var languages = request.Languages!.Select(LessonLanguages.Normalize).Distinct().Order(StringComparer.Ordinal).ToArray();
         user.UpdateProfile(request.Name, request.Bio, request.UiLanguage, request.TimeZone, request.IsSearchable!.Value);
 
-        if (!await _store.SaveProfileAsync(user, languages, ct))
+        switch (await _store.SaveProfileAsync(user, languages, ct))
         {
-            throw new ConflictException("concurrency_conflict", "Профиль был изменён параллельным запросом. Повторите действие.");
+            case ProfileSaveResult.Conflict:
+                throw new ConflictException("concurrency_conflict", "Профиль был изменён параллельным запросом. Повторите действие.");
+            case ProfileSaveResult.AnketaIncomplete:
+                throw new ForbiddenException("anketa_incomplete",
+                    "Чтобы показываться в подборе, заполните анкету: минимум 1 навык в «Умею» и 1 в «Хочу изучать».");
         }
 
-        return ToMine(user, languages);
+        return ToMine(user, languages, await _skills.IsAnketaCompleteAsync(userId, ct));
     }
 
     /// <summary>
@@ -71,8 +77,14 @@ public sealed class ProfileService
         }
 
         var languages = await _store.GetLanguagesAsync(targetId, ct);
+        var skills = await _skills.ListActiveAsync(targetId, ct);
+
+        static PublicSkillDto Map(UserSkillRow r) => new(r.SkillId, r.CategoryId, r.NameTg, r.NameRu, r.NameEn, r.Level, r.Description);
+
         return new PublicProfileDto(
             user.Id, user.Name, user.Bio, user.AvatarUrl, user.TimeZone, languages,
+            skills.Where(s => s.Direction == SkillDirection.Teach).Select(Map).ToList(),
+            skills.Where(s => s.Direction == SkillDirection.Learn).Select(Map).ToList(),
             user.IsMinor(Today()), PublicRating(user), user.RatingCount, user.IsNewcomer, user.CreatedAt);
     }
 
@@ -81,8 +93,8 @@ public sealed class ProfileService
     /// <summary>У «Новичка» средней оценки нет: два отзыва ничего не говорят о человеке.</summary>
     private static decimal? PublicRating(User user) => user.IsNewcomer ? null : user.RatingAvg;
 
-    private static MyProfileDto ToMine(User user, string[] languages) => new(
+    private static MyProfileDto ToMine(User user, string[] languages, bool anketaComplete) => new(
         user.Id, user.Email ?? string.Empty, user.Role.ToString(), user.AccountType.ToString(),
         user.Name, user.Bio, user.AvatarUrl, user.DateOfBirth, user.UiLanguage, user.TimeZone, user.IsSearchable,
-        languages, PublicRating(user), user.RatingCount, user.IsNewcomer, user.TwoFactorEnabled, user.CreatedAt);
+        languages, anketaComplete, PublicRating(user), user.RatingCount, user.IsNewcomer, user.TwoFactorEnabled, user.CreatedAt);
 }
