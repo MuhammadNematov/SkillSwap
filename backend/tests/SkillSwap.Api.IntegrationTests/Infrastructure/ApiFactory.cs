@@ -79,6 +79,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         settings["LiveKit:ApiKey"] = LiveKitApiKey;
         settings["LiveKit:ApiSecret"] = LiveKitApiSecret;
         settings["LiveKit:Url"] = LiveKitUrl;
+
+        // Ключи шифрования защищены сертификатом, как на боевом сервере (в тестах он создаётся на лету).
+        settings["DataProtection:CertificateBase64"] = TestCertificates.Shared.Base64;
+        settings["DataProtection:CertificatePassword"] = TestCertificates.Shared.Password;
     }
 
     /// <summary>
@@ -94,7 +98,21 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             }
 
             builder.ConfigureAppConfiguration((_, config) =>
-                config.AddInMemoryCollection(settings.Select(s => new KeyValuePair<string, string?>(s.Key, s.Value))));
+            {
+                // В Development хост подмешивает user-secrets разработчика (там лежит его настоящий dev-сертификат).
+                // Тесты всегда работают со своим сертификатом, поэтому задаём его явно, а ваши значения идут поверх.
+                var all = new Dictionary<string, string?>
+                {
+                    ["DataProtection:CertificatePath"] = "",
+                    ["DataProtection:CertificateBase64"] = TestCertificates.Shared.Base64,
+                    ["DataProtection:CertificatePassword"] = TestCertificates.Shared.Password,
+                };
+                foreach (var (key, value) in settings)
+                {
+                    all[key] = value;
+                }
+                config.AddInMemoryCollection(all);
+            });
         });
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

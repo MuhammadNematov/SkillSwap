@@ -10,6 +10,7 @@ using SkillSwap.Domain.Entities;
 using Microsoft.Extensions.Options;
 using SkillSwap.Infrastructure.Auth;
 using SkillSwap.Infrastructure.Captcha;
+using SkillSwap.Infrastructure.DataProtection;
 using SkillSwap.Infrastructure.LiveKit;
 using SkillSwap.Infrastructure.Email;
 using SkillSwap.Infrastructure.Persistence;
@@ -28,10 +29,12 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>((sp, options) => options.UseNpgsql(
             sp.GetRequiredService<IConfiguration>().GetConnectionString(ConnectionStringName)));
 
-        // TODO (этап 2, позже): защитить ключи сертификатом вне БД (раздел 10.3 ТЗ).
+        // Ключи шифрования (чаты, токены) лежат в БД, но только зашифрованными сертификатом, который хранится вне БД
+        // (раздел 10.3 ТЗ). Без сертификата приложение не запускается.
         services.AddDataProtection()
             .SetApplicationName("SkillSwap")
-            .PersistKeysToDbContext<AppDbContext>();
+            .PersistKeysToDbContext<AppDbContext>()
+            .ProtectKeysWithConfiguredCertificate(configuration);
 
         services.AddIdentityCore<User>(options =>
             {

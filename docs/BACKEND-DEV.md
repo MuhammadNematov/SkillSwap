@@ -24,7 +24,64 @@ dotnet user-secrets set "LiveKit:ApiSecret" "<то же значение, что
 ```
 
 В CI и на сервере те же настройки задаются переменными окружения: `ConnectionStrings__Default`, `Jwt__SigningKey`, `Turnstile__SecretKey`, `LiveKit__ApiSecret`.
-Без ключа JWT приложение не запускается.
+Без ключа JWT и без сертификата ключей шифрования (следующий раздел) приложение не запускается.
+
+## 2.1. Ключи шифрования и сертификат
+
+Переписка и токены писем шифруются ключами Data Protection (раздел 10.3 ТЗ). Сами ключи лежат в таблице `DataProtectionKeys`,
+но **только в зашифрованном виде**: их защищает сертификат, который хранится вне БД. Украденная копия БД без сертификата бесполезна.
+Приложение не запустится без исправного сертификата (нужен PFX с закрытым ключом, RSA не короче 2048 бит).
+
+**Разработка: самоподписанный сертификат.** PowerShell (Windows), файл кладём вне репозитория:
+
+```powershell
+$dir = "$env:USERPROFILE\.skillswap"; New-Item -ItemType Directory -Force $dir | Out-Null
+$bytes = New-Object byte[] 24; $rng = [Security.Cryptography.RandomNumberGenerator]::Create(); $rng.GetBytes($bytes)
+$password = [Convert]::ToBase64String($bytes)          # случайный пароль
+$cert = New-SelfSignedCertificate -Subject "CN=SkillSwap Data Protection (dev)" -KeyAlgorithm RSA -KeyLength 3072 `
+    -HashAlgorithm SHA256 -KeyExportPolicy Exportable -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(5)
+Export-PfxCertificate -Cert $cert -FilePath "$dir\dataprotection-dev.pfx" -Password (ConvertTo-SecureString $password -AsPlainText -Force)
+Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)"   # в хранилище Windows копия не нужна
+cd backend/src/SkillSwap.Api
+dotnet user-secrets set "DataProtection:CertificatePath" "$dir\dataprotection-dev.pfx"
+dotnet user-secrets set "DataProtection:CertificatePassword" $password
+```
+
+То же через OpenSSL (Linux/macOS/Git Bash):
+
+```
+openssl req -x509 -newkey rsa:3072 -sha256 -days 1825 -nodes -subj "/CN=SkillSwap Data Protection" -keyout dp.key -out dp.crt
+openssl pkcs12 -export -inkey dp.key -in dp.crt -out dataprotection.pfx -passout pass:<пароль>
+rm dp.key dp.crt
+```
+
+**Боевой сервер:** сертификат выпускается один раз и приходит в приложение из переменных окружения, файлов в репозитории нет.
+Удобнее base64 вместо пути к файлу:
+
+```
+DataProtection__CertificateBase64=<содержимое PFX в base64>      # PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("x.pfx"))
+DataProtection__CertificatePassword=<пароль>
+```
+
+Задать нужно либо `CertificatePath`, либо `CertificateBase64` (оба сразу — ошибка при старте). Закрытый ключ загружается только в память
+процесса и на диск сервера не пишется.
+
+### Бэкап: обязательно
+
+**Потеря сертификата = потеря всех зашифрованных данных (переписки, раздел 10.3 ТЗ).** Ключи в БД без него не расшифровать, а создать
+такой же сертификат заново нельзя.
+
+- Храните PFX **и** пароль в защищённом месте вне сервера (менеджер паролей/сейф), в двух независимых копиях. Пароль отдельно от файла.
+- Резервная копия БД (ежедневная, раздел 11 ТЗ) и копия сертификата должны быть парой: восстановление БД без сертификата бесполезно.
+- Старые ключи из БД не удаляются, поэтому **старые сертификаты тоже нужно хранить**, даже после замены на новый.
+- Раз в месяц при тесте восстановления проверяйте, что ключи из копии БД расшифровываются сохранённым сертификатом.
+- Не меняйте и не заменяйте сертификат «на лету»: приложение с другим сертификатом не прочитает ранее созданные ключи (данные станут нечитаемыми).
+  Порядок замены сертификата ещё не сделан, он записан в `docs/DEFERRED.md`.
+- При старте в журнал попадает предупреждение, если до конца срока сертификата осталось менее 30 дней.
+
+Если в БД остались ключи, созданные до появления сертификата (открытые, без `EncryptedData`), они остаются читаемыми и не шифруются задним числом.
+Локально их можно просто удалить (`delete from "DataProtectionKeys";`, пропадут только выданные ранее токены писем); на боевом сервере такое не должно случиться,
+потому что приложение без сертификата не запускается.
 
 ## 3. Миграции
 
