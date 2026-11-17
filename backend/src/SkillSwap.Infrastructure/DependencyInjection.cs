@@ -40,6 +40,9 @@ public static class DependencyInjection
                 options.Password.RequireUppercase = false;
                 options.Password.RequireNonAlphanumeric = false;
 
+                // Токен сброса пароля выпускает отдельный поставщик со сроком 1 час (FR-4).
+                options.Tokens.PasswordResetTokenProvider = PasswordResetTokenProvider.ProviderName;
+
                 options.User.RequireUniqueEmail = true;
                 options.SignIn.RequireConfirmedEmail = true;
 
@@ -49,7 +52,8 @@ public static class DependencyInjection
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<AppDbContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddTokenProvider<PasswordResetTokenProvider>(PasswordResetTokenProvider.ProviderName);
 
         // Первый суперадмин из переменных окружения (раздел 3 ТЗ).
         services.Configure<SuperadminOptions>(configuration.GetSection(SuperadminOptions.SectionName));

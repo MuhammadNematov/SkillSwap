@@ -14,11 +14,13 @@ public class AuthController : ControllerBase
 {
     private readonly AuthService _auth;
     private readonly TwoFactorService _twoFactor;
+    private readonly PasswordResetService _passwordReset;
 
-    public AuthController(AuthService auth, TwoFactorService twoFactor)
+    public AuthController(AuthService auth, TwoFactorService twoFactor, PasswordResetService passwordReset)
     {
         _auth = auth;
         _twoFactor = twoFactor;
+        _passwordReset = passwordReset;
     }
 
     /// <summary>Регистрация по email и паролю. На почту уходит ссылка подтверждения.</summary>
@@ -154,6 +156,33 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest request, CancellationToken ct)
     {
         await _auth.ConfirmEmailAsync(request, ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Запрос сброса пароля (FR-4): на email уходит ссылка, действующая 1 час. Ответ всегда 204 — и для
+    /// зарегистрированного, и для неизвестного email, чтобы нельзя было узнать, кто зарегистрирован.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
+    {
+        await _passwordReset.ForgotPasswordAsync(request, ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Новый пароль по ссылке из письма. Токен одноразовый. После успеха все устройства выходят
+    /// (отзываются все refresh-токены), а блокировка входа после неверных паролей снимается; 2FA не отключается.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken ct)
+    {
+        await _passwordReset.ResetPasswordAsync(request, ct);
         return NoContent();
     }
 

@@ -46,6 +46,14 @@ public sealed class TooManyRequestsException : AppException
     }
 }
 
+/// <summary>HTTP 404: такого ресурса нет (или он чужой: отличать это от «нет» нельзя).</summary>
+public sealed class NotFoundException : AppException
+{
+    public NotFoundException(string code, string message) : base(code, message)
+    {
+    }
+}
+
 /// <summary>HTTP 409: конфликт с текущим состоянием (например, email уже занят).</summary>
 public sealed class ConflictException : AppException
 {

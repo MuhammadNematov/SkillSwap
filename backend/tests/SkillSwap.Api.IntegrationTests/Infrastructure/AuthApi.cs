@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace SkillSwap.Api.IntegrationTests.Infrastructure;
 
 /// <summary>Тонкая обёртка над HttpClient: эндпоинты Auth и ручная работа с refresh-cookie.</summary>
+public sealed record TestSession(string AccessToken, string RefreshToken, string SessionId);
+
 public sealed partial class AuthApi
 {
     public const string Password = "abc12345";
@@ -68,8 +70,74 @@ public sealed partial class AuthApi
         return email;
     }
 
-    public Task<HttpResponseMessage> LoginAsync(string email, string password = Password) =>
-        Client.PostAsJsonAsync($"{Base}/auth/login", new { email, password });
+    public Task<HttpResponseMessage> LoginAsync(string email, string password = Password, string? userAgent = null, string? remoteIp = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}/auth/login")
+        {
+            Content = JsonContent.Create(new { email, password }),
+        };
+        if (userAgent is not null)
+        {
+            request.Headers.TryAddWithoutValidation("User-Agent", userAgent);
+        }
+
+        if (remoteIp is not null)
+        {
+            request.Headers.Add(TestRemoteIpStartupFilter.HeaderName, remoteIp);
+        }
+
+        return Client.SendAsync(request);
+    }
+
+    // ---------- сброс пароля ----------
+
+    public Task<HttpResponseMessage> ForgotPasswordAsync(string email) =>
+        Client.PostAsJsonAsync($"{Base}/auth/forgot-password", new { email });
+
+    public Task<HttpResponseMessage> ResetPasswordAsync(string userId, string token, string newPassword) =>
+        Client.PostAsJsonAsync($"{Base}/auth/reset-password", new { userId, token, newPassword });
+
+    // ---------- сеансы ----------
+
+    /// <summary>Вход с заданным User-Agent: access-токен, refresh-токен и идентификатор сеанса (claim sid).</summary>
+    public async Task<TestSession> LoginSessionAsync(string email, string? userAgent = null, string password = Password, string? remoteIp = null)
+    {
+        var response = await LoginAsync(email, password, userAgent, remoteIp);
+        response.EnsureSuccessStatusCode();
+        var access = await ReadAccessTokenAsync(response);
+        return new TestSession(access, RefreshTokenFrom(response)!, SessionIdFrom(access));
+    }
+
+    public Task<HttpResponseMessage> ListSessionsAsync(string? accessToken) => SendAuthorizedAsync(HttpMethod.Get, "/auth/sessions", accessToken);
+
+    public Task<HttpResponseMessage> RevokeSessionAsync(string? accessToken, string sessionId) =>
+        SendAuthorizedAsync(HttpMethod.Delete, $"/auth/sessions/{sessionId}", accessToken);
+
+    public Task<HttpResponseMessage> RevokeOtherSessionsAsync(string? accessToken) =>
+        SendAuthorizedAsync(HttpMethod.Delete, "/auth/sessions", accessToken);
+
+    private Task<HttpResponseMessage> SendAuthorizedAsync(HttpMethod method, string path, string? accessToken)
+    {
+        var request = new HttpRequestMessage(method, $"{Base}{path}");
+        if (accessToken is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        return Client.SendAsync(request);
+    }
+
+    /// <summary>Claim sid из access-токена (JWT не шифруется, поэтому его можно прочитать без ключа).</summary>
+    public static string SessionIdFrom(string accessToken)
+    {
+        var payload = accessToken.Split('.')[1].Replace('-', '+').Replace('_', '/');
+        payload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
+        using var json = JsonDocument.Parse(Convert.FromBase64String(payload));
+        return json.RootElement.GetProperty("sid").GetString()!;
+    }
+
+    public static async Task<List<JsonElement>> ReadListAsync(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToList();
 
     // ---------- 2FA ----------
 
@@ -133,9 +201,14 @@ public sealed partial class AuthApi
         return Client.SendAsync(request);
     }
 
-    public Task<HttpResponseMessage> RefreshAsync(string? refreshToken)
+    public Task<HttpResponseMessage> RefreshAsync(string? refreshToken, string? remoteIp = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}/auth/refresh");
+        if (remoteIp is not null)
+        {
+            request.Headers.Add(TestRemoteIpStartupFilter.HeaderName, remoteIp);
+        }
+
         if (refreshToken is not null)
         {
             request.Headers.Add("Cookie", $"refresh_token={refreshToken}");

@@ -17,6 +17,8 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 
         builder.HasIndex(t => t.TokenHash).IsUnique();
         builder.HasIndex(t => t.UserId);
+        // Список сеансов и завершение сеанса ищут по паре (пользователь, сеанс).
+        builder.HasIndex(t => new { t.UserId, t.SessionId });
 
         builder.HasOne<User>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
 

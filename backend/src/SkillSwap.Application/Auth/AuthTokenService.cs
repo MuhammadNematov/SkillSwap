@@ -39,10 +39,11 @@ public sealed class AuthTokenService
         _clock = clock;
     }
 
-    /// <summary>Выпускает новую пару токенов (вход).</summary>
+    /// <summary>Выпускает новую пару токенов (вход) и начинает новый сеанс.</summary>
     public async Task<AuthResult> IssueAsync(User user, ClientInfo client, CancellationToken ct = default)
     {
-        var result = CreateTokens(user, client, out var refreshEntity);
+        var now = _clock.GetUtcNow().UtcDateTime;
+        var result = CreateTokens(user, client, sessionId: Guid.NewGuid(), sessionStartedAt: now, out var refreshEntity);
         _refreshTokens.Add(refreshEntity);
         await _refreshTokens.SaveChangesAsync(ct);
         return result;
@@ -65,9 +66,17 @@ public sealed class AuthTokenService
 
         if (stored.IsRevoked)
         {
-            // Старый токен предъявили повторно: возможно, его украли. Отзываем все сеансы пользователя.
-            await _refreshTokens.RevokeAllForUserAsync(stored.UserId, now, ct);
-            throw new UnauthorizedException("refresh_token_reused", "Токен уже использован. Войдите заново.");
+            // Токен, уже ЗАМЕНЁННЫЙ ротацией, предъявили повторно: возможно, его украли. Отзываем все сеансы.
+            if (stored.WasRotated)
+            {
+                await _refreshTokens.RevokeAllForUserAsync(stored.UserId, now, ct);
+                throw new UnauthorizedException("refresh_token_reused", "Токен уже использован. Войдите заново.");
+            }
+
+            // Токен отозван иначе (выход, завершение сеанса в списке сеансов, сброс пароля): это не кража.
+            // Просто отказываем, не трогая остальные сеансы: иначе завершённое вручную устройство
+            // при следующей попытке обновиться разлогинило бы все остальные.
+            throw InvalidRefreshToken();
         }
 
         if (!stored.IsActive(now))
@@ -87,7 +96,8 @@ public sealed class AuthTokenService
             throw new ForbiddenException("account_blocked", "Аккаунт заблокирован.");
         }
 
-        var result = CreateTokens(user, client, out var replacement);
+        // Ротация продолжает тот же сеанс: SessionId и время начала переходят к новому токену.
+        var result = CreateTokens(user, client, stored.SessionId, stored.SessionStartedAt, out var replacement);
         stored.Revoke(now, replacement.TokenHash);
         _refreshTokens.Add(replacement);
 
@@ -114,15 +124,22 @@ public sealed class AuthTokenService
         await _refreshTokens.SaveChangesAsync(ct);
     }
 
-    private AuthResult CreateTokens(User user, ClientInfo client, out RefreshToken refreshEntity)
+    private AuthResult CreateTokens(
+        User user, ClientInfo client, Guid sessionId, DateTime sessionStartedAt, out RefreshToken refreshEntity)
     {
         var now = _clock.GetUtcNow().UtcDateTime;
-        var access = _accessTokens.Create(user);
+        var access = _accessTokens.Create(user, sessionId);
 
         var rawRefresh = GenerateRawToken();
         var refreshExpires = now.AddDays(_jwt.RefreshTokenDays);
         refreshEntity = RefreshToken.Create(
-            user.Id, Hash(rawRefresh), refreshExpires, Truncate(client.DeviceInfo, MaxDeviceInfoLength), Truncate(client.IpAddress, MaxIpLength));
+            user.Id,
+            Hash(rawRefresh),
+            refreshExpires,
+            Truncate(client.DeviceInfo, MaxDeviceInfoLength),
+            Truncate(client.IpAddress, MaxIpLength),
+            sessionId,
+            sessionStartedAt);
 
         var summary = new UserSummary(user.Id, user.Email!, user.Name, user.Role, user.UiLanguage);
         return new AuthResult(new AuthResponse(access.Value, access.ExpiresAt, summary), rawRefresh, refreshExpires);

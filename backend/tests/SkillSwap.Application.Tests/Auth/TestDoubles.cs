@@ -89,6 +89,42 @@ internal sealed class FakeUserManager : UserManager<User>
 
     public override Task<IdentityResult> UpdateAsync(User user) => Task.FromResult(IdentityResult.Success);
 
+    // Сброс пароля
+    public string ResetToken { get; set; } = "reset-token";
+    public bool ResetTokenConsumed { get; private set; }
+    public IdentityResult? ForcedResetResult { get; set; }
+    public int LockoutEndClearedCalls { get; private set; }
+
+    public override Task<string> GeneratePasswordResetTokenAsync(User user) => Task.FromResult(ResetToken);
+
+    public override Task<IdentityResult> ResetPasswordAsync(User user, string token, string newPassword)
+    {
+        if (ForcedResetResult is not null)
+        {
+            return Task.FromResult(ForcedResetResult);
+        }
+
+        if (token != ResetToken || ResetTokenConsumed)
+        {
+            return Task.FromResult(IdentityResult.Failed(new IdentityError { Code = "InvalidToken" }));
+        }
+
+        ResetTokenConsumed = true;   // токен одноразовый (в Identity его «сжигает» смена SecurityStamp)
+        CorrectPassword = newPassword;
+        return Task.FromResult(IdentityResult.Success);
+    }
+
+    public override Task<IdentityResult> SetLockoutEndDateAsync(User user, DateTimeOffset? lockoutEnd)
+    {
+        if (lockoutEnd is null)
+        {
+            LockoutEndClearedCalls++;
+            LockedOut = false;
+        }
+
+        return Task.FromResult(IdentityResult.Success);
+    }
+
     // 2FA: ключ аутентификатора. Остальное (коды, шаги) — в отдельных заглушках хранилищ.
     public string? AuthenticatorKey { get; set; }
     private int _keyCounter;
@@ -127,11 +163,36 @@ internal sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
 {
     public List<RefreshToken> Tokens { get; } = [];
     public int SaveCalls { get; private set; }
+    public TimeProvider Clock { get; set; } = TimeProvider.System;
 
     public Task<RefreshToken?> FindByHashAsync(string tokenHash, CancellationToken ct = default) =>
         Task.FromResult(Tokens.FirstOrDefault(t => t.TokenHash == tokenHash));
 
-    public void Add(RefreshToken token) => Tokens.Add(token);
+    public void Add(RefreshToken token)
+    {
+        token.CreatedAt = Clock.GetUtcNow().UtcDateTime;   // в настоящей БД это делает AppDbContext при сохранении
+        Tokens.Add(token);
+    }
+
+    public Task<IReadOnlyList<RefreshToken>> ListActiveByUserAsync(Guid userId, DateTime nowUtc, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<RefreshToken>>(Tokens
+            .Where(t => t.UserId == userId && t.IsActive(nowUtc))
+            .OrderByDescending(t => t.CreatedAt)
+            .ToList());
+
+    public Task<int> RevokeSessionAsync(Guid userId, Guid sessionId, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var hit = Tokens.Where(t => t.UserId == userId && t.SessionId == sessionId && t.IsActive(nowUtc)).ToList();
+        hit.ForEach(t => t.Revoke(nowUtc));
+        return Task.FromResult(hit.Count);
+    }
+
+    public Task<int> RevokeAllExceptSessionAsync(Guid userId, Guid keepSessionId, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var hit = Tokens.Where(t => t.UserId == userId && t.SessionId != keepSessionId && t.IsActive(nowUtc)).ToList();
+        hit.ForEach(t => t.Revoke(nowUtc));
+        return Task.FromResult(hit.Count);
+    }
 
     public Task RevokeAllForUserAsync(Guid userId, DateTime nowUtc, CancellationToken ct = default)
     {
@@ -223,7 +284,13 @@ internal sealed class FakeUserActivityStore : IUserActivityStore
 
 internal sealed class FakeAccessTokenGenerator : IAccessTokenGenerator
 {
-    public AccessToken Create(User user) => new($"access-for-{user.Id}", DateTime.UtcNow.AddMinutes(15));
+    public List<Guid> SessionIds { get; } = [];
+
+    public AccessToken Create(User user, Guid sessionId)
+    {
+        SessionIds.Add(sessionId);
+        return new AccessToken($"access-for-{user.Id}", DateTime.UtcNow.AddMinutes(15));
+    }
 }
 
 /// <summary>Промежуточные токены 2FA без криптографии: «challenge:{purpose}:{userId}».</summary>
@@ -257,6 +324,9 @@ internal sealed class AuthFixture
     public FakeRecoveryCodeStore RecoveryCodes { get; } = new();
     public FakeTwoFactorStepStore Steps { get; } = new();
     public FakeUserActivityStore Activity { get; } = new();
+    public FakeAccessTokenGenerator AccessTokens { get; } = new();
+    public PasswordResetService PasswordReset { get; }
+    public SessionService Sessions { get; }
 
     /// <summary>Настоящий TOTP-код для ключа пользователя; offset — сдвиг в шагах по 30 секунд (−1 прошлый, +1 следующий).</summary>
     public string TotpCode(int offset = 0) =>
@@ -264,9 +334,10 @@ internal sealed class AuthFixture
 
     public AuthFixture()
     {
+        RefreshTokens.Clock = Clock;
         var tokens = new AuthTokenService(
             Users,
-            new FakeAccessTokenGenerator(),
+            AccessTokens,
             RefreshTokens,
             Microsoft.Extensions.Options.Options.Create(new JwtOptions { RefreshTokenDays = 30 }),
             Clock);
@@ -284,6 +355,18 @@ internal sealed class AuthFixture
             Clock,
             Microsoft.Extensions.Options.Options.Create(new FrontendOptions { BaseUrl = "https://app.test/" }),
             NullLogger<AuthService>.Instance);
+
+        PasswordReset = new PasswordResetService(
+            Users,
+            Mail,
+            RefreshTokens,
+            new ForgotPasswordRequestValidator(),
+            new ResetPasswordRequestValidator(),
+            Microsoft.Extensions.Options.Options.Create(new FrontendOptions { BaseUrl = "https://app.test/" }),
+            Clock,
+            NullLogger<PasswordResetService>.Instance);
+
+        Sessions = new SessionService(RefreshTokens, Clock);
 
         TwoFactor = new TwoFactorService(
             Users,

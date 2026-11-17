@@ -265,4 +265,70 @@ public class LoginAndTokensTests
 
         Assert.Empty(_fx.RefreshTokens.Tokens);
     }
+
+    // ---------- сеансы и ротация ----------
+
+    [Fact]
+    public async Task Refresh_keeps_the_same_session_and_a_new_login_starts_a_new_one()
+    {
+        AddUser();
+        var first = await Login();
+        var refreshed = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        var secondDevice = await Login();
+
+        var sids = _fx.AccessTokens.SessionIds;   // sid, с которыми выпускались access-токены: вход, обновление, второй вход
+        Assert.Equal(3, sids.Count);
+        Assert.Equal(sids[0], sids[1]);           // ротация продолжает тот же сеанс
+        Assert.NotEqual(sids[0], sids[2]);        // новый вход — новый сеанс
+        Assert.NotNull(refreshed);
+        Assert.NotNull(secondDevice);
+
+        var tokens = _fx.RefreshTokens.Tokens;
+        Assert.Equal(tokens[0].SessionId, tokens[1].SessionId);
+        Assert.Equal(tokens[0].SessionStartedAt, tokens[1].SessionStartedAt);
+    }
+
+    [Fact]
+    public async Task A_token_of_a_session_ended_from_the_session_list_gives_a_plain_401_and_leaves_other_sessions_alone()
+    {
+        var user = AddUser();
+        var laptop = await Login();
+        var phone = await Login();
+        var laptopSession = _fx.RefreshTokens.Tokens[0].SessionId;
+
+        await _fx.Sessions.RevokeAsync(user.Id, laptopSession);   // телефон завершает сеанс ноутбука
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(laptop.RefreshToken, Client));
+        Assert.Equal("invalid_refresh_token", ex.Code);            // не refresh_token_reused: это не кража
+        Assert.False(_fx.RefreshTokens.Tokens[1].IsRevoked);       // сеанс телефона жив
+        await _fx.Service.RefreshAsync(phone.RefreshToken, Client);   // и продолжает работать
+    }
+
+    [Fact]
+    public async Task A_token_revoked_by_logout_gives_a_plain_401_and_leaves_other_sessions_alone()
+    {
+        AddUser();
+        var laptop = await Login();
+        var phone = await Login();
+        await _fx.Service.LogoutAsync(laptop.RefreshToken);
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(laptop.RefreshToken, Client));
+
+        Assert.Equal("invalid_refresh_token", ex.Code);
+        await _fx.Service.RefreshAsync(phone.RefreshToken, Client);
+    }
+
+    [Fact]
+    public async Task Only_a_token_replaced_by_rotation_counts_as_reuse()
+    {
+        AddUser();
+        var laptop = await Login();
+        var phone = await Login();
+        await _fx.Service.RefreshAsync(laptop.RefreshToken, Client);   // ротация: старый токен ноутбука заменён
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(laptop.RefreshToken, Client));
+
+        Assert.Equal("refresh_token_reused", ex.Code);
+        await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(phone.RefreshToken, Client));   // телефон тоже отозван
+    }
 }

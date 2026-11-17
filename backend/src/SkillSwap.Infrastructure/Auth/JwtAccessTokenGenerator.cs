@@ -14,6 +14,9 @@ public sealed class JwtAccessTokenGenerator : IAccessTokenGenerator
     /// <summary>Имена клеймов; те же значения использует проверка токена в Api.</summary>
     public const string RoleClaim = "role";
 
+    /// <summary>Идентификатор сеанса (цепочки refresh-токенов), к которому относится access-токен.</summary>
+    public const string SessionClaim = "sid";
+
     private readonly JwtOptions _options;
     private readonly TimeProvider _clock;
 
@@ -23,7 +26,7 @@ public sealed class JwtAccessTokenGenerator : IAccessTokenGenerator
         _clock = clock;
     }
 
-    public AccessToken Create(User user)
+    public AccessToken Create(User user, Guid sessionId)
     {
         var now = _clock.GetUtcNow().UtcDateTime;
         var expires = now.AddMinutes(_options.AccessTokenMinutes);
@@ -41,6 +44,7 @@ public sealed class JwtAccessTokenGenerator : IAccessTokenGenerator
                 [JwtRegisteredClaimNames.Email] = user.Email!,
                 [JwtRegisteredClaimNames.Jti] = Guid.NewGuid().ToString(),
                 [RoleClaim] = user.Role.ToString(),
+                [SessionClaim] = sessionId.ToString(),
             },
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey)),

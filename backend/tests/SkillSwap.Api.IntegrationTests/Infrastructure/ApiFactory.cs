@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -64,6 +65,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);
+
+            // У TestServer нет настоящего соединения, и RemoteIpAddress пуст. Задаём адрес клиента, как это сделал бы сокет.
+            services.AddTransient<IStartupFilter, TestRemoteIpStartupFilter>();
         });
     }
 
@@ -83,6 +87,27 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("Superadmin__Email", null);
         Environment.SetEnvironmentVariable("Superadmin__Password", null);
     }
+}
+
+/// <summary>
+/// Подставляет IP клиента в тестовом сервере: по умолчанию 203.0.113.7 (адрес для документации),
+/// либо значение заголовка <see cref="HeaderName"/>, если тест хочет «прийти» с другого адреса.
+/// </summary>
+internal sealed class TestRemoteIpStartupFilter : IStartupFilter
+{
+    public const string HeaderName = "X-Test-Remote-Ip";
+    public const string DefaultIp = "203.0.113.7";
+
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        app.Use((context, nextMiddleware) =>
+        {
+            var ip = context.Request.Headers[HeaderName].FirstOrDefault() ?? DefaultIp;
+            context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(ip);
+            return nextMiddleware(context);
+        });
+        next(app);
+    };
 }
 
 [CollectionDefinition(Name)]

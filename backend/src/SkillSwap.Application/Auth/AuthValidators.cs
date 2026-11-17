@@ -6,6 +6,17 @@ namespace SkillSwap.Application.Auth;
 
 // Коды ошибок (WithErrorCode) стабильны: по ним фронтенд подбирает перевод.
 
+/// <summary>Правила пароля (FR-1): от 8 символов, есть буква и цифра. Общие для регистрации и сброса пароля.</summary>
+internal static class PasswordRules
+{
+    public static IRuleBuilderOptions<T, string> MustBeValidPassword<T>(this IRuleBuilder<T, string> rule) => rule
+        .NotEmpty().WithErrorCode("required")
+        .MinimumLength(8).WithErrorCode("password_too_short")
+        .MaximumLength(128).WithErrorCode("too_long")
+        .Must(p => p.Any(char.IsLetter)).WithErrorCode("password_needs_letter")
+        .Must(p => p.Any(char.IsDigit)).WithErrorCode("password_needs_digit");
+}
+
 public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 {
     public RegisterRequestValidator(TimeProvider clock)
@@ -15,12 +26,7 @@ public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest
             .MaximumLength(256).WithErrorCode("too_long")
             .EmailAddress().WithErrorCode("invalid_email");
 
-        RuleFor(x => x.Password)
-            .NotEmpty().WithErrorCode("required")
-            .MinimumLength(8).WithErrorCode("password_too_short")
-            .MaximumLength(128).WithErrorCode("too_long")
-            .Must(p => p.Any(char.IsLetter)).WithErrorCode("password_needs_letter")
-            .Must(p => p.Any(char.IsDigit)).WithErrorCode("password_needs_digit");
+        RuleFor(x => x.Password).MustBeValidPassword();
 
         RuleFor(x => x.Name)
             .NotEmpty().WithErrorCode("required")
