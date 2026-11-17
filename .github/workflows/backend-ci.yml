@@ -5,6 +5,10 @@ name: Backend CI
 on:
   push:
     branches: [main]
+    # Пуши, которые не трогают бэкенд (например, только frontend/), тесты не запускают.
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
 
 permissions:
   contents: read
