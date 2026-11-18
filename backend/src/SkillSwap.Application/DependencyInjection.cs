@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<NewMessagesNotifier>();
         services.AddScoped<AttachmentService>();
         services.AddScoped<AvatarService>();
+        services.AddScoped<AvatarUrls>();
         services.AddScoped<UnreadMessagesJobs>();
         services.AddScoped<SkillSuggestionService>();
         services.AddScoped<LiveKitWebhookService>();

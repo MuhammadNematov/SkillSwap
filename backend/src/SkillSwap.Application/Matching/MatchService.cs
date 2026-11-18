@@ -21,15 +21,17 @@ public sealed class MatchService
     private readonly IMatchStore _matches;
     private readonly ISystemSettingsStore _settings;
     private readonly TimeProvider _clock;
+    private readonly Files.AvatarUrls _avatars;
 
     public MatchService(
-        IProfileStore profiles, IUserSkillStore skills, IMatchStore matches, ISystemSettingsStore settings, TimeProvider clock)
+        IProfileStore profiles, IUserSkillStore skills, IMatchStore matches, ISystemSettingsStore settings, TimeProvider clock, Files.AvatarUrls avatars)
     {
         _profiles = profiles;
         _skills = skills;
         _matches = matches;
         _settings = settings;
         _clock = clock;
+        _avatars = avatars;
     }
 
     public async Task<PagedResult<MatchDto>> SearchAsync(Guid viewerId, bool viewerIsRegular, MatchQuery query, CancellationToken ct)
@@ -75,7 +77,7 @@ public sealed class MatchService
         }
 
         var details = await _matches.LoadDetailsAsync(seeker, page.Select(r => r.Candidate.UserId).ToList(), ct);
-        var items = page.Select(r => ToDto(r, details, today)).ToList();
+        var items = page.Select(r => ToDto(r, details, today, _avatars.Sign)).ToList();
         return new PagedResult<MatchDto>(items, query.Page, query.PageSize, ranked.Count);
     }
 
@@ -111,7 +113,7 @@ public sealed class MatchService
         return new MatchFilter(query.Skill, language, level, query.MinRating is > 0m ? query.MinRating : null);
     }
 
-    private static MatchDto ToDto(RankedCandidate ranked, MatchPageDetails details, DateOnly today)
+    private static MatchDto ToDto(RankedCandidate ranked, MatchPageDetails details, DateOnly today, Func<string?, string?> signAvatar)
     {
         var c = ranked.Candidate;
         var user = details.Users[c.UserId];
@@ -119,7 +121,7 @@ public sealed class MatchService
         var common = user.Languages.Intersect(details.SeekerLanguages).Order(StringComparer.Ordinal).ToArray();
 
         return new MatchDto(
-            c.UserId, user.Name, user.AvatarUrl, c.TimeZone,
+            c.UserId, user.Name, signAvatar(user.AvatarUrl), c.TimeZone,
             Math.Round(ranked.TimeZoneDifferenceMinutes / 60.0, 2),
             user.Languages, common, AgeGroups.IsMinor(user.BirthDate, today),
             newcomer ? null : c.RatingAvg, c.RatingCount, newcomer,

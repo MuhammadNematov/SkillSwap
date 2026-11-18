@@ -94,6 +94,17 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
         return _publicClient.GetPreSignedURL(request);
     }
 
+    public string CreateViewUrl(string key, string contentType, TimeSpan lifetime) =>
+        _publicClient.GetPreSignedURL(new GetPreSignedUrlRequest
+        {
+            BucketName = _options.Bucket,
+            Key = key,
+            Verb = HttpVerb.GET,
+            Protocol = _publicEndpoint.StartsWith("https", StringComparison.OrdinalIgnoreCase) ? Protocol.HTTPS : Protocol.HTTP,
+            Expires = DateTime.UtcNow + lifetime - TimeSpan.FromSeconds(1),
+            ResponseHeaderOverrides = new ResponseHeaderOverrides { ContentDisposition = "inline", ContentType = contentType },
+        });
+
     /// <summary><c>attachment; filename="…"; filename*=UTF-8''…</c>: имя с кириллицей и пробелами доходит без искажений.</summary>
     internal static string ContentDispositionFor(string fileName)
     {

@@ -68,7 +68,7 @@ public sealed class ExchangeStore : IExchangeStore
         var userIds = list.SelectMany(e => new[] { e.UserAId, e.UserBId }).Distinct().ToList();
         var skillIds = list.SelectMany(e => new[] { e.SkillAId, e.SkillBId }).Distinct().ToList();
         var users = await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
-            .Select(u => new RequestUserDto(u.Id, u.Name, u.AvatarUrl)).ToDictionaryAsync(u => u.Id, ct);
+            .Select(u => new RequestUserDto(u.Id, u.Name, u.AvatarKey)).ToDictionaryAsync(u => u.Id, ct);
         var skills = await _db.Skills.AsNoTracking().Where(s => skillIds.Contains(s.Id))
             .Select(s => new RequestSkillDto(s.Id, s.NameTg, s.NameRu, s.NameEn)).ToDictionaryAsync(s => s.Id, ct);
 

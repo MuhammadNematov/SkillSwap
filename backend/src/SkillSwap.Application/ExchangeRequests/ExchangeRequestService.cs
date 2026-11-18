@@ -44,11 +44,12 @@ public sealed class ExchangeRequestService
     private readonly INotificationPublisher _notify;
     private readonly IValidator<CreateExchangeRequestRequest> _validator;
     private readonly TimeProvider _clock;
+    private readonly Files.AvatarUrls _avatars;
 
     public ExchangeRequestService(
         IExchangeRequestStore requests, IExchangeStore exchanges, IProfileStore profiles, IUserSkillStore skills, IUserBlockStore blocks,
         ISystemSettingsStore settings, IUnitOfWork uow, IBackgroundJobs jobs, IValidator<CreateExchangeRequestRequest> validator, INotificationPublisher notify,
-        TimeProvider clock)
+        TimeProvider clock, Files.AvatarUrls avatars)
     {
         _requests = requests;
         _exchanges = exchanges;
@@ -61,6 +62,7 @@ public sealed class ExchangeRequestService
         _notify = notify;
         _validator = validator;
         _clock = clock;
+        _avatars = avatars;
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -301,7 +303,8 @@ public sealed class ExchangeRequestService
             throw new NotFoundException("request_not_found", "Заявка не найдена.");   // чужая заявка выглядит как несуществующая
         }
 
-        return Map(row, userId);
+        var dto = Map(row, userId);
+        return WithAvatars(dto, await _avatars.ForViewerAsync(userId, new[] { dto.FromUser, dto.ToUser }.Select(u => (u.Id, u.AvatarUrl)), ct));
     }
 
     /// <param name="box">in — входящие, out — исходящие.</param>
@@ -316,7 +319,9 @@ public sealed class ExchangeRequestService
 
         await RequireActiveRegularAsync(userId, ct);
         var (items, total) = await _requests.ListAsync(userId, box == "in", status, page, pageSize, ct);
-        return new PagedResult<ExchangeRequestDto>(items.Select(r => Map(r, userId)).ToList(), page, pageSize, total);
+        var dtos = items.Select(r => Map(r, userId)).ToList();
+        var urls = await _avatars.ForViewerAsync(userId, dtos.SelectMany(d => new[] { d.FromUser, d.ToUser }).Select(u => (u.Id, u.AvatarUrl)), ct);
+        return new PagedResult<ExchangeRequestDto>(dtos.Select(d => WithAvatars(d, urls)).ToList(), page, pageSize, total);
     }
 
     /// <summary>
@@ -359,6 +364,13 @@ public sealed class ExchangeRequestService
 
         return user;
     }
+
+    /// <summary>Вместо ключа аватара в хранилище — подписанная ссылка, если зритель вправе видеть профиль, иначе null.</summary>
+    private static ExchangeRequestDto WithAvatars(ExchangeRequestDto d, IReadOnlyDictionary<Guid, string?> urls) => d with
+    {
+        FromUser = d.FromUser with { AvatarUrl = urls.GetValueOrDefault(d.FromUser.Id) },
+        ToUser = d.ToUser with { AvatarUrl = urls.GetValueOrDefault(d.ToUser.Id) },
+    };
 
     private static ExchangeRequestDto Map(ExchangeRequestRow r, Guid viewerId) => new(
         r.Id, r.ToUser.Id == viewerId ? "in" : "out", r.Status, r.FromUser, r.ToUser, r.FromTeachesSkill, r.ToTeachesSkill,

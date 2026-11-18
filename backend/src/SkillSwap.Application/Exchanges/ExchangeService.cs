@@ -25,10 +25,11 @@ public sealed class ExchangeService
     private readonly INotificationPublisher _notify;
     private readonly IValidator<AbortExchangeRequest> _abortValidator;
     private readonly TimeProvider _clock;
+    private readonly Files.AvatarUrls _avatars;
 
     public ExchangeService(
         IExchangeStore exchanges, IMessageStore messages, IProfileStore profiles, IUnitOfWork uow, IBackgroundJobs jobs,
-        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock)
+        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock, Files.AvatarUrls avatars)
     {
         _exchanges = exchanges;
         _messages = messages;
@@ -38,6 +39,7 @@ public sealed class ExchangeService
         _notify = notify;
         _abortValidator = abortValidator;
         _clock = clock;
+        _avatars = avatars;
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -48,7 +50,9 @@ public sealed class ExchangeService
         await RequireActiveRegularAsync(userId, ct);
         var (items, total) = await _exchanges.ListAsync(userId, status, page, pageSize, ct);
         var unread = await _messages.CountUnreadAsync(userId, items.Select(r => r.Id).ToList(), ct);
-        return new PagedResult<ExchangeDto>(items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id))).ToList(), page, pageSize, total);
+        var dtos = items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id))).ToList();
+        var urls = await _avatars.ForViewerAsync(userId, dtos.Select(d => (d.Partner.Id, d.Partner.AvatarUrl)), ct);
+        return new PagedResult<ExchangeDto>(dtos.Select(d => d with { Partner = d.Partner with { AvatarUrl = urls.GetValueOrDefault(d.Partner.Id) } }).ToList(), page, pageSize, total);
     }
 
     public async Task<ExchangeDto> GetAsync(Guid userId, Guid exchangeId, CancellationToken ct)
@@ -132,7 +136,8 @@ public sealed class ExchangeService
         }
 
         var unread = await _messages.CountUnreadAsync(userId, [row.Id], ct);
-        return Map(row, userId, unread.GetValueOrDefault(row.Id));
+        var dto = Map(row, userId, unread.GetValueOrDefault(row.Id));
+        return await WithAvatarAsync(userId, dto, ct);
     }
 
     private async Task Mutate(Guid userId, Guid exchangeId, CancellationToken ct, Action<Exchange> change)
@@ -177,6 +182,12 @@ public sealed class ExchangeService
         r.AbortReason == Exchange.AbortReasonBlocked && r.BlockedById != viewerId ? PartnerUnavailable : r.AbortReason;
 
     public const string PartnerUnavailable = "partner_unavailable";
+
+    private async Task<ExchangeDto> WithAvatarAsync(Guid viewerId, ExchangeDto dto, CancellationToken ct)
+    {
+        var urls = await _avatars.ForViewerAsync(viewerId, [(dto.Partner.Id, dto.Partner.AvatarUrl)], ct);
+        return dto with { Partner = dto.Partner with { AvatarUrl = urls.GetValueOrDefault(dto.Partner.Id) } };
+    }
 
     private ExchangeDto Map(ExchangeRow r, Guid viewerId, int unread)
     {

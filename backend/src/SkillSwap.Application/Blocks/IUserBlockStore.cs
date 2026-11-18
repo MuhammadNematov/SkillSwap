@@ -17,4 +17,7 @@ public interface IUserBlockStore
 
     /// <summary>Заблокировал ли хотя бы один из двоих другого. Нужна везде, где пользователи видят друг друга.</summary>
     Task<bool> IsBlockedEitherWayAsync(Guid userA, Guid userB, CancellationToken ct);
+
+    /// <summary>Кто из перечисленных заблокирован мной или заблокировал меня (одним запросом).</summary>
+    Task<IReadOnlySet<Guid>> BlockedEitherWayAmongAsync(Guid userId, IReadOnlyCollection<Guid> otherIds, CancellationToken ct);
 }

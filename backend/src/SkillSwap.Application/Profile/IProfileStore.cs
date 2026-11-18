@@ -11,7 +11,10 @@ public interface IProfileStore
     Task<User?> FindUserForUpdateAsync(Guid id, CancellationToken ct);
 
     /// <summary>Записывает адрес аватара (null — убрать). Меняет только это поле.</summary>
-    Task SetAvatarUrlAsync(Guid userId, string? avatarUrl, CancellationToken ct);
+    Task SetAvatarKeyAsync(Guid userId, string? avatarKey, CancellationToken ct);
+
+    /// <summary>Даты рождения указанных пользователей (для проверки возрастных групп). Нет даты у служебных аккаунтов: их в словаре нет.</summary>
+    Task<IReadOnlyDictionary<Guid, DateOnly>> GetBirthDatesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct);
 
     /// <summary>Языки занятий, по алфавиту.</summary>
     Task<string[]> GetLanguagesAsync(Guid userId, CancellationToken ct);

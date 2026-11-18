@@ -17,4 +17,6 @@ public sealed class UnavailableFileStorage : IFileStorage
     public Task DeleteAsync(string key, CancellationToken ct) => throw Unavailable();
 
     public string CreateDownloadUrl(string key, string fileName, string contentType, TimeSpan lifetime) => throw Unavailable();
+
+    public string CreateViewUrl(string key, string contentType, TimeSpan lifetime) => throw Unavailable();
 }

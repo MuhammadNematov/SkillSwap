@@ -21,4 +21,7 @@ public interface IFileStorage
     /// <paramref name="fileName"/> (<c>Content-Disposition: attachment</c>). Строится без обращения к сети.
     /// </summary>
     string CreateDownloadUrl(string key, string fileName, string contentType, TimeSpan lifetime);
+
+    /// <summary>Подписанная ссылка для показа картинки на странице (<c>Content-Disposition: inline</c>), например аватара. Без обращения к сети.</summary>
+    string CreateViewUrl(string key, string contentType, TimeSpan lifetime);
 }

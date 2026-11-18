@@ -20,7 +20,8 @@ public class User : IdentityUser<Guid>, ITimestamped
     public const string DefaultTimeZone = "UTC";
 
     public string Name { get; private set; } = string.Empty;
-    public string? AvatarUrl { get; set; }
+    /// <summary>Ключ аватара в хранилище файлов (null — аватара нет). Наружу отдаётся не он, а подписанная ссылка на час (AvatarUrls).</summary>
+    public string? AvatarKey { get; set; }
     public string? Bio { get; set; }
     /// <summary>Обязательна у обычных пользователей; у служебных аккаунтов анкеты нет (раздел 3 ТЗ).</summary>
     public DateOnly? DateOfBirth { get; private set; }

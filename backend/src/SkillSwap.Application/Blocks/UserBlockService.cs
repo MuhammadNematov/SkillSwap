@@ -98,7 +98,8 @@ public sealed class UserBlockService
     public async Task<IReadOnlyList<BlockedUserDto>> ListAsync(Guid blockerId, CancellationToken ct)
     {
         await RequireActiveRegularAsync(blockerId, ct);
-        return await _blocks.ListAsync(blockerId, ct);
+        // Профиль заблокированного для блокировавшего закрыт, поэтому аватар не отдаём: ключ из хранилища наружу не уходит.
+        return (await _blocks.ListAsync(blockerId, ct)).Select(b => b with { AvatarUrl = null }).ToList();
     }
 
     private async Task RequireActiveRegularAsync(Guid userId, CancellationToken ct)

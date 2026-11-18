@@ -135,7 +135,7 @@ public sealed class MatchStore : IMatchStore
     {
         var users = await _db.Users.AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.Name, u.AvatarUrl, u.DateOfBirth })
+            .Select(u => new { u.Id, u.Name, AvatarUrl = u.AvatarKey, u.DateOfBirth })
             .ToListAsync(ct);
 
         var languageRows = await _db.UserLanguages.AsNoTracking()

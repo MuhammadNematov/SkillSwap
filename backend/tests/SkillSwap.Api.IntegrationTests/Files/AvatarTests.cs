@@ -14,12 +14,16 @@ using SkillSwap.Domain.Enums;
 
 namespace SkillSwap.Api.IntegrationTests.Files;
 
-/// <summary>Аватар (раздел 5 ТЗ): png, jpg, webp до 2 МБ; метаданные удаляются, картинка обрезается до квадрата и уменьшается до 512×512.</summary>
+/// <summary>
+/// Аватар (раздел 5 ТЗ): png, jpg, webp до 2 МБ; метаданные удаляются, картинка обрезается до квадрата и уменьшается до 512×512.
+/// Бакет закрыт: аватар отдаётся в <c>avatarUrl</c> подписанной ссылкой на час и только тому, кто вправе видеть профиль.
+/// </summary>
 [Collection(ApiCollection.Name)]
 public class AvatarTests
 {
     private readonly ApiFactory _factory;
     private readonly HttpClient _client;
+    private readonly HttpClient _storageClient = new();
 
     public AvatarTests(ApiFactory factory)
     {
@@ -27,10 +31,10 @@ public class AvatarTests
         _client = factory.CreateClient();
     }
 
-    private async Task<MatchPerson> PersonAsync()
+    private async Task<MatchPerson> PersonAsync(DateOnly? birth = null)
     {
         var world = await MatchTestWorld.CreateAsync(_factory);
-        return await world.UserAsync((0, SkillLevel.Beginner), (1, SkillLevel.Beginner));
+        return await world.UserAsync((0, SkillLevel.Beginner), (1, SkillLevel.Beginner), new MatchTestWorld.Options(BirthDate: birth));
     }
 
     private async Task<HttpResponseMessage> PutAvatarAsync(MatchPerson? who, byte[]? file, string fileName = "me.jpg")
@@ -53,20 +57,35 @@ public class AvatarTests
         return await _client.SendAsync(request);
     }
 
-    private async Task<(byte[] Bytes, HttpResponseMessage Response)> GetAvatarAsync(Guid userId)
+    private async Task<HttpResponseMessage> GetAsync(MatchPerson? who, string url)
     {
-        var response = await _client.GetAsync($"/api/v1/users/{userId}/avatar");   // без токена
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (who is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", who.Token);
+        }
+
+        return await _client.SendAsync(request);
+    }
+
+    private async Task<string?> AvatarUrlInAsync(MatchPerson viewer, string url)
+    {
+        var json = await (await GetAsync(viewer, url)).Content.ReadFromJsonAsync<JsonElement>();
+        var value = json.GetProperty("avatarUrl");
+        return value.ValueKind == JsonValueKind.Null ? null : value.GetString();
+    }
+
+    /// <summary>Свой аватар по ссылке из профиля: байты и ответ хранилища.</summary>
+    private async Task<(byte[] Bytes, HttpResponseMessage Response)> DownloadOwnAsync(MatchPerson person)
+    {
+        var url = await AvatarUrlInAsync(person, "/api/v1/me") ?? throw new InvalidOperationException("в профиле нет аватара");
+        var response = await _storageClient.GetAsync(url);
         return (response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync() : [], response);
     }
 
     private static SKBitmap Decode(byte[] bytes) => SKBitmap.Decode(bytes) ?? throw new InvalidOperationException("не картинка");
 
-    private async Task<JsonElement> MeAsync(MatchPerson who)
-    {
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", who.Token);
-        return await (await _client.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
-    }
+    private static async Task<JsonElement> JsonAsync(HttpResponseMessage response) => await response.Content.ReadFromJsonAsync<JsonElement>();
 
     // ---------- загрузка и обработка ----------
 
@@ -79,15 +98,14 @@ public class AvatarTests
         var response = await PutAvatarAsync(person, original);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var url = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("avatarUrl").GetString()!;
-        Assert.StartsWith($"/api/v1/users/{person.Id}/avatar?v=", url);
-        Assert.Equal(url, (await MeAsync(person)).GetProperty("avatarUrl").GetString());   // адрес лежит в профиле
+        var url = (await JsonAsync(response)).GetProperty("avatarUrl").GetString()!;
+        Assert.Contains("X-Amz-Signature=", url);   // ответ загрузки уже содержит подписанную ссылку
+        Assert.StartsWith("http", await AvatarUrlInAsync(person, "/api/v1/me"));   // в профиле ссылка, а не ключ
 
-        var (bytes, get) = await GetAvatarAsync(person.Id);
+        var (bytes, get) = await DownloadOwnAsync(person);
         Assert.Equal(HttpStatusCode.OK, get.StatusCode);
         Assert.Equal("image/webp", get.Content.Headers.ContentType!.MediaType);
-        Assert.Contains("public", get.Headers.CacheControl!.ToString());
-        Assert.Equal("nosniff", get.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("inline", get.Content.Headers.ContentDisposition!.DispositionType);   // показывается в <img>, а не скачивается
 
         Assert.False(TestFiles.Contains(bytes, TestFiles.Marker));   // метаданных нет
         Assert.False(TestFiles.Contains(bytes, "Exif"));
@@ -112,7 +130,7 @@ public class AvatarTests
         var response = await PutAvatarAsync(person, file, "a." + format);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var avatar = Decode((await GetAvatarAsync(person.Id)).Bytes);
+        using var avatar = Decode((await DownloadOwnAsync(person)).Bytes);
         Assert.Equal((400, 400), (avatar.Width, avatar.Height));   // квадрат по меньшей стороне, не больше 512
     }
 
@@ -123,7 +141,7 @@ public class AvatarTests
 
         await PutAvatarAsync(person, TestFiles.Png(100, 100));
 
-        using var avatar = Decode((await GetAvatarAsync(person.Id)).Bytes);
+        using var avatar = Decode((await DownloadOwnAsync(person)).Bytes);
         Assert.Equal((100, 100), (avatar.Width, avatar.Height));
     }
 
@@ -134,38 +152,226 @@ public class AvatarTests
 
         await PutAvatarAsync(person, TestFiles.PngWithText(), "a.png");
 
-        Assert.False(TestFiles.Contains((await GetAvatarAsync(person.Id)).Bytes, TestFiles.Marker));
+        Assert.False(TestFiles.Contains((await DownloadOwnAsync(person)).Bytes, TestFiles.Marker));
     }
 
     [Fact]
-    public async Task The_stored_object_is_the_processed_one_in_a_closed_bucket()
+    public async Task Replacing_the_avatar_gives_a_new_link_and_deletes_the_old_object()
     {
         var person = await PersonAsync();
-        await PutAvatarAsync(person, TestFiles.JpegWithExif(900, 900, 1));
+        await PutAvatarAsync(person, TestFiles.Png(300, 300));
+        var oldKey = await _factory.QueryAsync(db => db.Users.Where(u => u.Id == person.Id).Select(u => u.AvatarKey).SingleAsync());
+        var first = await AvatarUrlInAsync(person, "/api/v1/me");
 
-        using var scope = _factory.Services.CreateScope();
-        var stored = await scope.ServiceProvider.GetRequiredService<IFileStorage>().GetAsync(AvatarService.KeyFor(person.Id), CancellationToken.None);
+        await PutAvatarAsync(person, TestFiles.Png(200, 200));
 
-        Assert.NotNull(stored);
-        await using var content = stored!.Content;
-        using var memory = new MemoryStream();
-        await content.CopyToAsync(memory);
-        Assert.False(TestFiles.Contains(memory.ToArray(), TestFiles.Marker));   // в хранилище уже очищенный файл, исходного там нет
-        Assert.Equal("image/webp", stored.ContentType);
-    }
-
-    [Fact]
-    public async Task Replacing_the_avatar_changes_the_version_and_the_picture()
-    {
-        var person = await PersonAsync();
-        var first = (await (await PutAvatarAsync(person, TestFiles.Png(300, 300))).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("avatarUrl").GetString();
-        await Task.Delay(20);
-
-        var second = (await (await PutAvatarAsync(person, TestFiles.Png(200, 200))).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("avatarUrl").GetString();
-
-        Assert.NotEqual(first, second);   // параметр v другой: кэш браузера сбрасывается
-        using var avatar = Decode((await GetAvatarAsync(person.Id)).Bytes);
+        var second = await AvatarUrlInAsync(person, "/api/v1/me");
+        Assert.NotEqual(first, second);
+        using var avatar = Decode((await DownloadOwnAsync(person)).Bytes);
         Assert.Equal((200, 200), (avatar.Width, avatar.Height));
+        using var scope = _factory.Services.CreateScope();
+        Assert.Null(await scope.ServiceProvider.GetRequiredService<IFileStorage>().GetAsync(oldKey!, CancellationToken.None));   // старая картинка удалена
+    }
+
+    [Fact]
+    public async Task The_database_holds_a_storage_key_never_a_url_and_the_key_is_not_leaked()
+    {
+        var person = await PersonAsync();
+        await PutAvatarAsync(person, TestFiles.Png());
+
+        var key = await _factory.QueryAsync(db => db.Users.Where(u => u.Id == person.Id).Select(u => u.AvatarKey).SingleAsync());
+        var shown = await AvatarUrlInAsync(person, "/api/v1/me");
+
+        Assert.StartsWith($"avatars/{person.Id:N}/", key);
+        Assert.StartsWith("http", shown);
+        Assert.DoesNotContain(key!.Split('/')[^1], shown!.Split('?')[0].Replace(key, ""));   // ключ встречается только внутри адреса объекта
+    }
+
+    // ---------- подписанная ссылка: срок и закрытый бакет ----------
+
+    [Fact]
+    public async Task The_link_lasts_one_hour_and_the_bucket_itself_stays_closed()
+    {
+        var person = await PersonAsync();
+        await PutAvatarAsync(person, TestFiles.Png());
+        var url = (await AvatarUrlInAsync(person, "/api/v1/me"))!;
+
+        Assert.Matches("X-Amz-Expires=(359[5-9]|3600)", url);   // час
+        Assert.Equal(HttpStatusCode.OK, (await _storageClient.GetAsync(url)).StatusCode);
+
+        var unsigned = url[..url.IndexOf('?')];
+        Assert.Equal(HttpStatusCode.Forbidden, (await _storageClient.GetAsync(unsigned)).StatusCode);   // постоянного открытого адреса нет
+    }
+
+    [Fact]
+    public async Task There_is_no_open_avatar_endpoint_any_more()
+    {
+        var person = await PersonAsync();
+        await PutAvatarAsync(person, TestFiles.Png());
+
+        var response = await _client.GetAsync($"/api/v1/users/{person.Id}/avatar");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_link_is_built_on_the_public_endpoint_when_it_differs_from_the_internal_one()
+    {
+        var person = await PersonAsync();
+        await PutAvatarAsync(person, TestFiles.Png());
+        using var copy = _factory.WithSettings("Testing", ("Storage:PublicEndpoint", "https://files.skillswap.test"));
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", person.Token);
+        var profile = await JsonAsync(await copy.CreateClient().SendAsync(request));
+
+        Assert.StartsWith("https://files.skillswap.test/", profile.GetProperty("avatarUrl").GetString());
+    }
+
+    // ---------- кто видит аватар ----------
+
+    private async Task<(MatchTestWorld World, MatchPerson A, MatchPerson B)> PairWithAvatarsAsync()
+    {
+        var world = await MatchTestWorld.CreateAsync(_factory);
+        var a = await world.UserAsync((0, SkillLevel.Beginner), (1, SkillLevel.Beginner));
+        var b = await world.UserAsync((1, SkillLevel.Beginner), (0, SkillLevel.Beginner));
+        await PutAvatarAsync(a, TestFiles.Png());
+        await PutAvatarAsync(b, TestFiles.Png());
+        return (world, a, b);
+    }
+
+    [Fact]
+    public async Task The_avatar_appears_in_the_public_profile_and_in_matches_for_those_who_may_see_the_person()
+    {
+        var (_, a, b) = await PairWithAvatarsAsync();
+
+        var inProfile = await AvatarUrlInAsync(b, $"/api/v1/users/{a.Id}");
+        Assert.Contains("X-Amz-Signature=", inProfile);
+        Assert.Equal(HttpStatusCode.OK, (await _storageClient.GetAsync(inProfile!)).StatusCode);
+
+        var matches = await JsonAsync(await GetAsync(b, "/api/v1/matches"));
+        var item = matches.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("userId").GetGuid() == a.Id);
+        Assert.Contains("X-Amz-Signature=", item.GetProperty("avatarUrl").GetString());
+    }
+
+    [Fact]
+    public async Task Requests_and_exchanges_show_the_counterpart_avatar_to_participants()
+    {
+        var (world, a, b) = await PairWithAvatarsAsync();
+        var created = await _client.SendAsync(Post(a, "/api/v1/exchange-requests",
+            new { toUserId = b.Id, toTeachesSkillId = world.S(1), fromTeachesSkillId = world.S(0), durationDays = 30 }));
+        var requestId = (await JsonAsync(created)).GetProperty("id").GetGuid();
+
+        var request = await JsonAsync(await GetAsync(b, $"/api/v1/exchange-requests/{requestId}"));
+        Assert.Contains("X-Amz-Signature=", request.GetProperty("fromUser").GetProperty("avatarUrl").GetString());
+        Assert.Contains("X-Amz-Signature=", request.GetProperty("toUser").GetProperty("avatarUrl").GetString());
+
+        var accept = await _client.SendAsync(Post(b, $"/api/v1/exchange-requests/{requestId}/accept", null));
+        var exchangeId = (await JsonAsync(accept)).GetProperty("exchangeId").GetGuid();
+        var exchange = await JsonAsync(await GetAsync(a, $"/api/v1/exchanges/{exchangeId}"));
+        Assert.Contains("X-Amz-Signature=", exchange.GetProperty("partner").GetProperty("avatarUrl").GetString());
+        var list = await JsonAsync(await GetAsync(a, "/api/v1/exchanges"));
+        Assert.Contains("X-Amz-Signature=", list.GetProperty("items")[0].GetProperty("partner").GetProperty("avatarUrl").GetString());
+    }
+
+    [Fact]
+    public async Task After_a_block_neither_side_sees_the_others_avatar_anywhere()
+    {
+        var (world, a, b) = await PairWithAvatarsAsync();
+        var created = await _client.SendAsync(Post(a, "/api/v1/exchange-requests",
+            new { toUserId = b.Id, toTeachesSkillId = world.S(1), fromTeachesSkillId = world.S(0), durationDays = 30 }));
+        var requestId = (await JsonAsync(created)).GetProperty("id").GetGuid();
+        var accept = await _client.SendAsync(Post(b, $"/api/v1/exchange-requests/{requestId}/accept", null));
+        var exchangeId = (await JsonAsync(accept)).GetProperty("exchangeId").GetGuid();
+
+        await _client.SendAsync(Post(a, $"/api/v1/users/{b.Id}/block", null));
+
+        foreach (var (viewer, partner) in new[] { (a, b), (b, a) })
+        {
+            var exchange = await JsonAsync(await GetAsync(viewer, $"/api/v1/exchanges/{exchangeId}"));
+            Assert.Equal(JsonValueKind.Null, exchange.GetProperty("partner").GetProperty("avatarUrl").ValueKind);   // обмен прерван, но аватар скрыт
+            var request = await JsonAsync(await GetAsync(viewer, $"/api/v1/exchange-requests/{requestId}"));
+            var other = request.GetProperty(request.GetProperty("fromUser").GetProperty("id").GetGuid() == partner.Id ? "fromUser" : "toUser");
+            Assert.Equal(JsonValueKind.Null, other.GetProperty("avatarUrl").ValueKind);
+            Assert.Equal("Aborted", exchange.GetProperty("status").GetString());
+        }
+
+        // Себя человек по-прежнему видит со своим аватаром.
+        Assert.NotNull(await AvatarUrlInAsync(a, "/api/v1/me"));
+
+        // Список заблокированных: профиль закрыт, поэтому и аватара нет.
+        var blocked = await JsonAsync(await GetAsync(a, "/api/v1/me/blocks"));
+        Assert.Equal(JsonValueKind.Null, blocked[0].GetProperty("avatarUrl").ValueKind);
+    }
+
+    [Fact]
+    public async Task The_age_group_rule_hides_avatars_between_minors_and_adults_but_not_between_equals()
+    {
+        var adult1 = await PersonAsync(new DateOnly(1990, 1, 1));
+        var adult2 = await PersonAsync(new DateOnly(1995, 1, 1));
+        var minor = await PersonAsync(DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-17)));
+        foreach (var person in new[] { adult1, adult2, minor })
+        {
+            await PutAvatarAsync(person, TestFiles.Png());
+        }
+
+        async Task<IReadOnlyDictionary<Guid, string?>> SeenBy(MatchPerson viewer, params MatchPerson[] owners)
+        {
+            using var scope = _factory.Services.CreateScope();
+            var keys = await _factory.QueryAsync(db => db.Users.Where(u => owners.Select(o => o.Id).Contains(u.Id)).Select(u => new { u.Id, u.AvatarKey }).ToListAsync());
+            return await scope.ServiceProvider.GetRequiredService<AvatarUrls>().ForViewerAsync(viewer.Id, keys.Select(k => (k.Id, k.AvatarKey)), CancellationToken.None);
+        }
+
+        var adultSees = await SeenBy(adult1, adult2, minor);
+        Assert.NotNull(adultSees[adult2.Id]);
+        Assert.Null(adultSees[minor.Id]);                                    // взрослый не видит аватар подростка
+        Assert.Null((await SeenBy(minor, adult1))[adult1.Id]);               // и подросток — взрослого
+        Assert.NotNull((await SeenBy(minor, minor))[minor.Id]);              // себя видит всегда
+
+        await _factory.QueryAsync(async db =>
+        {
+            await db.SystemSettings.Where(s => s.Key == SystemSettingKeys.MinorsMatchOnlyMinors).ExecuteUpdateAsync(s => s.SetProperty(x => x.Value, "false"));
+            return 0;
+        });
+        try
+        {
+            Assert.NotNull((await SeenBy(adult1, minor))[minor.Id]);         // настройка выключена: ограничений нет
+        }
+        finally
+        {
+            await _factory.QueryAsync(async db =>
+            {
+                await db.SystemSettings.Where(s => s.Key == SystemSettingKeys.MinorsMatchOnlyMinors).ExecuteUpdateAsync(s => s.SetProperty(x => x.Value, "true"));
+                return 0;
+            });
+        }
+    }
+
+    [Fact]
+    public async Task When_the_storage_is_down_profiles_are_still_served_without_an_avatar()
+    {
+        var person = await PersonAsync();
+        await PutAvatarAsync(person, TestFiles.Png());
+        using var off = _factory.WithSettings("Testing", ("Storage:Endpoint", ""));
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", person.Token);
+        var response = await off.CreateClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);   // не 503: профиль важнее картинки
+        Assert.Equal(JsonValueKind.Null, (await JsonAsync(response)).GetProperty("avatarUrl").ValueKind);
+    }
+
+    private static HttpRequestMessage Post(MatchPerson who, string url, object? body)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", who.Token);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        return request;
     }
 
     // ---------- отказы ----------
@@ -174,8 +380,6 @@ public class AvatarTests
     public async Task Other_formats_and_disguised_files_are_refused()
     {
         var person = await PersonAsync();
-        using var bmp = TestFiles.Picture(32, 32);
-        using var image = SKImage.FromBitmap(bmp);
         var gif = new byte[] { 0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0, 0, 0, 0x3B };
 
         foreach (var (file, name) in new (byte[], string)[]
@@ -188,10 +392,10 @@ public class AvatarTests
         {
             var response = await PutAvatarAsync(person, file, name);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Equal("unsupported_image", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+            Assert.Equal("unsupported_image", (await JsonAsync(response)).GetProperty("code").GetString());
         }
 
-        Assert.Equal(HttpStatusCode.NotFound, (await GetAvatarAsync(person.Id)).Response.StatusCode);   // ничего не сохранилось
+        Assert.Null(await AvatarUrlInAsync(person, "/api/v1/me"));   // ничего не сохранилось
     }
 
     [Fact]
@@ -216,7 +420,7 @@ public class AvatarTests
         var response = await PutAvatarAsync(person, big, "big.png");
 
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
-        Assert.Equal("avatar_too_large", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal("avatar_too_large", (await JsonAsync(response)).GetProperty("code").GetString());
     }
 
     [Fact]
@@ -227,7 +431,7 @@ public class AvatarTests
         var response = await PutAvatarAsync(person, TestFiles.Png(6000, 5000), "huge.png");   // 30 мегапикселей
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("image_too_large", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal("image_too_large", (await JsonAsync(response)).GetProperty("code").GetString());
     }
 
     [Fact]
@@ -237,63 +441,31 @@ public class AvatarTests
 
         var noFile = await PutAvatarAsync(person, null);
         Assert.Equal(HttpStatusCode.BadRequest, noFile.StatusCode);
-        Assert.Equal("file_required", (await noFile.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal("file_required", (await JsonAsync(noFile)).GetProperty("code").GetString());
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await PutAvatarAsync(null, TestFiles.Png())).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await _client.DeleteAsync("/api/v1/me/avatar")).StatusCode);
     }
 
-    // ---------- удаление и видимость ----------
+    // ---------- удаление ----------
 
     [Fact]
     public async Task Removing_clears_the_profile_and_the_stored_object_and_repeats_are_harmless()
     {
         var person = await PersonAsync();
         await PutAvatarAsync(person, TestFiles.Png());
+        var key = await _factory.QueryAsync(db => db.Users.Where(u => u.Id == person.Id).Select(u => u.AvatarKey).SingleAsync());
 
         var delete = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/me/avatar");
         delete.Headers.Authorization = new AuthenticationHeaderValue("Bearer", person.Token);
         Assert.Equal(HttpStatusCode.NoContent, (await _client.SendAsync(delete)).StatusCode);
 
-        Assert.Equal(JsonValueKind.Null, (await MeAsync(person)).GetProperty("avatarUrl").ValueKind);
-        Assert.Equal(HttpStatusCode.NotFound, (await GetAvatarAsync(person.Id)).Response.StatusCode);
+        Assert.Null(await AvatarUrlInAsync(person, "/api/v1/me"));
         using var scope = _factory.Services.CreateScope();
-        Assert.Null(await scope.ServiceProvider.GetRequiredService<IFileStorage>().GetAsync(AvatarService.KeyFor(person.Id), CancellationToken.None));
+        Assert.Null(await scope.ServiceProvider.GetRequiredService<IFileStorage>().GetAsync(key!, CancellationToken.None));
 
         var again = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/me/avatar");
         again.Headers.Authorization = new AuthenticationHeaderValue("Bearer", person.Token);
         Assert.Equal(HttpStatusCode.NoContent, (await _client.SendAsync(again)).StatusCode);   // и без аватара не ошибка
-    }
-
-    [Fact]
-    public async Task The_avatar_of_a_blocked_or_unknown_user_is_not_served()
-    {
-        var person = await PersonAsync();
-        await PutAvatarAsync(person, TestFiles.Png());
-        Assert.Equal(HttpStatusCode.OK, (await GetAvatarAsync(person.Id)).Response.StatusCode);
-
-        await _factory.QueryAsync(async db =>
-        {
-            await db.Users.Where(u => u.Id == person.Id).ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Blocked));
-            return 0;
-        });
-
-        Assert.Equal(HttpStatusCode.NotFound, (await GetAvatarAsync(person.Id)).Response.StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await GetAvatarAsync(Guid.NewGuid())).Response.StatusCode);
-    }
-
-    [Fact]
-    public async Task The_avatar_url_shows_up_in_the_public_profile()
-    {
-        var world = await MatchTestWorld.CreateAsync(_factory);
-        var owner = await world.UserAsync((0, SkillLevel.Beginner), (1, SkillLevel.Beginner));
-        var viewer = await world.UserAsync((1, SkillLevel.Beginner), (0, SkillLevel.Beginner));
-        await PutAvatarAsync(owner, TestFiles.Png());
-
-        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/users/{owner.Id}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", viewer.Token);
-        var profile = await (await _client.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
-
-        Assert.StartsWith($"/api/v1/users/{owner.Id}/avatar?v=", profile.GetProperty("avatarUrl").GetString());
     }
 }

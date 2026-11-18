@@ -15,7 +15,7 @@ public sealed class UploadAvatarForm
 
 /// <summary>
 /// Аватар (раздел 5 ТЗ). Сервер удаляет из картинки метаданные (EXIF, GPS), обрезает её до квадрата и уменьшает до 512×512.
-/// Адрес готовой картинки лежит в <c>avatarUrl</c> профиля.
+/// Готовая картинка отдаётся в <c>avatarUrl</c> профиля подписанной ссылкой на 1 час, и только тому, кто вправе видеть этот профиль (скрытие, блокировки, возрастные группы); иначе там null.
 /// </summary>
 [ApiController]
 [Route("api/v1")]
@@ -30,8 +30,8 @@ public class AvatarController : ControllerBase
     }
 
     /// <summary>
-    /// Загрузить аватар (multipart/form-data, поле <c>file</c>). В ответе новый <c>avatarUrl</c> (относительный адрес, параметр <c>v</c> меняется при смене
-    /// аватара, поэтому кэш браузера не мешает). Ошибки: 400 <c>file_required</c>, <c>unsupported_image</c> (не png/jpg/webp или файл повреждён),
+    /// Загрузить аватар (multipart/form-data, поле <c>file</c>). В ответе новый <c>avatarUrl</c>: подписанная ссылка на 1 час (то же значение придёт в профиле);
+    /// постоянного открытого адреса у аватара нет. Ошибки: 400 <c>file_required</c>, <c>unsupported_image</c> (не png/jpg/webp или файл повреждён),
     /// <c>image_too_large</c>; 413 <c>avatar_too_large</c> (больше 2 МБ); 503 <c>storage_unavailable</c>.
     /// </summary>
     [HttpPut("me/avatar")]
@@ -69,24 +69,6 @@ public class AvatarController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// Картинка аватара (WebP). Без входа: её показывает обычный тег img, который не умеет слать токен. Адрес содержит id пользователя
-    /// и не перечисляется; скрытый профиль и блокировки здесь не проверяются. Нет аватара, аккаунт удалён или служебный — 404 <c>avatar_not_found</c>.
-    /// Кэшируется браузером на час (параметр <c>v</c> из <c>avatarUrl</c> сбрасывает кэш).
-    /// </summary>
-    [HttpGet("users/{id:guid}/avatar")]
-    [AllowAnonymous]
-    [Produces("image/webp")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
-    {
-        var file = await _avatars.GetAsync(id, ct);
-        Response.Headers.CacheControl = "public, max-age=3600";
-        Response.Headers["X-Content-Type-Options"] = "nosniff";
-        return File(file.Content, file.ContentType);
-    }
 
     private Guid UserId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

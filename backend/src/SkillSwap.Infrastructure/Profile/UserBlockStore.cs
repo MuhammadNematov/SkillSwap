@@ -54,8 +54,15 @@ public sealed class UserBlockStore : IUserBlockStore
                join u in _db.Users.AsNoTracking() on b.BlockedUserId equals u.Id
                where b.UserId == blockerId && u.Status != UserStatus.Deleted
                orderby b.CreatedAt descending, u.Id
-               select new BlockedUserDto(u.Id, u.Name, u.AvatarUrl, b.CreatedAt))
+               select new BlockedUserDto(u.Id, u.Name, u.AvatarKey, b.CreatedAt))
             .ToListAsync(ct);
+
+    public async Task<IReadOnlySet<Guid>> BlockedEitherWayAmongAsync(Guid userId, IReadOnlyCollection<Guid> otherIds, CancellationToken ct)
+    {
+        var asBlocker = _db.UserBlocks.AsNoTracking().Where(b => b.UserId == userId && otherIds.Contains(b.BlockedUserId)).Select(b => b.BlockedUserId);
+        var asBlocked = _db.UserBlocks.AsNoTracking().Where(b => b.BlockedUserId == userId && otherIds.Contains(b.UserId)).Select(b => b.UserId);
+        return (await asBlocker.Union(asBlocked).ToListAsync(ct)).ToHashSet();
+    }
 
     public Task<bool> IsBlockedEitherWayAsync(Guid userA, Guid userB, CancellationToken ct) =>
         _db.UserBlocks.AsNoTracking().AnyAsync(b =>
