@@ -57,7 +57,7 @@ public sealed class NotificationJobs
         }
 
         using var payload = JsonDocument.Parse(notification.PayloadJson);
-        var email = NotificationEmailTemplates.Build(notification.Type, user.UiLanguage, user.Name, payload.RootElement, _frontend);
+        var email = NotificationEmailTemplates.Build(notification.Type, user.UiLanguage, user.Name, payload.RootElement, _frontend, user.TimeZone);
         if (email is null)
         {
             return;

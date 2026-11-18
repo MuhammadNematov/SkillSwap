@@ -133,7 +133,7 @@ public class ChatTests
 
     private Task AgeMessageAsync(Guid messageId, TimeSpan age) => _factory.QueryAsync(async db =>
     {
-        var at = DateTime.UtcNow - age;
+        var at = _factory.Clock.GetUtcNow().UtcDateTime - age;
         await db.Messages.Where(m => m.Id == messageId).ExecuteUpdateAsync(s => s.SetProperty(m => m.CreatedAt, at));
         return 0;
     });
@@ -597,7 +597,7 @@ public class ChatTests
         var (_, a, b, exchangeId) = await ExchangeAsync();
         await using var aConn = await ConnectAsync(a, new Events());
         var id = (await SendMessageAsync(aConn, exchangeId, "до закрытия")).GetProperty("id").GetGuid();
-        await SetExchangeAsync(exchangeId, status, status == ExchangeStatus.Frozen ? null : DateTime.UtcNow.AddDays(-1));
+        await SetExchangeAsync(exchangeId, status, status == ExchangeStatus.Frozen ? null : _factory.Clock.GetUtcNow().UtcDateTime.AddDays(-1));
 
         var write = await Assert.ThrowsAsync<HubException>(() => SendMessageAsync(aConn, exchangeId, "после закрытия"));
         Assert.Contains("chat_read_only", write.Message);
@@ -617,7 +617,7 @@ public class ChatTests
     public async Task The_reason_is_returned_in_the_problem_details_for_rest_clients_too()
     {
         var (_, a, _, exchangeId) = await ExchangeAsync();
-        await SetExchangeAsync(exchangeId, ExchangeStatus.Completed, DateTime.UtcNow.AddDays(-2));
+        await SetExchangeAsync(exchangeId, ExchangeStatus.Completed, _factory.Clock.GetUtcNow().UtcDateTime.AddDays(-2));
 
         var card = (await JsonAsync(await SendAsync(a, HttpMethod.Get, $"/exchanges/{exchangeId}"))).GetProperty("chat");
 
@@ -630,7 +630,7 @@ public class ChatTests
         var (_, a, _, exchangeId) = await ExchangeAsync();
         await using var aConn = await ConnectAsync(a, new Events());
         await SendMessageAsync(aConn, exchangeId, "давно");
-        await SetExchangeAsync(exchangeId, ExchangeStatus.Completed, DateTime.UtcNow.AddDays(-31));
+        await SetExchangeAsync(exchangeId, ExchangeStatus.Completed, _factory.Clock.GetUtcNow().UtcDateTime.AddDays(-31));
 
         var history = await SendAsync(a, HttpMethod.Get, $"/exchanges/{exchangeId}/messages");
         Assert.Equal(HttpStatusCode.Forbidden, history.StatusCode);
@@ -648,7 +648,7 @@ public class ChatTests
         var (_, a, _, exchangeId) = await ExchangeAsync();
         await using var aConn = await ConnectAsync(a, new Events());
         await SendMessageAsync(aConn, exchangeId, "ещё читается");
-        await SetExchangeAsync(exchangeId, ExchangeStatus.Aborted, DateTime.UtcNow.AddDays(-29));
+        await SetExchangeAsync(exchangeId, ExchangeStatus.Aborted, _factory.Clock.GetUtcNow().UtcDateTime.AddDays(-29));
 
         Assert.Single((await HistoryAsync(a, exchangeId)).GetProperty("items").EnumerateArray());
     }

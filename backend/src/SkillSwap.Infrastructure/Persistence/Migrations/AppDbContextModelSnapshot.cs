@@ -328,6 +328,96 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.LessonSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CancelledById")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ConfirmedByA")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ConfirmedByB")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DurationMin")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("EndAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExchangeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("LateJoinMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("NoShowUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("PreviousStartAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProposedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Reminder15Sent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Reminder24Sent")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("StartAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Topic")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UnconfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProposedById");
+
+                    b.HasIndex("TeacherId");
+
+                    b.HasIndex("ExchangeId", "StartAt");
+
+                    b.HasIndex("Status", "StartAt");
+
+                    b.ToTable("Sessions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Sessions_Duration", "\"DurationMin\" > 0");
+
+                            t.HasCheckConstraint("CK_Sessions_Times", "\"EndAt\" > \"StartAt\"");
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.LiveKitWebhookEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1528,6 +1618,27 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ToUserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.LessonSession", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Exchange", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ProposedById")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
 

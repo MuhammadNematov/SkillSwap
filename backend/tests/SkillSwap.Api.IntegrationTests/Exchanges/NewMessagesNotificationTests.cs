@@ -95,7 +95,7 @@ public class NewMessagesNotificationTests
 
     private Task AgeMessagesAsync(Guid exchangeId, TimeSpan age) => _factory.QueryAsync(async db =>
     {
-        var at = DateTime.UtcNow - age;
+        var at = _factory.Clock.GetUtcNow().UtcDateTime - age;
         await db.Messages.Where(m => m.ExchangeId == exchangeId).ExecuteUpdateAsync(s => s.SetProperty(m => m.CreatedAt, at));
         return 0;
     });

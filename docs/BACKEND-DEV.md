@@ -320,7 +320,7 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 | `POST /exchanges/{id}/abort` | Выйти досрочно: тело `{ "reason": "…" }` обязательно (до 500 символов). `Aborted`, `abortedBy: "me"` |
 | `POST /exchanges/{id}/extend` | Согласие на продление на 30 дней; продление применяется, когда согласны оба (одно за обмен) |
 
-Карточка показывает всё глазами вызывающего: `partner` (`id`, `name`, `avatarUrl`), `iSkillTeach` (чему учу я), `iSkillLearn` (чему учит партнёр), `startDate`, `endDate`, `isExtended`, `completedByMe`/`completedByPartner`, `myExtensionAccepted`/`partnerExtensionAccepted`, `frozenAt`, `abortedBy` (`me`, `partner` или `null`: прервала система при блокировке либо модератор), `abortReason`, `closedAt`, `balance` (`myLessons`, `partnerLessons`, `showReminder`: разница больше 3), `requestId`. Баланс пока нулевой: уроки появятся в шаге 7.
+Карточка показывает всё глазами вызывающего: `partner` (`id`, `name`, `avatarUrl`), `iSkillTeach` (чему учу я), `iSkillLearn` (чему учит партнёр), `startDate`, `endDate`, `isExtended`, `completedByMe`/`completedByPartner`, `myExtensionAccepted`/`partnerExtensionAccepted`, `frozenAt`, `abortedBy` (`me`, `partner` или `null`: прервала система при блокировке либо модератор), `abortReason`, `closedAt`, `balance` (`myLessons`, `partnerLessons`, `showReminder`: разница больше 3), `requestId`. Баланс считается по засчитанным урокам (раздел «Уроки»).
 
 Ошибки (`code`): 409 `invalid_state_transition` (обмен не активен: завершён, прерван, заморожен), 400 `validation_failed` (нет причины или она длиннее 500 символов) и `already_extended`, 404 `exchange_not_found`.
 
@@ -350,6 +350,7 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 | `ExchangeAborted` | заблокированному | партнёр заблокировал | `exchangeId`, `reason: "partner_unavailable"` (без имени) |
 | `ExtensionProposed` | партнёру | один согласился продлить | `exchangeId`, `userId`, `userName` |
 | `ExchangeExtended` | обоим | продление применено | `exchangeId`, `endDate` |
+| `SessionProposed`, `SessionConfirmed`, `SessionDeclined`, `SessionCancelled`, `SessionExpired`, `SessionReminder` (письмо), `SessionNeedsConfirmation`, `SessionCompleted`, `SessionNotCounted` | участникам урока | см. раздел «Уроки» | `sessionId`, `exchangeId`, `startAt`, `userId`, `userName` |
 | `NewMessages` | получателю сообщений | есть непрочитанные в чате обмена; одно уведомление на обмен, обновляется | `exchangeId`, `userId`, `userName`, `count` |
 
 Блокировка не создаёт уведомлений блокировавшему и не уведомляет об истёкших из-за блокировки заявках: факт блокировки не раскрывается. Новые типы (уроки, напоминания, обращения) добавятся в следующих шагах.
@@ -408,6 +409,47 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 - `DELETE /me/avatar` — убрать (всегда 204).
 - **`avatarUrl`** в профиле (`GET /me`, `GET /users/{id}`, карточки подбора, заявок и обменов) — **подписанная ссылка на 1 час** (абсолютный адрес хранилища, показывается в `<img src>` как есть). Открытого постоянного адреса у аватара **нет**: бакет закрыт. Ссылка выдаётся только тому, кто вправе видеть профиль: блокировавшие друг друга и (пока включена настройка) люди из разных возрастных групп вместо ссылки получают `null`; в списке заблокированных аватаров нет; свой аватар виден всегда. Если хранилище недоступно, профиль всё равно отдаётся, `avatarUrl` = `null`. Ссылка меняется при каждом запросе, поэтому держите её в состоянии компонента, а не в долгом кэше, и после часа запрашивайте профиль заново.
 - Ошибки (аватар): 400 `file_required`, `unsupported_image` (не png/jpg/webp, пустой или повреждённый файл), `image_too_large`; 413 `avatar_too_large`; 503 `storage_unavailable`.
+
+## Уроки (этап 4, шаг 7): контракт для фронтенда
+
+Тег **Lessons**. Урок (в ТЗ «сессия», таблица `Sessions`) — 45 минут внутри обмена. Участник предлагает время **карточкой в чате**, партнёр принимает, отклоняет или предлагает другое. Все времена в UTC (ISO 8601), показывайте их в часовом поясе пользователя; на вход время можно присылать с любым смещением (`2026-11-20T18:00:00+05:00`).
+
+| Метод | Что делает |
+| --- | --- |
+| `POST /exchanges/{id}/sessions` | Предложить время: `startAt`, `teacherId` (кто проводит: один из двух участников), `topic` (до 200). 201 + урок; в чат уходит карточка |
+| `GET /exchanges/{id}/sessions` | Все уроки обмена, новые по началу сверху |
+| `GET /sessions/{id}` | Один урок |
+| `POST /sessions/{id}/confirm` | Принять (только партнёр автора). `Proposed → Scheduled` |
+| `POST /sessions/{id}/decline` | Отклонить (только партнёр). `Proposed → Declined` |
+| `POST /sessions/{id}/reschedule` | Тело `{ "startAt": … }`. `Scheduled → Proposed` с новым временем (отвечает тот, кто не предлагал перенос) |
+| `POST /sessions/{id}/cancel` | Автор отзывает предложение; запланированный урок отменяет любой участник |
+| `POST /sessions/{id}/confirm-manual` | «Урок состоялся» (после планового окончания, пока нет видео) |
+| `GET /me/sessions?from=&to=&includeClosed=` | Календарь: мои уроки во всех обменах `[from, to)`, по возрастанию начала, с партнёром (`partner`: `id`, `name`, `avatarUrl`). По умолчанию ближайшие 30 дней, не больше 100 дней. Без `includeClosed` нет отклонённых, истёкших и отменённых |
+
+Урок: `id`, `exchangeId`, `teacherId`, `startAt`, `endAt`, `durationMinutes` (45), `topic`, `status`, `proposedById` (кто предложил текущее время: ответить может другой), `previousStartAt` (при переносе), `cancelledById` (null — отмена без виновного), `confirmedBy` (кто нажал «Урок состоялся»), `unconfirmedAt`, `confirmDeadlineAt`, `createdAt`.
+
+**Статусы** (раздел 9.3): `Proposed`, `Scheduled`, `Declined`, `Expired`, `Cancelled`, `LateCancelled`, `Unconfirmed`, `Completed`, `NotCounted`; `InProgress`, `Missed`, `NoShow` появятся с видеозвонками (этап 5).
+
+**Правила времени:**
+- Слот не раньше чем через **1 час** от сейчас (400 `slot_too_soon`) и не позже `endDate` обмена (400 `slot_after_exchange_end`); граничные значения допустимы.
+- Предложение без ответа **истекает в момент начала** (`Expired`, автору уведомление `SessionExpired`). Если принять после начала: 409 `session_expired`.
+- **Перенос**: только запланированный урок и не позднее чем за **2 часа** до начала (409 `reschedule_too_late`, дальше только отмена); старое время сразу свободно, новое подчиняется тем же правилам и ждёт подтверждения партнёра.
+- **Отмена** запланированного урока: за 2 часа и раньше `Cancelled`, позже `LateCancelled` (учитывается модератором); после начала нельзя (409 `session_already_started`). Предложение отзывает только автор (иначе 403 `not_session_proposer`).
+- **Пересечения** (409 `slot_overlap` с `conflictFor`: `you` — занят я, `partner` — занят собеседник): проверяются при принятии у **обоих** участников по **всем** их обменам, под блокировкой обоих, поэтому два одновременных подтверждения не поставят человека на два урока. Занятость — подтверждённые уроки; уроки встык (конец = начало) не пересекаются. Предлагающий не может предложить время, на которое сам занят.
+- Не больше 5 предложений без ответа в обмене (409 `too_many_proposals`). Менять уроки можно только в активном обмене (409 `exchange_not_active`; предложить в закрытом чате: 409 `chat_read_only`).
+- Ответить на своё предложение нельзя (403 `not_session_answerer`). Чужой урок — 404 `session_not_found`.
+
+**Карточка в чате.** Сообщение типа `SessionCard` с полем `session` (актуальный урок). После любого изменения урока оба участника получают в хабе `/hubs/chat` событие **`sessionUpdated`** с уроком целиком: замените состояние карточки по `session.id`. Карточку нельзя править и удалять. Новая карточка даёт обычное уведомление `NewMessages`; перенос (новое время без новой карточки) даёт уведомление `SessionProposed`.
+
+**Напоминания:** за **24 часа** и за **15 минут** до начала подтверждённого урока, обоим: уведомление `SessionReminder` и **письмо** (tg, ru, en) с временем урока в часовом поясе получателя и названием пояса. Если урок подтверждён меньше чем за сутки, приходит только 15-минутное. После переноса напоминания ставятся заново, об отменённом уроке не приходят.
+
+**Обмен закрывается** (прерван, заблокирован, завершён; на этапе 6 и заморожен): открытые уроки (`Proposed`, `Scheduled`) становятся `Cancelled` **без виновного** (`cancelledById: null`), карточки обновляются событием; отдельных уведомлений нет. Неподтверждённые и засчитанные уроки не трогаются, их ещё можно подтвердить.
+
+**Факт урока (пока нет видео).** В момент планового окончания `Scheduled → Unconfirmed`, обоим уведомление `SessionNeedsConfirmation`. Оба нажимают `confirm-manual` («Урок состоялся») в течение **24 часов**: `Completed` (уведомление `SessionCompleted` обоим). Иначе `NotCounted` (`SessionNotCounted`); после срока `confirm-manual` отвечает 409 `confirm_window_closed`. Повторное нажатие не ошибка (`confirmedBy` показывает, кто уже нажал). На этапе 5 это заменят события LiveKit.
+
+**Баланс** в карточке обмена (`balance`): `myLessons` и `partnerLessons` — число **засчитанных (`Completed`)** уроков, проведённых каждым в роли преподавателя (`teacherId`); `showReminder` при разнице больше 3. `NotCounted`, отменённые и несостоявшиеся не считаются.
+
+Типы уведомлений (`payload`: `sessionId`, `exchangeId`, `startAt`, `userId`, `userName`, у переноса `previousStartAt`, у отмены `late`, у напоминания `minutesBefore`): `SessionProposed` (перенос, партнёру), `SessionConfirmed` и `SessionDeclined` (автору), `SessionCancelled` (партнёру отменившего), `SessionExpired` (автору), `SessionReminder` (обоим, дублируется письмом), `SessionNeedsConfirmation`, `SessionCompleted`, `SessionNotCounted` (обоим).
 
 ## Тесты
 

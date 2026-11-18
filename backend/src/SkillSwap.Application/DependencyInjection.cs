@@ -5,6 +5,7 @@ using SkillSwap.Application.Blocks;
 using SkillSwap.Application.ExchangeRequests;
 using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Chat;
+using SkillSwap.Application.Sessions;
 using SkillSwap.Application.Files;
 using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Jobs;
@@ -43,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<ChatService>();
         services.AddSingleton<ChatThrottle>();
         services.AddScoped<NewMessagesNotifier>();
+        services.AddScoped<LessonSessionService>();
+        services.AddScoped<LessonSessionJobs>();
         services.AddScoped<AttachmentService>();
         services.AddScoped<AvatarService>();
         services.AddScoped<AvatarUrls>();

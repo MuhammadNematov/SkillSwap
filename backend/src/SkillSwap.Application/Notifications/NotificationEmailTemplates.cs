@@ -11,13 +11,14 @@ namespace SkillSwap.Application.Notifications;
 /// </summary>
 internal static class NotificationEmailTemplates
 {
-    public static (string Subject, string Body)? Build(NotificationType type, string language, string name, JsonElement payload, FrontendOptions frontend)
+    public static (string Subject, string Body)? Build(NotificationType type, string language, string name, JsonElement payload, FrontendOptions frontend, string timeZone)
     {
         var other = Text(payload, "userName") ?? "—";
         return type switch
         {
             NotificationType.RequestReceived => RequestReceived(language, name, other, frontend.RequestsUrl()),
             NotificationType.RequestAccepted => RequestAccepted(language, name, other, ExchangeLink(payload, frontend)),
+            NotificationType.SessionReminder => Reminder(language, name, other, payload, ExchangeLink(payload, frontend), timeZone),
             _ => null,
         };
     }
@@ -35,6 +36,47 @@ internal static class NotificationEmailTemplates
             "SkillSwap: you have unread messages",
             $"Hello, {name}!\n\n{other} wrote to you in your exchange chat. Unread messages: {count}. Open the chat:\n{link}"),
     };
+
+    /// <summary>
+    /// Напоминание об уроке за 24 часа или за 15 минут. Время показывается в часовом поясе получателя (раздел 6 ТЗ): у каждого из двоих оно своё,
+    /// в письме указан и сам пояс, чтобы не было путаницы.
+    /// </summary>
+    private static (string, string) Reminder(string language, string name, string other, JsonElement payload, string link, string timeZone)
+    {
+        var minutes = int.TryParse(Text(payload, "minutesBefore"), out var m) ? m : 15;
+        var when = LocalTime(Text(payload, "startAt"), timeZone);
+        var tg = minutes >= 1440 ? "пас аз 24 соат" : "пас аз 15 дақиқа";
+        var ru = minutes >= 1440 ? "через 24 часа" : "через 15 минут";
+        var en = minutes >= 1440 ? "in 24 hours" : "in 15 minutes";
+        return language switch
+        {
+            "ru" => (
+                $"SkillSwap: урок {ru}",
+                $"Здравствуйте, {name}!\n\nНапоминаем: урок с {other} начнётся {ru}, {when}. Откройте обмен:\n{link}"),
+            "tg" => (
+                $"SkillSwap: дарс {tg}",
+                $"Салом, {name}!\n\nЯдрас мекунем: дарс бо {other} {tg} оғоз мешавад, {when}. Мубодиларо кушоед:\n{link}"),
+            _ => (
+                $"SkillSwap: lesson {en}",
+                $"Hello, {name}!\n\nReminder: your lesson with {other} starts {en}, {when}. Open the exchange:\n{link}"),
+        };
+    }
+
+    /// <summary>«20.11.2026 18:00 (Asia/Dushanbe)»; если пояс неизвестен системе, время остаётся в UTC.</summary>
+    private static string LocalTime(string? startAtUtc, string timeZone)
+    {
+        if (!DateTime.TryParse(startAtUtc, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var utc))
+        {
+            return "—";
+        }
+
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out var zone))
+        {
+            return $"{TimeZoneInfo.ConvertTimeFromUtc(utc, zone):dd.MM.yyyy HH:mm} ({timeZone})";
+        }
+
+        return $"{utc:dd.MM.yyyy HH:mm} (UTC)";
+    }
 
     private static string ExchangeLink(JsonElement payload, FrontendOptions frontend) =>
         Guid.TryParse(Text(payload, "exchangeId"), out var id) ? frontend.ExchangeUrl(id) : frontend.BaseUrl.TrimEnd('/');

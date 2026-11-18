@@ -19,7 +19,7 @@ namespace SkillSwap.Api.Hubs;
 ///
 /// События от сервера (всем в группе обмена, включая другие вкладки автора): <c>message</c> (сообщение), <c>messageEdited</c> (сообщение),
 /// <c>messageDeleted</c> ({ exchangeId, messageId, deletedAt }), <c>messagesRead</c> ({ exchangeId, readerId, upToMessageId, marked, readAt }),
-/// <c>typing</c> ({ exchangeId, userId }, только собеседнику).
+/// <c>typing</c> ({ exchangeId, userId }, только собеседнику), <c>sessionUpdated</c> (урок целиком: карточка урока в чате обновляется у обоих).
 /// </summary>
 [Authorize]
 public sealed class ChatHub : Hub
@@ -29,6 +29,7 @@ public sealed class ChatHub : Hub
     public const string MessageDeletedEvent = "messageDeleted";
     public const string MessagesReadEvent = "messagesRead";
     public const string TypingEvent = "typing";
+    public const string SessionUpdatedEvent = "sessionUpdated";
 
     /// <summary>«Печатает…» не чаще раза в 2 секунды с одного соединения: клиенты шлют его на каждое нажатие клавиши.</summary>
     private static readonly TimeSpan TypingInterval = TimeSpan.FromSeconds(2);
@@ -142,6 +143,9 @@ public sealed class SignalRChatBroadcaster : IChatBroadcaster
 
     public Task MessageDeletedAsync(MessageDeletedDto deleted, CancellationToken ct) =>
         _hub.Clients.Group(ChatHub.GroupName(deleted.ExchangeId)).SendAsync(ChatHub.MessageDeletedEvent, deleted, ct);
+
+    public Task SessionUpdatedAsync(SkillSwap.Application.Sessions.LessonSessionDto session, CancellationToken ct) =>
+        _hub.Clients.Group(ChatHub.GroupName(session.ExchangeId)).SendAsync(ChatHub.SessionUpdatedEvent, session, ct);
 
     public Task MessagesReadAsync(ReadReceiptDto receipt, CancellationToken ct) =>
         _hub.Clients.Group(ChatHub.GroupName(receipt.ExchangeId)).SendAsync(ChatHub.MessagesReadEvent, receipt, ct);

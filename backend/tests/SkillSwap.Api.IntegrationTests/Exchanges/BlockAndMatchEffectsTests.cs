@@ -269,7 +269,7 @@ public class BlockAndMatchEffectsTests
         var requestId = await RequestToBAsync(world, a, b);
         await _factory.QueryAsync(async db =>
         {
-            await db.ExchangeRequests.Where(r => r.Id == requestId).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+            await db.ExchangeRequests.Where(r => r.Id == requestId).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1)));
             return 0;
         });
 

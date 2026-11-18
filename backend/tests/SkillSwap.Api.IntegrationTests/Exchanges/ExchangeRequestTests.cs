@@ -282,7 +282,7 @@ public class ExchangeRequestTests
         // Отказ «состарился» на 31 день.
         await _factory.QueryAsync(async db =>
         {
-            await db.ExchangeRequests.Where(r => r.Id == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.RespondedAt, DateTime.UtcNow.AddDays(-31)));
+            await db.ExchangeRequests.Where(r => r.Id == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.RespondedAt, _factory.Clock.GetUtcNow().UtcDateTime.AddDays(-31)));
             return 0;
         });
         Assert.Equal(HttpStatusCode.Created, (await SendRequestAsync(a, b, w.S(1), w.S(0))).StatusCode);
@@ -344,7 +344,7 @@ public class ExchangeRequestTests
         // Срок первой вышел, а фоновая задача ещё не успела её закрыть.
         await _factory.QueryAsync(async db =>
         {
-            await db.ExchangeRequests.Where(r => r.Id == ids[0]).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+            await db.ExchangeRequests.Where(r => r.Id == ids[0]).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1)));
             return 0;
         });
 
@@ -536,7 +536,7 @@ public class ExchangeRequestTests
         var id = await CreateAsync(a, b, w.S(1), w.S(0));
         await _factory.QueryAsync(async db =>
         {
-            await db.ExchangeRequests.Where(r => r.Id == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+            await db.ExchangeRequests.Where(r => r.Id == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1)));
             return 0;
         });
 
@@ -584,7 +584,7 @@ public class ExchangeRequestTests
 
         await _factory.QueryAsync(async db =>
         {
-            await db.ExchangeRequests.Where(r => r.Id == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+            await db.ExchangeRequests.Where(r => r.Id == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1)));
             return 0;
         });
         await RunExpireJobAsync(id);
@@ -596,7 +596,7 @@ public class ExchangeRequestTests
         await _factory.QueryAsync(async db =>
         {
             await db.ExchangeRequests.Where(r => r.Id == accepted).ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.Status, ExchangeRequestStatus.Withdrawn).SetProperty(r => r.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+                .SetProperty(r => r.Status, ExchangeRequestStatus.Withdrawn).SetProperty(r => r.ExpiresAt, _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1)));
             return 0;
         });
         await RunExpireJobAsync(accepted);

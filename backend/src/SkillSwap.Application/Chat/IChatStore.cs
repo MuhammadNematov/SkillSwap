@@ -49,4 +49,7 @@ public interface IChatBroadcaster
     Task MessageDeletedAsync(MessageDeletedDto deleted, CancellationToken ct);
 
     Task MessagesReadAsync(ReadReceiptDto receipt, CancellationToken ct);
+
+    /// <summary>Состояние урока изменилось: карточка урока в чате обновляется у обоих участников (событие <c>sessionUpdated</c>).</summary>
+    Task SessionUpdatedAsync(Sessions.LessonSessionDto session, CancellationToken ct);
 }

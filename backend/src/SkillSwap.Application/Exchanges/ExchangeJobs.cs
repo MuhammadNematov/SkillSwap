@@ -9,13 +9,15 @@ public sealed class ExchangeJobs
     private readonly IExchangeStore _exchanges;
     private readonly IUnitOfWork _uow;
     private readonly INotificationPublisher _notify;
+    private readonly Sessions.LessonSessionService _lessons;
     private readonly TimeProvider _clock;
 
-    public ExchangeJobs(IExchangeStore exchanges, IUnitOfWork uow, INotificationPublisher notify, TimeProvider clock)
+    public ExchangeJobs(IExchangeStore exchanges, IUnitOfWork uow, INotificationPublisher notify, TimeProvider clock, Sessions.LessonSessionService lessons)
     {
         _exchanges = exchanges;
         _uow = uow;
         _notify = notify;
+        _lessons = lessons;
         _clock = clock;
     }
 
@@ -28,6 +30,7 @@ public sealed class ExchangeJobs
             return;
         }
 
+        var cancelled = new List<Sessions.LessonSessionDto>();
         await _uow.ExecuteAsync(async ct =>
         {
             await _uow.LockUsersAsync([peek.UserA.Id, peek.UserB.Id], ct);
@@ -36,6 +39,7 @@ public sealed class ExchangeJobs
             {
                 _notify.Add(exchange.UserAId, Domain.Enums.NotificationType.ExchangeCompleted, new { exchangeId });
                 _notify.Add(exchange.UserBId, Domain.Enums.NotificationType.ExchangeCompleted, new { exchangeId });
+                cancelled = [.. await _lessons.CancelOpenAsync(exchangeId, exchange.UserAId, exchange.UserBId, ct)];   // открытые уроки отменяются без виновного
                 await _exchanges.SaveAsync(ct);
             }
 
@@ -43,5 +47,6 @@ public sealed class ExchangeJobs
         }, CancellationToken.None);
 
         _notify.Dispatch();
+        await _lessons.PublishUpdatesAsync(cancelled);
     }
 }

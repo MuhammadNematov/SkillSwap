@@ -24,6 +24,7 @@ public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyC
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<LessonSession> Sessions => Set<LessonSession>();
     public DbSet<MessageRevision> MessageRevisions => Set<MessageRevision>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<SkillSuggestion> SkillSuggestions => Set<SkillSuggestion>();

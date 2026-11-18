@@ -23,6 +23,7 @@ public sealed class ChatService
     public const int MaxPageSize = 100;
 
     private readonly IMessageStore _messages;
+    private readonly Sessions.ILessonSessionStore _sessions;
     private readonly IExchangeStore _exchanges;
     private readonly IProfileStore _profiles;
     private readonly IMessageCipher _cipher;
@@ -33,10 +34,11 @@ public sealed class ChatService
     private readonly ILogger<ChatService> _logger;
 
     public ChatService(
-        IMessageStore messages, IExchangeStore exchanges, IProfileStore profiles, IMessageCipher cipher, IChatBroadcaster broadcaster,
+        IMessageStore messages, Sessions.ILessonSessionStore sessions, IExchangeStore exchanges, IProfileStore profiles, IMessageCipher cipher, IChatBroadcaster broadcaster,
         ChatThrottle throttle, NewMessagesNotifier newMessages, TimeProvider clock, ILogger<ChatService> logger)
     {
         _messages = messages;
+        _sessions = sessions;
         _exchanges = exchanges;
         _profiles = profiles;
         _cipher = cipher;
@@ -90,7 +92,7 @@ public sealed class ChatService
     }
 
     /// <summary>Сообщение для ответа клиенту и события (текст уже известен, вложение передаётся).</summary>
-    public MessageDto ToMessageDto(Message message, Files.AttachmentDto? attachment) => ToDto(message, null, attachment);
+    public MessageDto ToMessageDto(Message message, Files.AttachmentDto? attachment, Sessions.LessonSessionDto? session = null) => ToDto(message, null, attachment, session);
 
     public async Task<MessageDto> EditAsync(Guid userId, Guid messageId, string? text, CancellationToken ct)
     {
@@ -149,7 +151,7 @@ public sealed class ChatService
         }
 
         var cursor = before is null ? ((DateTime, Guid)?)null : DecodeCursor(before);
-        await AccessAsync(userId, exchangeId, write: false, ct);
+        var exchange = await AccessAsync(userId, exchangeId, write: false, ct);
 
         var page = await _messages.ListBeforeAsync(exchangeId, cursor, size + 1, ct);   // на одно больше: так видно, есть ли ещё
         var hasMore = page.Count > size;
@@ -158,7 +160,12 @@ public sealed class ChatService
 
         items.Reverse();   // внутри страницы старые сверху
         var attachments = await _messages.GetAttachmentsAsync(items.Where(m => m.AttachmentId is not null).Select(m => m.AttachmentId!.Value).ToList(), ct);
-        return new MessagePageDto(items.Select(m => ToDto(m, null, m.AttachmentId is { } a && attachments.TryGetValue(a, out var att) ? Files.AttachmentMapper.ToDto(att) : null)).ToList(), nextBefore);
+        var sessionIds = items.Where(m => m.SessionId is not null).Select(m => m.SessionId!.Value).ToList();
+        var sessions = sessionIds.Count == 0 ? new Dictionary<Guid, LessonSession>() : (await _sessions.GetManyAsync(sessionIds, ct)).ToDictionary(p => p.Key, p => p.Value);
+        return new MessagePageDto(items.Select(m => ToDto(
+            m, null,
+            m.AttachmentId is { } a && attachments.TryGetValue(a, out var att) ? Files.AttachmentMapper.ToDto(att) : null,
+            m.SessionId is { } sid && sessions.TryGetValue(sid, out var ses) ? Sessions.LessonSessionService.ToDto(ses, exchange.UserA.Id, exchange.UserB.Id) : null)).ToList(), nextBefore);
     }
 
     /// <summary>Отметить прочитанными сообщения собеседника до указанного включительно (без указания — все). Читать можно и в режиме «только чтение».</summary>
@@ -292,11 +299,12 @@ public sealed class ChatService
         return clean;
     }
 
-    private MessageDto ToDto(Message m, string? knownText, Files.AttachmentDto? attachment = null) => new(
+    private MessageDto ToDto(Message m, string? knownText, Files.AttachmentDto? attachment = null, Sessions.LessonSessionDto? session = null) => new(
         m.Id, m.ExchangeId, m.SenderId, m.Type,
         m.IsDeleted || m.EncryptedContent is null ? null : knownText ?? _cipher.Decrypt(m.EncryptedContent),
         m.PaymentWarning, m.AttachmentId, m.SessionId, m.CreatedAt, m.EditedAt, m.DeletedAt, m.ReadAt,
-        m.IsDeleted ? null : attachment);   // у удалённого вложение не показывается
+        m.IsDeleted ? null : attachment,   // у удалённого вложение не показывается
+        session);
 
     private async Task TryBroadcastAsync(Func<Task> send)
     {

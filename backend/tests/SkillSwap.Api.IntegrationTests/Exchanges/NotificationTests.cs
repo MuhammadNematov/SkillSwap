@@ -166,7 +166,7 @@ public class NotificationTests
         var requestId = await RequestAsync(world, a, b);
         await _factory.QueryAsync(async db =>
         {
-            await db.ExchangeRequests.Where(r => r.Id == requestId).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+            await db.ExchangeRequests.Where(r => r.Id == requestId).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1)));
             return 0;
         });
 
@@ -261,7 +261,7 @@ public class NotificationTests
         var (_, exchangeId) = await ExchangeAsync(world, a, b);
         await _factory.QueryAsync(async db =>
         {
-            var end = DateTime.UtcNow.AddMinutes(-1);
+            var end = _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1);
             await db.Exchanges.Where(e => e.Id == exchangeId).ExecuteUpdateAsync(s => s.SetProperty(e => e.EndDate, end).SetProperty(e => e.StartDate, end.AddDays(-30)));
             return 0;
         });
@@ -444,6 +444,11 @@ public class NotificationTests
     [InlineData(NotificationType.ExchangeAborted, false)]
     [InlineData(NotificationType.ExtensionProposed, false)]
     [InlineData(NotificationType.ExchangeExtended, false)]
+    [InlineData(NotificationType.NewMessages, false)]
+    [InlineData(NotificationType.SessionReminder, true)]
+    [InlineData(NotificationType.SessionProposed, false)]
+    [InlineData(NotificationType.SessionConfirmed, false)]
+    [InlineData(NotificationType.SessionNeedsConfirmation, false)]
     public void Only_the_important_types_are_duplicated_by_email(NotificationType type, bool email) =>
         Assert.Equal(email, NotificationPolicy.SendsEmail(type));
 

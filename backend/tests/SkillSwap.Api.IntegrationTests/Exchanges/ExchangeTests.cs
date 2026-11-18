@@ -467,7 +467,7 @@ public class ExchangeTests
 
     private Task MoveEndDateAsync(Guid id, TimeSpan fromNow) => _factory.QueryAsync(async db =>
     {
-        var end = DateTime.UtcNow + fromNow;
+        var end = _factory.Clock.GetUtcNow().UtcDateTime + fromNow;
         await db.Exchanges.Where(e => e.Id == id).ExecuteUpdateAsync(s => s
             .SetProperty(e => e.EndDate, end).SetProperty(e => e.StartDate, end.AddDays(-30)));
         return 0;

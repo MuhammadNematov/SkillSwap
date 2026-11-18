@@ -60,9 +60,10 @@ public sealed class NotificationPublisher : INotificationPublisher
 
 /// <summary>
 /// По email дублируется только важное (решение для этапа 4): новая заявка и принятая заявка; позже напоминания об уроках и решения по
-/// обращениям (их типы добавятся в шагах 7 и этапе 6). Остальное только в интерфейсе.
+/// обращениям (напоминания об уроках добавлены в шаге 7, решения по обращениям добавятся на этапе 6). Остальное только в интерфейсе.
 /// </summary>
 public static class NotificationPolicy
 {
-    public static bool SendsEmail(NotificationType type) => type is NotificationType.RequestReceived or NotificationType.RequestAccepted;
+    public static bool SendsEmail(NotificationType type) =>
+        type is NotificationType.RequestReceived or NotificationType.RequestAccepted or NotificationType.SessionReminder;
 }

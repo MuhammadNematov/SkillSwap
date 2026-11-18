@@ -454,7 +454,7 @@ public class AttachmentTests
         await _factory.QueryAsync(async db =>
         {
             await db.Exchanges.Where(e => e.Id == exchangeId)
-                .ExecuteUpdateAsync(s => s.SetProperty(e => e.Status, ExchangeStatus.Completed).SetProperty(e => e.ClosedAt, DateTime.UtcNow.AddDays(-31)));
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.Status, ExchangeStatus.Completed).SetProperty(e => e.ClosedAt, _factory.Clock.GetUtcNow().UtcDateTime.AddDays(-31)));
             return 0;
         });
 

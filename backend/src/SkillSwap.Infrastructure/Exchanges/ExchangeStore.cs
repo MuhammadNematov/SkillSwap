@@ -38,6 +38,11 @@ public sealed class ExchangeStore : IExchangeStore
     public async Task<ExchangeRow?> GetViewAsync(Guid id, CancellationToken ct) =>
         (await ToRowsAsync(_db.Exchanges.AsNoTracking().Where(e => e.Id == id), ct)).FirstOrDefault();
 
+    public async Task<IReadOnlyDictionary<Guid, ExchangeRow>> GetViewsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        ids.Count == 0
+            ? new Dictionary<Guid, ExchangeRow>()
+            : (await ToRowsAsync(_db.Exchanges.AsNoTracking().Where(e => ids.Contains(e.Id)), ct)).ToDictionary(r => r.Id);
+
     public async Task<IReadOnlyList<Guid>> ListChatExchangeIdsAsync(Guid userId, DateTime closedAfter, CancellationToken ct) =>
         await _db.Exchanges.AsNoTracking()
             .Where(e => (e.UserAId == userId || e.UserBId == userId) && (Occupying.Contains(e.Status) || e.ClosedAt > closedAfter))

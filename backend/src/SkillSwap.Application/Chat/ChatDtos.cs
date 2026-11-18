@@ -19,7 +19,8 @@ public sealed record MessageDto(
     DateTime? EditedAt,
     DateTime? DeletedAt,
     DateTime? ReadAt,
-    Files.AttachmentDto? Attachment = null);
+    Files.AttachmentDto? Attachment = null,
+    Sessions.LessonSessionDto? Session = null);
 
 /// <summary>Страница истории. <c>Items</c> по возрастанию времени (старые сверху); <c>NextBefore</c> — курсор следующей, более старой страницы (null — истории больше нет).</summary>
 public sealed record MessagePageDto(IReadOnlyList<MessageDto> Items, string? NextBefore);

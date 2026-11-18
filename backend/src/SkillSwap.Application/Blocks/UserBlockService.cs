@@ -17,17 +17,19 @@ public sealed class UserBlockService
     private readonly IUnitOfWork _uow;
     private readonly IExchangeRequestStore _requests;
     private readonly IExchangeStore _exchanges;
+    private readonly Sessions.LessonSessionService _lessons;
     private readonly INotificationPublisher _notify;
     private readonly TimeProvider _clock;
 
     public UserBlockService(
-        IProfileStore profiles, IUserBlockStore blocks, IUnitOfWork uow, IExchangeRequestStore requests, IExchangeStore exchanges, INotificationPublisher notify, TimeProvider clock)
+        IProfileStore profiles, IUserBlockStore blocks, IUnitOfWork uow, IExchangeRequestStore requests, IExchangeStore exchanges, INotificationPublisher notify, TimeProvider clock, Sessions.LessonSessionService lessons)
     {
         _profiles = profiles;
         _blocks = blocks;
         _uow = uow;
         _requests = requests;
         _exchanges = exchanges;
+        _lessons = lessons;
         _notify = notify;
         _clock = clock;
     }
@@ -50,6 +52,7 @@ public sealed class UserBlockService
 
         // Одна транзакция под блокировкой обоих: блокировка, закрытие ожидающих заявок между ними (Expired) и прерывание активного обмена
         // (Aborted с причиной «блокировка», без виновного). Либо всё, либо ничего.
+        var cancelledSessions = new List<Sessions.LessonSessionDto>();
         var outcome = await _uow.ExecuteAsync(async token =>
         {
             await _uow.LockUsersAsync([blockerId, targetId], token);
@@ -71,6 +74,7 @@ public sealed class UserBlockService
                 {
                     exchange.AbortByBlock(blockerId, now);   // замороженный остаётся у модератора: разбирательство не прерывается блокировкой
                     _notify.Add(targetId, NotificationType.ExchangeAborted, new { exchangeId = exchange.Id, reason = ExchangeService.PartnerUnavailable });   // заблокированному — нейтральная причина; блокировавшего не уведомляем
+                    cancelledSessions.AddRange(await _lessons.CancelOpenAsync(exchange.Id, exchange.UserAId, exchange.UserBId, token));
                 }
             }
 
@@ -79,6 +83,7 @@ public sealed class UserBlockService
         }, ct);
 
         _notify.Dispatch();
+        await _lessons.PublishUpdatesAsync(cancelledSessions);
 
         switch (outcome)
         {

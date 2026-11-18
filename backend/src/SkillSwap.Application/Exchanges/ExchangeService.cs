@@ -26,10 +26,12 @@ public sealed class ExchangeService
     private readonly IValidator<AbortExchangeRequest> _abortValidator;
     private readonly TimeProvider _clock;
     private readonly Files.AvatarUrls _avatars;
+    private readonly Sessions.LessonSessionService _lessons;
+    private readonly Sessions.ILessonSessionStore _sessions;
 
     public ExchangeService(
         IExchangeStore exchanges, IMessageStore messages, IProfileStore profiles, IUnitOfWork uow, IBackgroundJobs jobs,
-        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock, Files.AvatarUrls avatars)
+        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock, Files.AvatarUrls avatars, Sessions.LessonSessionService lessons, Sessions.ILessonSessionStore sessions)
     {
         _exchanges = exchanges;
         _messages = messages;
@@ -40,6 +42,8 @@ public sealed class ExchangeService
         _abortValidator = abortValidator;
         _clock = clock;
         _avatars = avatars;
+        _lessons = lessons;
+        _sessions = sessions;
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -50,7 +54,8 @@ public sealed class ExchangeService
         await RequireActiveRegularAsync(userId, ct);
         var (items, total) = await _exchanges.ListAsync(userId, status, page, pageSize, ct);
         var unread = await _messages.CountUnreadAsync(userId, items.Select(r => r.Id).ToList(), ct);
-        var dtos = items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id))).ToList();
+        var completed = await _sessions.CountCompletedAsync(items.Select(r => r.Id).ToList(), ct);
+        var dtos = items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id), completed)).ToList();
         var urls = await _avatars.ForViewerAsync(userId, dtos.Select(d => (d.Partner.Id, d.Partner.AvatarUrl)), ct);
         return new PagedResult<ExchangeDto>(dtos.Select(d => d with { Partner = d.Partner with { AvatarUrl = urls.GetValueOrDefault(d.Partner.Id) } }).ToList(), page, pageSize, total);
     }
@@ -82,7 +87,7 @@ public sealed class ExchangeService
         return await ViewAsync(userId, exchangeId, ct);
     }
 
-    /// <summary>Выйти досрочно с причиной. Запланированные уроки отменяются (когда появятся в шаге 7).</summary>
+    /// <summary>Выйти досрочно с причиной. Запланированные и предложенные уроки отменяются без виновного.</summary>
     public async Task<ExchangeDto> AbortAsync(Guid userId, Guid exchangeId, AbortExchangeRequest? request, CancellationToken ct)
     {
         var me = await RequireActiveRegularAsync(userId, ct);
@@ -136,7 +141,7 @@ public sealed class ExchangeService
         }
 
         var unread = await _messages.CountUnreadAsync(userId, [row.Id], ct);
-        var dto = Map(row, userId, unread.GetValueOrDefault(row.Id));
+        var dto = Map(row, userId, unread.GetValueOrDefault(row.Id), await _sessions.CountCompletedAsync([row.Id], ct));
         return await WithAvatarAsync(userId, dto, ct);
     }
 
@@ -148,14 +153,22 @@ public sealed class ExchangeService
             throw new NotFoundException("exchange_not_found", "Обмен не найден.");
         }
 
+        var cancelled = new List<Sessions.LessonSessionDto>();
         await _uow.ExecuteAsync(async token =>
         {
             await _uow.LockUsersAsync([peek.UserA.Id, peek.UserB.Id], token);
             var exchange = await _exchanges.FindAsync(exchangeId, token) ?? throw new NotFoundException("exchange_not_found", "Обмен не найден.");
             change(exchange);
+            if (exchange.Status != ExchangeStatus.Active)
+            {
+                // Обмен закрыт или заморожен: открытые уроки отменяются без виновного (раздел 9.3 ТЗ), в той же транзакции.
+                cancelled = [.. await _lessons.CancelOpenAsync(exchangeId, exchange.UserAId, exchange.UserBId, token)];
+            }
+
             await _exchanges.SaveAsync(token);
             return 0;
         }, ct);
+        await _lessons.PublishUpdatesAsync(cancelled);   // после фиксации: карточки уроков в чате обновляются
     }
 
     private async Task<User> RequireActiveRegularAsync(Guid userId, CancellationToken ct)
@@ -189,20 +202,21 @@ public sealed class ExchangeService
         return dto with { Partner = dto.Partner with { AvatarUrl = urls.GetValueOrDefault(dto.Partner.Id) } };
     }
 
-    private ExchangeDto Map(ExchangeRow r, Guid viewerId, int unread)
+    private ExchangeDto Map(ExchangeRow r, Guid viewerId, int unread, IReadOnlyDictionary<(Guid ExchangeId, Guid TeacherId), int> completed)
     {
 
         var isA = r.UserA.Id == viewerId;
         var abortedBy = r.AbortedById is null ? null : r.AbortedById == viewerId ? "me" : "partner";
 
-        // Баланс считается по проведённым урокам; уроки появятся в шаге 7, до него счётчики нулевые.
+        // Баланс: засчитанные (Completed) уроки в роли преподавателя у меня и у партнёра (раздел 6.1 ТЗ).
         return new ExchangeDto(
             r.Id, r.Status, isA ? r.UserB : r.UserA,
             isA ? r.SkillA : r.SkillB, isA ? r.SkillB : r.SkillA,
             r.RequestId, r.StartDate, r.EndDate, r.IsExtended,
             isA ? r.CompletedByA : r.CompletedByB, isA ? r.CompletedByB : r.CompletedByA,
             isA ? r.ExtensionAcceptedByA : r.ExtensionAcceptedByB, isA ? r.ExtensionAcceptedByB : r.ExtensionAcceptedByA,
-            r.FrozenAt, abortedBy, AbortReasonFor(r, viewerId), r.ClosedAt, ExchangeBalance.Calculate(0, 0), r.CreatedAt,
+            r.FrozenAt, abortedBy, AbortReasonFor(r, viewerId), r.ClosedAt, ExchangeBalance.Calculate(
+                completed.GetValueOrDefault((r.Id, viewerId)), completed.GetValueOrDefault((r.Id, r.UserA.Id == viewerId ? r.UserB.Id : r.UserA.Id))), r.CreatedAt,
             ChatAccess.Evaluate(r.Status, r.ClosedAt, Now()), unread);
     }
 }

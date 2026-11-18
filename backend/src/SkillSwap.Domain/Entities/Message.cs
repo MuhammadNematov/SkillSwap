@@ -44,6 +44,10 @@ public class Message : BaseEntity
 
     public bool IsDeleted => DeletedAt is not null;
 
+    /// <summary>Карточка урока в чате: текста нет, есть ссылка на урок. Карточку нельзя править и удалять: она показывает живое состояние урока.</summary>
+    public static Message CreateSessionCard(Guid exchangeId, Guid senderId, Guid sessionId) =>
+        new() { ExchangeId = exchangeId, SenderId = senderId, Type = MessageType.SessionCard, SessionId = sessionId };
+
     /// <summary>Сообщение с файлом или голосовым: текста нет, есть вложение.</summary>
     public static Message CreateAttachment(Guid exchangeId, Guid senderId, MessageType type, Guid attachmentId)
     {
@@ -109,7 +113,7 @@ public class Message : BaseEntity
             throw new DomainValidationException("not_message_author", "Менять можно только своё сообщение.");
         }
 
-        if (requireText && Type != MessageType.Text)
+        if (Type is MessageType.SessionCard or MessageType.System || (requireText && Type != MessageType.Text))
         {
             throw new DomainValidationException("message_not_editable", "Этот тип сообщений менять нельзя.");
         }
