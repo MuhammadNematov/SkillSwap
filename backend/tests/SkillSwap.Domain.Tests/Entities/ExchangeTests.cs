@@ -109,12 +109,13 @@ public class ExchangeTests
     {
         var e = New();
 
-        e.AbortByBlock(Now);
+        e.AbortByBlock(A, Now);
 
         Assert.Equal(ExchangeStatus.Aborted, e.Status);
         Assert.Null(e.AbortedById);
         Assert.Equal(Exchange.AbortReasonBlocked, e.AbortReason);
-        Assert.Throws<InvalidStateTransitionException>(() => e.AbortByBlock(Now));
+        Assert.Equal(A, e.BlockedById);
+        Assert.Throws<InvalidStateTransitionException>(() => e.AbortByBlock(A, Now));
     }
 
     [Fact]
@@ -176,7 +177,7 @@ public class ExchangeTests
         Assert.Throws<InvalidStateTransitionException>(() => frozen.AcceptExtension(A));
 
         var done = New();
-        done.AbortByBlock(Now);
+        done.AbortByBlock(A, Now);
         Assert.Throws<InvalidStateTransitionException>(() => done.AcceptExtension(A));
     }
 }

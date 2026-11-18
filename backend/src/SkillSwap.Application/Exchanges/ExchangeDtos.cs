@@ -54,6 +54,7 @@ public sealed record ExchangeRow(
     bool ExtensionAcceptedByB,
     DateTime? FrozenAt,
     Guid? AbortedById,
+    Guid? BlockedById,
     string? AbortReason,
     DateTime? ClosedAt,
     DateTime CreatedAt);

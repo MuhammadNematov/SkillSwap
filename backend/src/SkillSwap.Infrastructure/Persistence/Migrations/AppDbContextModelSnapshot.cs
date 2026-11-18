@@ -118,6 +118,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("AbortedById")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("BlockedById")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("timestamp with time zone");
 

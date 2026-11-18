@@ -70,6 +70,6 @@ public sealed class ExchangeStore : IExchangeStore
         return list.Select(e => new ExchangeRow(
             e.Id, e.Status, users[e.UserAId], users[e.UserBId], skills[e.SkillAId], skills[e.SkillBId], e.RequestId,
             e.StartDate, e.EndDate, e.IsExtended, e.CompletedByA, e.CompletedByB, e.ExtensionAcceptedByA, e.ExtensionAcceptedByB,
-            e.FrozenAt, e.AbortedById, e.AbortReason, e.ClosedAt, e.CreatedAt)).ToList();
+            e.FrozenAt, e.AbortedById, e.BlockedById, e.AbortReason, e.ClosedAt, e.CreatedAt)).ToList();
     }
 }

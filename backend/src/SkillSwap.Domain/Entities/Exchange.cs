@@ -42,6 +42,9 @@ public class Exchange : BaseEntity
     public Guid? AbortedById { get; private set; }
 
     public string? AbortReason { get; private set; }
+
+    /// <summary>Кто заблокировал партнёра, из-за чего обмен прерван. В базе причина хранится настоящей (для модератора), участникам она показывается по-разному.</summary>
+    public Guid? BlockedById { get; private set; }
     public DateTime? ClosedAt { get; private set; }
 
     public static Exchange Create(Guid requestId, Guid userAId, Guid userBId, Guid skillAId, Guid skillBId, int durationDays, DateTime now)
@@ -127,9 +130,10 @@ public class Exchange : BaseEntity
     }
 
     /// <summary>Один из участников заблокировал другого: обмен прерывается без виновного.</summary>
-    public void AbortByBlock(DateTime now)
+    public void AbortByBlock(Guid blockerId, DateTime now)
     {
         RequireStatus(ExchangeStatus.Aborted, ExchangeStatus.Active);
+        BlockedById = blockerId;   // кто заблокировал: нужен, чтобы показать заблокированному нейтральную причину
         AbortReason = AbortReasonBlocked;
         Close(ExchangeStatus.Aborted, now);
     }

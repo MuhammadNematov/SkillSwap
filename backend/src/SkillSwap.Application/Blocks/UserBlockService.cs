@@ -66,7 +66,7 @@ public sealed class UserBlockService
             {
                 if (exchange.Status == ExchangeStatus.Active)
                 {
-                    exchange.AbortByBlock(now);   // замороженный остаётся у модератора: разбирательство не прерывается блокировкой
+                    exchange.AbortByBlock(blockerId, now);   // замороженный остаётся у модератора: разбирательство не прерывается блокировкой
                 }
             }
 

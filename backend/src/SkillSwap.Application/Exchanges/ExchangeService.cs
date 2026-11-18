@@ -127,6 +127,15 @@ public sealed class ExchangeService
         }
     }
 
+    /// <summary>
+    /// Причина прерывания для участника. Блокировку знает только тот, кто заблокировал (<c>blocked</c>); заблокированному показывается
+    /// нейтральная <c>partner_unavailable</c>, чтобы факт блокировки не раскрывался. В базе остаётся настоящая причина.
+    /// </summary>
+    private static string? AbortReasonFor(ExchangeRow r, Guid viewerId) =>
+        r.AbortReason == Exchange.AbortReasonBlocked && r.BlockedById != viewerId ? PartnerUnavailable : r.AbortReason;
+
+    public const string PartnerUnavailable = "partner_unavailable";
+
     private static ExchangeDto Map(ExchangeRow r, Guid viewerId)
     {
         var isA = r.UserA.Id == viewerId;
@@ -139,6 +148,6 @@ public sealed class ExchangeService
             r.RequestId, r.StartDate, r.EndDate, r.IsExtended,
             isA ? r.CompletedByA : r.CompletedByB, isA ? r.CompletedByB : r.CompletedByA,
             isA ? r.ExtensionAcceptedByA : r.ExtensionAcceptedByB, isA ? r.ExtensionAcceptedByB : r.ExtensionAcceptedByA,
-            r.FrozenAt, abortedBy, r.AbortReason, r.ClosedAt, ExchangeBalance.Calculate(0, 0), r.CreatedAt);
+            r.FrozenAt, abortedBy, AbortReasonFor(r, viewerId), r.ClosedAt, ExchangeBalance.Calculate(0, 0), r.CreatedAt);
     }
 }

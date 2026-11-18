@@ -135,7 +135,8 @@ public class BlockAndMatchEffectsTests
         var closed = await ExchangeOfAsync(requestId);
         Assert.Equal(ExchangeStatus.Aborted, closed.Status);
         Assert.Null(closed.AbortedById);
-        Assert.Equal(Exchange.AbortReasonBlocked, closed.AbortReason);
+        Assert.Equal(Exchange.AbortReasonBlocked, closed.AbortReason);   // в базе настоящая причина
+        Assert.Equal(senderBlocks ? a.Id : b.Id, closed.BlockedById);
         Assert.NotNull(closed.ClosedAt);
 
         // Участники видят обмен прерванным, виновного нет.
@@ -144,7 +145,9 @@ public class BlockAndMatchEffectsTests
             var view = await JsonAsync(await SendAsync(person, HttpMethod.Get, $"/exchanges/{exchange.Id}"));
             Assert.Equal("Aborted", view.GetProperty("status").GetString());
             Assert.Equal(JsonValueKind.Null, view.GetProperty("abortedBy").ValueKind);
-            Assert.Equal("blocked", view.GetProperty("abortReason").GetString());
+            // Блокировавший видит настоящую причину, заблокированный — нейтральную: факт блокировки ему не раскрывается.
+            var blocker = senderBlocks ? a : b;
+            Assert.Equal(person.Id == blocker.Id ? "blocked" : "partner_unavailable", view.GetProperty("abortReason").GetString());
         }
 
         Assert.Equal(HttpStatusCode.Conflict, (await SendAsync(a, HttpMethod.Post, $"/exchanges/{exchange.Id}/complete")).StatusCode);
