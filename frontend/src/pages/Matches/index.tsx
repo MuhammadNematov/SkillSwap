@@ -2,6 +2,8 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
+import { isErrorCode } from '../../api/errors'
+import { useAuth } from '../../hooks/useAuth'
 import { getMatches } from '../../api/matches'
 import { getLanguages, getMySkills } from '../../api/onboarding'
 import type { MatchItem, MatchType, SkillLevel } from '../../api/types'
@@ -39,7 +41,8 @@ export default function Matches() {
   const { data: mine } = useQuery({ queryKey: ['mySkills'], queryFn: getMySkills })
   const { data: languages = [] } = useQuery({ queryKey: ['languages'], queryFn: getLanguages })
   const lang = i18n.resolvedLanguage ?? 'ru'
-  const { data: matches = [], isFetching } = useQuery({
+  const { user, updateUser } = useAuth()
+  const { data: matches = [], isFetching, error } = useQuery({
     queryKey: ['matches', q, filters],
     queryFn: () =>
       getMatches({
@@ -50,7 +53,13 @@ export default function Matches() {
         minRating: filters.minRating ? Number(filters.minRating) : undefined,
       }),
     placeholderData: keepPreviousData,
+    retry: false,
   })
+
+  // Анкета перестала быть полной (например, убрали язык): подбор закрыт, возвращаем на анкету
+  useEffect(() => {
+    if (user && isErrorCode(error, 'skills_incomplete')) updateUser({ ...user, skillsComplete: false })
+  }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Сообщение «Заявка отправлена» пропадает само
   useEffect(() => {
