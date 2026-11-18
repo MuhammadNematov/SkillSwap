@@ -32,6 +32,12 @@ public class User : IdentityUser<Guid>, ITimestamped
     public string TimeZone { get; set; } = DefaultTimeZone;
 
     public bool IsSearchable { get; set; }
+
+    /// <summary>
+    /// Пользователь сам выключил показ в подборе (был виден и нажал «скрыть»). Пока это так, сервер не включает видимость
+    /// автоматически после заполнения анкеты. Снова показаться пользователь может только сам.
+    /// </summary>
+    public bool HiddenByUser { get; private set; }
     public UserStatus Status { get; private set; } = UserStatus.Active;
     public Guid? LinkedUserId { get; private set; }
     public decimal RatingAvg { get; private set; }
@@ -147,6 +153,16 @@ public class User : IdentityUser<Guid>, ITimestamped
         Bio = trimmedBio;
         UiLanguage = uiLanguage;
         TimeZone = timeZone;
+        // Запоминаем волю пользователя: «выключил сам» (был виден и скрылся) и «включил сам» (снял прежнее решение).
+        if (IsSearchable && !isSearchable)
+        {
+            HiddenByUser = true;
+        }
+        else if (isSearchable)
+        {
+            HiddenByUser = false;
+        }
+
         IsSearchable = isSearchable;
     }
 

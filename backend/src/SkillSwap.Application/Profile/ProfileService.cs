@@ -25,7 +25,7 @@ public sealed class ProfileService
     public async Task<MyProfileDto> GetMineAsync(Guid userId, CancellationToken ct)
     {
         var user = await _store.FindUserAsync(userId, ct) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
-        return ToMine(user, await _store.GetLanguagesAsync(userId, ct), await _skills.IsAnketaCompleteAsync(userId, ct));
+        return ToMine(user, await _store.GetLanguagesAsync(userId, ct), await _skills.IsSkillsCompleteAsync(userId, ct));
     }
 
     public async Task<MyProfileDto> UpdateMineAsync(Guid userId, UpdateProfileRequest request, CancellationToken ct)
@@ -50,12 +50,12 @@ public sealed class ProfileService
         {
             case ProfileSaveResult.Conflict:
                 throw new ConflictException("concurrency_conflict", "Профиль был изменён параллельным запросом. Повторите действие.");
-            case ProfileSaveResult.AnketaIncomplete:
-                throw new ForbiddenException("anketa_incomplete",
+            case ProfileSaveResult.SkillsIncomplete:
+                throw new ForbiddenException("skills_incomplete",
                     "Чтобы показываться в подборе, заполните анкету: минимум 1 навык в «Умею» и 1 в «Хочу изучать».");
         }
 
-        return ToMine(user, languages, await _skills.IsAnketaCompleteAsync(userId, ct));
+        return ToMine(user, languages, await _skills.IsSkillsCompleteAsync(userId, ct));
     }
 
     /// <summary>
@@ -93,8 +93,8 @@ public sealed class ProfileService
     /// <summary>У «Новичка» средней оценки нет: два отзыва ничего не говорят о человеке.</summary>
     private static decimal? PublicRating(User user) => user.IsNewcomer ? null : user.RatingAvg;
 
-    private static MyProfileDto ToMine(User user, string[] languages, bool anketaComplete) => new(
+    private static MyProfileDto ToMine(User user, string[] languages, bool skillsComplete) => new(
         user.Id, user.Email ?? string.Empty, user.Role.ToString(), user.AccountType.ToString(),
         user.Name, user.Bio, user.AvatarUrl, user.DateOfBirth, user.UiLanguage, user.TimeZone, user.IsSearchable,
-        languages, anketaComplete, PublicRating(user), user.RatingCount, user.IsNewcomer, user.TwoFactorEnabled, user.CreatedAt);
+        languages, skillsComplete, PublicRating(user), user.RatingCount, user.IsNewcomer, user.TwoFactorEnabled, user.CreatedAt);
 }

@@ -14,7 +14,7 @@ public sealed record MyProfileDto(
     string TimeZone,
     bool IsSearchable,
     string[] Languages,
-    bool AnketaComplete,
+    bool SkillsComplete,
     decimal? RatingAvg,
     int RatingCount,
     bool IsNewcomer,

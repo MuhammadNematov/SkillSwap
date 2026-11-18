@@ -53,6 +53,40 @@ public class UserProfileTests
     }
 
     [Fact]
+    public void Hiding_after_being_visible_is_remembered_and_showing_again_forgets_it()
+    {
+        var user = Regular();
+        Assert.False(user.HiddenByUser);
+
+        user.UpdateProfile("Боб", null, "ru", "UTC", false);   // был скрыт по умолчанию и остался скрытым: это не решение
+        Assert.False(user.HiddenByUser);
+
+        user.UpdateProfile("Боб", null, "ru", "UTC", true);
+        Assert.False(user.HiddenByUser);
+
+        user.UpdateProfile("Боб", null, "ru", "UTC", false);   // был виден и скрылся сам
+        Assert.True(user.HiddenByUser);
+
+        user.UpdateProfile("Боб", null, "ru", "UTC", false);   // правка профиля без смены видимости решение не снимает
+        Assert.True(user.HiddenByUser);
+
+        user.UpdateProfile("Боб", null, "ru", "UTC", true);    // показался снова
+        Assert.False(user.HiddenByUser);
+    }
+
+    [Fact]
+    public void A_rejected_update_does_not_touch_the_hidden_by_user_memory()
+    {
+        var user = Regular();
+        user.UpdateProfile("Боб", null, "ru", "UTC", true);
+
+        Assert.Throws<DomainValidationException>(() => user.UpdateProfile(" ", null, "ru", "UTC", false));
+
+        Assert.False(user.HiddenByUser);
+        Assert.True(user.IsSearchable);
+    }
+
+    [Fact]
     public void A_staff_account_has_no_profile_to_update()
     {
         var staff = User.CreateStaff("s@example.com", "Staff", UserRole.Admin);

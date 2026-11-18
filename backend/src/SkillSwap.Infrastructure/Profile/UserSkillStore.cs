@@ -34,7 +34,7 @@ public sealed class UserSkillStore : IUserSkillStore
             .Select(s => s.Id)
             .ToListAsync(ct)).ToHashSet();
 
-    public Task<bool> IsAnketaCompleteAsync(Guid userId, CancellationToken ct) => IsCompleteAsync(_db, userId, ct);
+    public Task<bool> IsSkillsCompleteAsync(Guid userId, CancellationToken ct) => IsCompleteAsync(_db, userId, ct);
 
     /// <summary>Есть включённый навык и в «Умею», и в «Хочу изучать».</summary>
     internal static async Task<bool> IsCompleteAsync(AppDbContext db, Guid userId, CancellationToken ct)
@@ -81,12 +81,20 @@ public sealed class UserSkillStore : IUserSkillStore
             await _db.SaveChangesAsync(ct);
 
             var complete = await IsCompleteAsync(_db, userId, ct);
+            var now = DateTime.UtcNow;
             if (!complete)
             {
                 // Неполная анкета и «виден всем» несовместимы: скрываем пользователя сами (дата изменения тоже обновляется).
-                var now = DateTime.UtcNow;
+                // Это не решение пользователя, поэтому HiddenByUser не трогаем.
                 await _db.Users.Where(u => u.Id == userId && u.IsSearchable)
                     .ExecuteUpdateAsync(u => u.SetProperty(x => x.IsSearchable, false).SetProperty(x => x.UpdatedAt, now), ct);
+            }
+            else
+            {
+                // Анкета заполнена: показываем пользователя в подборе, если он сам не скрылся.
+                // Скрывшегося вручную (HiddenByUser) сервер больше не включает: снова показаться он может только сам.
+                await _db.Users.Where(u => u.Id == userId && !u.IsSearchable && !u.HiddenByUser)
+                    .ExecuteUpdateAsync(u => u.SetProperty(x => x.IsSearchable, true).SetProperty(x => x.UpdatedAt, now), ct);
             }
 
             var searchable = await _db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.IsSearchable).SingleAsync(ct);

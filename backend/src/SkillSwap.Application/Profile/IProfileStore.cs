@@ -15,7 +15,7 @@ public interface IProfileStore
 
     /// <summary>
     /// Сохраняет изменения пользователя и заменяет его языки одной транзакцией. Если пользователь хочет быть виден
-    /// в подборе (<c>IsSearchable</c>), а анкета неполная, ничего не сохраняется (<see cref="ProfileSaveResult.AnketaIncomplete"/>).
+    /// в подборе (<c>IsSearchable</c>), а анкета неполная, ничего не сохраняется (<see cref="ProfileSaveResult.SkillsIncomplete"/>).
     /// </summary>
     Task<ProfileSaveResult> SaveProfileAsync(User user, IReadOnlyCollection<string> languages, CancellationToken ct);
 }
@@ -28,5 +28,5 @@ public enum ProfileSaveResult
     Conflict,
 
     /// <summary>Показываться в подборе можно только с заполненной анкетой.</summary>
-    AnketaIncomplete,
+    SkillsIncomplete,
 }

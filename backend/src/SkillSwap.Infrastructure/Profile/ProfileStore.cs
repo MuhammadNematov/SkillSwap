@@ -43,7 +43,7 @@ public sealed class ProfileStore : IProfileStore
             // Проверка под блокировкой: параллельная правка анкеты не успеет сделать её неполной между проверкой и записью.
             if (user.IsSearchable && !await UserSkillStore.IsCompleteAsync(_db, user.Id, ct))
             {
-                return ProfileSaveResult.AnketaIncomplete;   // транзакция откатится при выходе
+                return ProfileSaveResult.SkillsIncomplete;   // транзакция откатится при выходе
             }
 
             var existing = await _db.UserLanguages.Where(l => l.UserId == user.Id).ToListAsync(ct);

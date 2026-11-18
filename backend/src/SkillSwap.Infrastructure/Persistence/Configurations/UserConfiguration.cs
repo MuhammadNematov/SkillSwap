@@ -23,6 +23,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.TimeZone).HasMaxLength(64).IsRequired();
         builder.Property(u => u.RatingAvg).HasPrecision(3, 2).HasDefaultValue(0m);
         builder.Property(u => u.RatingCount).HasDefaultValue(0);
+        builder.Property(u => u.HiddenByUser).HasDefaultValue(false);
 
         // Последний шаг TOTP меняет только TwoFactorStepStore одним атомарным UPDATE. Обычные сохранения
         // (UserManager.UpdateAsync помечает ВСЕ поля изменёнными) не должны его трогать: иначе устаревшее

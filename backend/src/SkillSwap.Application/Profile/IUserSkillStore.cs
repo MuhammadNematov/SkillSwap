@@ -30,7 +30,7 @@ public interface IUserSkillStore
     /// <summary>Из указанных id оставляет существующие и включённые (сам навык и его категория).</summary>
     Task<HashSet<Guid>> FindActiveSkillIdsAsync(IReadOnlyCollection<Guid> skillIds, CancellationToken ct);
 
-    Task<bool> IsAnketaCompleteAsync(Guid userId, CancellationToken ct);
+    Task<bool> IsSkillsCompleteAsync(Guid userId, CancellationToken ct);
 
     /// <summary>
     /// Заменяет анкету одной транзакцией под блокировкой строки пользователя. Если после замены анкета неполная,

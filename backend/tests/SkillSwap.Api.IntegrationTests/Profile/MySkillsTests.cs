@@ -136,7 +136,7 @@ public class MySkillsTests
 
         var read = await JsonAsync(await SendAsync(person.Token, HttpMethod.Get, "/me/skills"));
         Assert.Equal(saved.GetRawText(), read.GetRawText());
-        Assert.True((await JsonAsync(await SendAsync(person.Token, HttpMethod.Get, "/me"))).GetProperty("anketaComplete").GetBoolean());
+        Assert.True((await JsonAsync(await SendAsync(person.Token, HttpMethod.Get, "/me"))).GetProperty("skillsComplete").GetBoolean());
     }
 
     [Fact]
@@ -301,7 +301,7 @@ public class MySkillsTests
         var refused = await SendAsync(person.Token, HttpMethod.Put, "/me", Profile(true, name: "Не должно сохраниться"));
 
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
-        Assert.Equal("anketa_incomplete", await AuthApi.ReadCodeAsync(refused));
+        Assert.Equal("skills_incomplete", await AuthApi.ReadCodeAsync(refused));
         var me = await JsonAsync(await SendAsync(person.Token, HttpMethod.Get, "/me"));
         Assert.Equal("Test User", me.GetProperty("name").GetString());   // ничего из запроса не сохранилось
         Assert.False(me.GetProperty("isSearchable").GetBoolean());
@@ -328,17 +328,6 @@ public class MySkillsTests
     }
 
     [Fact]
-    public async Task A_complete_anketa_does_not_make_a_user_visible_by_itself()
-    {
-        var person = await NewPersonAsync();
-
-        var anketa = await JsonAsync(await CompleteAnketaAsync(person));
-
-        Assert.True(anketa.GetProperty("isComplete").GetBoolean());
-        Assert.False(anketa.GetProperty("isSearchable").GetBoolean());   // видимость включается отдельно, PUT /me
-    }
-
-    [Fact]
     public async Task Racing_visibility_against_clearing_the_anketa_never_leaves_a_visible_incomplete_profile()
     {
         for (var round = 0; round < 6; round++)
@@ -352,7 +341,7 @@ public class MySkillsTests
                 SendAsync(person.Token, HttpMethod.Put, "/me", Profile(true)));
 
             var me = await JsonAsync(await SendAsync(person.Token, HttpMethod.Get, "/me"));
-            Assert.False(me.GetProperty("isSearchable").GetBoolean() && !me.GetProperty("anketaComplete").GetBoolean(),
+            Assert.False(me.GetProperty("isSearchable").GetBoolean() && !me.GetProperty("skillsComplete").GetBoolean(),
                 $"round {round}: виден с неполной анкетой");
         }
     }
@@ -380,7 +369,7 @@ public class MySkillsTests
         var mine = await JsonAsync(await SendAsync(owner.Token, HttpMethod.Get, "/me/skills"));
         Assert.False(mine.GetProperty("teach")[0].GetProperty("isActive").GetBoolean());
         Assert.False(mine.GetProperty("isComplete").GetBoolean());   // единственный навык «Умею» выключен
-        Assert.False((await JsonAsync(await SendAsync(owner.Token, HttpMethod.Get, "/me"))).GetProperty("anketaComplete").GetBoolean());
+        Assert.False((await JsonAsync(await SendAsync(owner.Token, HttpMethod.Get, "/me"))).GetProperty("skillsComplete").GetBoolean());
 
         var publicView = await JsonAsync(await SendAsync(other.Token, HttpMethod.Get, $"/users/{owner.Id}"));
         Assert.Equal(0, publicView.GetProperty("teach").GetArrayLength());   // другим он не виден

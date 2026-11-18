@@ -24,7 +24,7 @@ public sealed record PublicSkillDto(
     string? Description);
 
 /// <param name="IsComplete">В каждом направлении есть минимум 1 включённый навык: подбор открыт.</param>
-/// <param name="IsSearchable">Показываетесь ли вы другим. Если анкета перестала быть полной, сервер скрывает вас сам.</param>
+/// <param name="IsSearchable">Показываетесь ли вы другим. Первое заполнение анкеты включает показ само; если анкета перестала быть полной, сервер скрывает вас сам.</param>
 public sealed record MySkillsDto(
     IReadOnlyList<UserSkillDto> Teach,
     IReadOnlyList<UserSkillDto> Learn,

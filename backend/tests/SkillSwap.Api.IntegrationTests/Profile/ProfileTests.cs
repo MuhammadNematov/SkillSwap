@@ -105,7 +105,7 @@ public class ProfileTests
         Assert.Equal("Test User", me.GetProperty("name").GetString());
         Assert.Equal("2000-01-01", me.GetProperty("dateOfBirth").GetString());
         Assert.False(me.GetProperty("isSearchable").GetBoolean());       // скрыт, пока сам не включит
-        Assert.False(me.GetProperty("anketaComplete").GetBoolean());
+        Assert.False(me.GetProperty("skillsComplete").GetBoolean());
         Assert.Equal(0, me.GetProperty("languages").GetArrayLength());
         Assert.Equal(JsonValueKind.Null, me.GetProperty("ratingAvg").ValueKind);
         Assert.True(me.GetProperty("isNewcomer").GetBoolean());
@@ -397,6 +397,7 @@ public class ProfileTests
     {
         var owner = await NewPersonAsync();
         var other = await NewPersonAsync();
+        await SendAsync(owner.Token, HttpMethod.Put, "/me", Profile(isSearchable: false));   // после анкеты он виден сам; скрываем
 
         var hidden = await SendAsync(other.Token, HttpMethod.Get, $"/users/{owner.Id}");
         Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
