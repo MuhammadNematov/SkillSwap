@@ -3,7 +3,8 @@ namespace SkillSwap.Application.Blocks;
 public interface IUserBlockStore
 {
     /// <summary>
-    /// Блокирует одной транзакцией под блокировкой строки пользователя (чтобы одновременные запросы не обошли лимит).
+    /// Добавляет блокировку. Вызывать внутри транзакции под блокировкой строк обоих пользователей (<c>IUnitOfWork</c>):
+    /// иначе одновременные запросы обойдут лимит, а заявки и обмены пары не успеют закрыться вместе с блокировкой.
     /// Повтор не считается ошибкой.
     /// </summary>
     Task<BlockOutcome> AddAsync(Guid blockerId, Guid targetId, CancellationToken ct);

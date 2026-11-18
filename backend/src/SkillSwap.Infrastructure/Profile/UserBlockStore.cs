@@ -22,11 +22,6 @@ public sealed class UserBlockStore : IUserBlockStore
     {
         try
         {
-            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-
-            // Блокировка строки блокирующего: его одновременные запросы идут по очереди, лимит не обходится.
-            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Users\" WHERE \"Id\" = {blockerId} FOR UPDATE", ct);
-
             if (await _db.UserBlocks.AnyAsync(b => b.UserId == blockerId && b.BlockedUserId == targetId, ct))
             {
                 return BlockOutcome.AlreadyBlocked;
@@ -39,7 +34,6 @@ public sealed class UserBlockStore : IUserBlockStore
 
             _db.UserBlocks.Add(UserBlock.Create(blockerId, targetId, _clock.GetUtcNow().UtcDateTime));
             await _db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
             return BlockOutcome.Added;
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })

@@ -33,6 +33,10 @@ public sealed class ExchangeRequestStore : IExchangeRequestStore
             r.Status == ExchangeRequestStatus.Pending && r.ExpiresAt > now &&
             ((r.FromUserId == userA && r.ToUserId == userB) || (r.FromUserId == userB && r.ToUserId == userA)), ct);
 
+    public async Task<IReadOnlyList<ExchangeRequest>> FindPendingBetweenForUpdateAsync(Guid userA, Guid userB, CancellationToken ct) =>
+        await _db.ExchangeRequests.Where(r => r.Status == ExchangeRequestStatus.Pending &&
+            ((r.FromUserId == userA && r.ToUserId == userB) || (r.FromUserId == userB && r.ToUserId == userA))).ToListAsync(ct);
+
     public async Task<DateTime?> LastDeclinedAtAsync(Guid fromUserId, Guid toUserId, CancellationToken ct) =>
         await _db.ExchangeRequests.AsNoTracking()
             .Where(r => r.FromUserId == fromUserId && r.ToUserId == toUserId && r.Status == ExchangeRequestStatus.Declined)

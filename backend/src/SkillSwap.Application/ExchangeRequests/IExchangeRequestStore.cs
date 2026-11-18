@@ -19,6 +19,9 @@ public interface IExchangeRequestStore
     Task<int> CountCreatedSinceAsync(Guid userId, DateTime since, CancellationToken ct);
 
     /// <summary>Открытая заявка между двумя пользователями в любую сторону.</summary>
+    /// <summary>Все ожидающие заявки между двумя людьми в любую сторону (для изменения, с отслеживанием), независимо от срока.</summary>
+    Task<IReadOnlyList<ExchangeRequest>> FindPendingBetweenForUpdateAsync(Guid userA, Guid userB, CancellationToken ct);
+
     Task<ExchangeRequest?> FindOpenBetweenAsync(Guid userA, Guid userB, DateTime now, CancellationToken ct);
 
     /// <summary>Когда <paramref name="fromUserId"/> в последний раз получил отказ от <paramref name="toUserId"/>.</summary>

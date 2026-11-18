@@ -1,4 +1,7 @@
+using SkillSwap.Application.Abstractions;
+using SkillSwap.Application.ExchangeRequests;
 using SkillSwap.Application.Exceptions;
+using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Profile;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -10,11 +13,20 @@ public sealed class UserBlockService
 {
     private readonly IProfileStore _profiles;
     private readonly IUserBlockStore _blocks;
+    private readonly IUnitOfWork _uow;
+    private readonly IExchangeRequestStore _requests;
+    private readonly IExchangeStore _exchanges;
+    private readonly TimeProvider _clock;
 
-    public UserBlockService(IProfileStore profiles, IUserBlockStore blocks)
+    public UserBlockService(
+        IProfileStore profiles, IUserBlockStore blocks, IUnitOfWork uow, IExchangeRequestStore requests, IExchangeStore exchanges, TimeProvider clock)
     {
         _profiles = profiles;
         _blocks = blocks;
+        _uow = uow;
+        _requests = requests;
+        _exchanges = exchanges;
+        _clock = clock;
     }
 
     public async Task BlockAsync(Guid blockerId, Guid targetId, CancellationToken ct)
@@ -33,7 +45,36 @@ public sealed class UserBlockService
             throw new NotFoundException("user_not_found", "Пользователь не найден.");
         }
 
-        switch (await _blocks.AddAsync(blockerId, targetId, ct))
+        // Одна транзакция под блокировкой обоих: блокировка, закрытие ожидающих заявок между ними (Expired) и прерывание активного обмена
+        // (Aborted с причиной «блокировка», без виновного). Либо всё, либо ничего.
+        var outcome = await _uow.ExecuteAsync(async token =>
+        {
+            await _uow.LockUsersAsync([blockerId, targetId], token);
+            var added = await _blocks.AddAsync(blockerId, targetId, token);
+            if (added is BlockOutcome.TooMany or BlockOutcome.TargetGone)
+            {
+                return added;
+            }
+
+            var now = _clock.GetUtcNow().UtcDateTime;
+            foreach (var request in await _requests.FindPendingBetweenForUpdateAsync(blockerId, targetId, token))
+            {
+                request.Expire(now);
+            }
+
+            foreach (var exchange in await _exchanges.FindActiveBetweenForUpdateAsync(blockerId, targetId, token))
+            {
+                if (exchange.Status == ExchangeStatus.Active)
+                {
+                    exchange.AbortByBlock(now);   // замороженный остаётся у модератора: разбирательство не прерывается блокировкой
+                }
+            }
+
+            await _requests.SaveAsync(token);
+            return added;
+        }, ct);
+
+        switch (outcome)
         {
             case BlockOutcome.TooMany:
                 throw new ConflictException("too_many_blocks", $"Можно заблокировать не больше {UserBlock.MaxPerUser} пользователей.");
