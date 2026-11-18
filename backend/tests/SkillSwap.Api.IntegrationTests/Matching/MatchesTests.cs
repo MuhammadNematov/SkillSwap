@@ -289,15 +289,16 @@ public class MatchesTests
     }
 
     [Fact]
-    public async Task A_user_who_has_not_listed_any_language_sees_nobody()
+    public async Task A_user_who_has_not_listed_any_language_cannot_search_and_is_told_why()
     {
         var w = await MatchTestWorld.CreateAsync(_factory);
         var me = await w.UserAsync((0, Mid), (1, Mid), new MatchTestWorld.Options(Languages: []));
         await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["en", "ru"]));
 
-        var result = await w.GetAsync(me);
+        var response = await w.GetRawAsync(me);
 
-        Assert.Equal(0, result.GetProperty("totalCount").GetInt32());
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);   // не пустая выдача без объяснения, а понятный отказ
+        Assert.Equal("skills_incomplete", await CodeAsync(response));
     }
 
     [Fact]

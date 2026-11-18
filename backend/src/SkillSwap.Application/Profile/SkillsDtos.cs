@@ -23,7 +23,7 @@ public sealed record PublicSkillDto(
     SkillLevel Level,
     string? Description);
 
-/// <param name="IsComplete">В каждом направлении есть минимум 1 включённый навык: подбор открыт.</param>
+/// <param name="IsComplete">Анкета полная: минимум 1 включённый навык в «Умею», 1 в «Хочу изучать» и хотя бы один язык занятий (профиль). Только тогда открыт подбор.</param>
 /// <param name="IsSearchable">Показываетесь ли вы другим. Первое заполнение анкеты включает показ само; если анкета перестала быть полной, сервер скрывает вас сам.</param>
 public sealed record MySkillsDto(
     IReadOnlyList<UserSkillDto> Teach,

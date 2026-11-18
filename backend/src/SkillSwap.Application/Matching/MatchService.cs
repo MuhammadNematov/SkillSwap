@@ -48,14 +48,15 @@ public sealed class MatchService
             throw new ForbiddenException("account_not_active", "Аккаунт недоступен.");
         }
 
-        // Подбор открывается после анкеты: минимум 1 навык в «Умею» и 1 в «Хочу изучать» (раздел 5 ТЗ).
+        // Подбор открывается после анкеты: минимум 1 навык в «Умею», 1 в «Хочу изучать» (раздел 5 ТЗ) и хотя бы один язык занятий:
+        // общий язык обязателен, без своего языка выдача была бы пустой без объяснения.
         var mine = await _skills.ListActiveAsync(viewerId, ct);
         var learn = mine.Where(s => s.Direction == SkillDirection.Learn).Select(s => new LeveledSkill(s.SkillId, s.Level)).ToList();
         var teach = mine.Where(s => s.Direction == SkillDirection.Teach).Select(s => new LeveledSkill(s.SkillId, s.Level)).ToList();
-        if (learn.Count == 0 || teach.Count == 0)
+        if (learn.Count == 0 || teach.Count == 0 || (await _profiles.GetLanguagesAsync(viewerId, ct)).Length == 0)
         {
             throw new ForbiddenException("skills_incomplete",
-                "Подбор откроется после анкеты: добавьте минимум 1 навык в «Умею» и 1 в «Хочу изучать».");
+                "Подбор откроется после анкеты: добавьте минимум 1 навык в «Умею», 1 в «Хочу изучать» и хотя бы один язык занятий.");
         }
 
         var now = _clock.GetUtcNow();

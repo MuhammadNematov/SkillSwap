@@ -37,6 +37,11 @@ public class UserBlockTests
             teach = new[] { new { skillId = SkillCatalogSeed.SkillId(1), level = "Beginner", description = (string?)null } },
             learn = new[] { new { skillId = SkillCatalogSeed.SkillId(24), level = "Beginner", description = (string?)null } },
         })).EnsureSuccessStatusCode();
+        // Язык занятий нужен для полной анкеты (без него подбор закрыт): после навыков это делает анкету полной.
+        (await SendAsync(token, HttpMethod.Put, "/me", new
+        {
+            name = "Test User", bio = (string?)null, uiLanguage = "en", timeZone = "UTC", languages = new[] { "en" }, isSearchable = false,
+        })).EnsureSuccessStatusCode();
         return new Person(token, me.GetProperty("id").GetGuid());
     }
 

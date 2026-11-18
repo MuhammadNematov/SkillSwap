@@ -61,7 +61,7 @@ public sealed class ProfileService
                 throw new ConflictException("concurrency_conflict", "Профиль был изменён параллельным запросом. Повторите действие.");
             case ProfileSaveResult.SkillsIncomplete:
                 throw new ForbiddenException("skills_incomplete",
-                    "Чтобы показываться в подборе, заполните анкету: минимум 1 навык в «Умею» и 1 в «Хочу изучать».");
+                    "Чтобы показываться в подборе, заполните анкету: минимум 1 навык в «Умею», 1 в «Хочу изучать» и хотя бы один язык занятий.");
         }
 
         return ToMine(user, languages, await _skills.IsSkillsCompleteAsync(userId, ct));
