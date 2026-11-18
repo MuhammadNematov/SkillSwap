@@ -2,6 +2,7 @@ using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.ExchangeRequests;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.Exchanges;
+using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Profile;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -16,16 +17,18 @@ public sealed class UserBlockService
     private readonly IUnitOfWork _uow;
     private readonly IExchangeRequestStore _requests;
     private readonly IExchangeStore _exchanges;
+    private readonly INotificationPublisher _notify;
     private readonly TimeProvider _clock;
 
     public UserBlockService(
-        IProfileStore profiles, IUserBlockStore blocks, IUnitOfWork uow, IExchangeRequestStore requests, IExchangeStore exchanges, TimeProvider clock)
+        IProfileStore profiles, IUserBlockStore blocks, IUnitOfWork uow, IExchangeRequestStore requests, IExchangeStore exchanges, INotificationPublisher notify, TimeProvider clock)
     {
         _profiles = profiles;
         _blocks = blocks;
         _uow = uow;
         _requests = requests;
         _exchanges = exchanges;
+        _notify = notify;
         _clock = clock;
     }
 
@@ -67,12 +70,15 @@ public sealed class UserBlockService
                 if (exchange.Status == ExchangeStatus.Active)
                 {
                     exchange.AbortByBlock(blockerId, now);   // замороженный остаётся у модератора: разбирательство не прерывается блокировкой
+                    _notify.Add(targetId, NotificationType.ExchangeAborted, new { exchangeId = exchange.Id, reason = ExchangeService.PartnerUnavailable });   // заблокированному — нейтральная причина; блокировавшего не уведомляем
                 }
             }
 
             await _requests.SaveAsync(token);
             return added;
         }, ct);
+
+        _notify.Dispatch();
 
         switch (outcome)
         {

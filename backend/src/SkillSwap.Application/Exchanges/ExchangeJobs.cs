@@ -1,4 +1,5 @@
 using SkillSwap.Application.Abstractions;
+using SkillSwap.Application.Notifications;
 
 namespace SkillSwap.Application.Exchanges;
 
@@ -7,12 +8,14 @@ public sealed class ExchangeJobs
 {
     private readonly IExchangeStore _exchanges;
     private readonly IUnitOfWork _uow;
+    private readonly INotificationPublisher _notify;
     private readonly TimeProvider _clock;
 
-    public ExchangeJobs(IExchangeStore exchanges, IUnitOfWork uow, TimeProvider clock)
+    public ExchangeJobs(IExchangeStore exchanges, IUnitOfWork uow, INotificationPublisher notify, TimeProvider clock)
     {
         _exchanges = exchanges;
         _uow = uow;
+        _notify = notify;
         _clock = clock;
     }
 
@@ -31,10 +34,14 @@ public sealed class ExchangeJobs
             var exchange = await _exchanges.FindAsync(exchangeId, ct);
             if (exchange is not null && exchange.CompleteIfDue(_clock.GetUtcNow().UtcDateTime))
             {
+                _notify.Add(exchange.UserAId, Domain.Enums.NotificationType.ExchangeCompleted, new { exchangeId });
+                _notify.Add(exchange.UserBId, Domain.Enums.NotificationType.ExchangeCompleted, new { exchangeId });
                 await _exchanges.SaveAsync(ct);
             }
 
             return 0;
         }, CancellationToken.None);
+
+        _notify.Dispatch();
     }
 }

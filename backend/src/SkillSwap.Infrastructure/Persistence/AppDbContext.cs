@@ -21,6 +21,7 @@ public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyC
     public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
     public DbSet<ExchangeRequest> ExchangeRequests => Set<ExchangeRequest>();
     public DbSet<Exchange> Exchanges => Set<Exchange>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<SkillSuggestion> SkillSuggestions => Set<SkillSuggestion>();
     public DbSet<SkillCategory> SkillCategories => Set<SkillCategory>();

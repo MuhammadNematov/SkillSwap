@@ -5,6 +5,7 @@ using SkillSwap.Application.Common;
 using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.Matching;
+using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Profile;
 using SkillSwap.Application.Settings;
 using SkillSwap.Domain.Entities;
@@ -40,12 +41,13 @@ public sealed class ExchangeRequestService
     private readonly ISystemSettingsStore _settings;
     private readonly IUnitOfWork _uow;
     private readonly IBackgroundJobs _jobs;
+    private readonly INotificationPublisher _notify;
     private readonly IValidator<CreateExchangeRequestRequest> _validator;
     private readonly TimeProvider _clock;
 
     public ExchangeRequestService(
         IExchangeRequestStore requests, IExchangeStore exchanges, IProfileStore profiles, IUserSkillStore skills, IUserBlockStore blocks,
-        ISystemSettingsStore settings, IUnitOfWork uow, IBackgroundJobs jobs, IValidator<CreateExchangeRequestRequest> validator,
+        ISystemSettingsStore settings, IUnitOfWork uow, IBackgroundJobs jobs, IValidator<CreateExchangeRequestRequest> validator, INotificationPublisher notify,
         TimeProvider clock)
     {
         _requests = requests;
@@ -56,6 +58,7 @@ public sealed class ExchangeRequestService
         _settings = settings;
         _uow = uow;
         _jobs = jobs;
+        _notify = notify;
         _validator = validator;
         _clock = clock;
     }
@@ -154,12 +157,14 @@ public sealed class ExchangeRequestService
             var entity = ExchangeRequest.Create(
                 fromId, target.Id, request.FromTeachesSkillId, request.ToTeachesSkillId, request.DurationDays, request.Message, now);
             _requests.Add(entity);
+            _notify.Add(target.Id, NotificationType.RequestReceived, new { requestId = entity.Id, userId = fromId, userName = me.Name, durationDays = request.DurationDays });
             await _requests.SaveAsync(token);
             return (entity.Id, entity.ExpiresAt);
         }, ct);
 
         // После фиксации транзакции: срок заявки 7 дней, по его истечении задача переведёт её в Expired.
         var id = created.Item1;
+        _notify.Dispatch();
         _jobs.Schedule<ExchangeRequestJobs>(j => j.ExpireAsync(id), new DateTimeOffset(created.Item2, TimeSpan.Zero));
 
         return await GetAsync(fromId, id, ct);
@@ -168,7 +173,7 @@ public sealed class ExchangeRequestService
     /// <summary>Принять. Если отправитель не указал свой навык, <c>FromTeachesSkillId</c> обязателен. Только получатель.</summary>
     public async Task<ExchangeRequestDto> AcceptAsync(Guid userId, Guid requestId, AcceptExchangeRequestRequest? body, CancellationToken ct)
     {
-        await RequireActiveRegularAsync(userId, ct);
+        var me = await RequireActiveRegularAsync(userId, ct);
         var expired = false;
         (Guid Id, DateTime EndDate)? createdExchange = null;
 
@@ -189,6 +194,7 @@ public sealed class ExchangeRequestService
             if (now >= request.ExpiresAt)
             {
                 request.Expire(now);   // срок вышел, а задача ещё не успела: фиксируем и отвечаем «истекла»
+                _notify.Add(request.FromUserId, NotificationType.RequestExpired, new { requestId = request.Id, userId, userName = me.Name });
                 expired = true;
                 return;
             }
@@ -233,8 +239,10 @@ public sealed class ExchangeRequestService
                 request.DurationDays, now);
             _exchanges.Add(exchange);
             createdExchange = (exchange.Id, exchange.EndDate);
+            _notify.Add(request.FromUserId, NotificationType.RequestAccepted, new { requestId = request.Id, exchangeId = exchange.Id, userId, userName = me.Name });
         });
 
+        _notify.Dispatch();
         if (expired)
         {
             throw new ConflictException("request_expired", "Срок заявки истёк.");
@@ -252,7 +260,7 @@ public sealed class ExchangeRequestService
     /// <summary>Отклонить. Только получатель. Отправитель сможет написать снова через настроенное число дней (по умолчанию 30).</summary>
     public async Task<ExchangeRequestDto> DeclineAsync(Guid userId, Guid requestId, CancellationToken ct)
     {
-        await RequireActiveRegularAsync(userId, ct);
+        var me = await RequireActiveRegularAsync(userId, ct);
         await Mutate(userId, requestId, ct, (request, _) =>
         {
             if (request.ToUserId != userId)
@@ -261,8 +269,10 @@ public sealed class ExchangeRequestService
             }
 
             request.Decline(Now());
+            _notify.Add(request.FromUserId, NotificationType.RequestDeclined, new { requestId = request.Id, userId, userName = me.Name });
             return Task.CompletedTask;
         });
+        _notify.Dispatch();
         return await GetAsync(userId, requestId, ct);
     }
 

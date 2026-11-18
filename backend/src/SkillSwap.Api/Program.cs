@@ -23,6 +23,11 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddRateLimiting(builder.Configuration);
 builder.Services.AddScoped<TurnstileFilter>();
 
+// Хаб уведомлений (SignalR): пользователь — клейм sub; доставка из фоновых задач.
+builder.Services.AddSignalR().AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));   // перечисления строками, как в REST
+builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, SkillSwap.Api.Hubs.SubUserIdProvider>();
+builder.Services.AddScoped<SkillSwap.Application.Notifications.INotificationPusher, SkillSwap.Api.Hubs.SignalRNotificationPusher>();
+
 // CORS: refresh-токен едет в cookie, поэтому нужен AllowCredentials и точный адрес фронтенда (не "*").
 var frontendOrigin = builder.Configuration[$"{FrontendOptions.SectionName}:BaseUrl"] ?? new FrontendOptions().BaseUrl;
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
@@ -74,6 +79,7 @@ app.UseAuthorization();
 app.UseDevelopmentHangfireDashboard();   // панель фоновых задач: только в Development
 
 app.MapControllers();
+app.MapHub<SkillSwap.Api.Hubs.NotificationsHub>("/hubs/notifications");
 
 app.Run();
 

@@ -2,6 +2,7 @@ using FluentValidation;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Common;
 using SkillSwap.Application.Exceptions;
+using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Profile;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -19,17 +20,19 @@ public sealed class ExchangeService
     private readonly IProfileStore _profiles;
     private readonly IUnitOfWork _uow;
     private readonly IBackgroundJobs _jobs;
+    private readonly INotificationPublisher _notify;
     private readonly IValidator<AbortExchangeRequest> _abortValidator;
     private readonly TimeProvider _clock;
 
     public ExchangeService(
         IExchangeStore exchanges, IProfileStore profiles, IUnitOfWork uow, IBackgroundJobs jobs,
-        IValidator<AbortExchangeRequest> abortValidator, TimeProvider clock)
+        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock)
     {
         _exchanges = exchanges;
         _profiles = profiles;
         _uow = uow;
         _jobs = jobs;
+        _notify = notify;
         _abortValidator = abortValidator;
         _clock = clock;
     }
@@ -53,26 +56,58 @@ public sealed class ExchangeService
     /// <summary>«Завершить»: обмен завершается, когда нажали оба. Повторное нажатие не ошибка.</summary>
     public async Task<ExchangeDto> CompleteAsync(Guid userId, Guid exchangeId, CancellationToken ct)
     {
-        await RequireActiveRegularAsync(userId, ct);
-        await Mutate(userId, exchangeId, ct, e => e.MarkCompleted(userId, Now()));
+        var me = await RequireActiveRegularAsync(userId, ct);
+        await Mutate(userId, exchangeId, ct, e =>
+        {
+            var alreadyPressed = userId == e.UserAId ? e.CompletedByA : e.CompletedByB;
+            if (e.MarkCompleted(userId, Now()))
+            {
+                _notify.Add(e.UserAId, NotificationType.ExchangeCompleted, new { exchangeId = e.Id });
+                _notify.Add(e.UserBId, NotificationType.ExchangeCompleted, new { exchangeId = e.Id });
+            }
+            else if (!alreadyPressed)
+            {
+                _notify.Add(e.PartnerOf(userId), NotificationType.ExchangeFinishRequested, new { exchangeId = e.Id, userId, userName = me.Name });
+            }
+        });
+        _notify.Dispatch();
         return await ViewAsync(userId, exchangeId, ct);
     }
 
     /// <summary>Выйти досрочно с причиной. Запланированные уроки отменяются (когда появятся в шаге 7).</summary>
     public async Task<ExchangeDto> AbortAsync(Guid userId, Guid exchangeId, AbortExchangeRequest? request, CancellationToken ct)
     {
-        await RequireActiveRegularAsync(userId, ct);
+        var me = await RequireActiveRegularAsync(userId, ct);
         await _abortValidator.ValidateAndThrowAsync(request ?? new AbortExchangeRequest(null), ct);
-        await Mutate(userId, exchangeId, ct, e => e.Abort(userId, request!.Reason, Now()));
+        await Mutate(userId, exchangeId, ct, e =>
+        {
+            e.Abort(userId, request!.Reason, Now());
+            _notify.Add(e.PartnerOf(userId), NotificationType.ExchangeAborted, new { exchangeId = e.Id, userId, userName = me.Name, reason = e.AbortReason });
+        });
+        _notify.Dispatch();
         return await ViewAsync(userId, exchangeId, ct);
     }
 
     /// <summary>Согласиться на продление на 30 дней. Применяется, когда согласны оба; продление одно за обмен.</summary>
     public async Task<ExchangeDto> ExtendAsync(Guid userId, Guid exchangeId, CancellationToken ct)
     {
-        await RequireActiveRegularAsync(userId, ct);
+        var me = await RequireActiveRegularAsync(userId, ct);
         var applied = false;
-        await Mutate(userId, exchangeId, ct, e => applied = e.AcceptExtension(userId));
+        await Mutate(userId, exchangeId, ct, e =>
+        {
+            var alreadyAgreed = userId == e.UserAId ? e.ExtensionAcceptedByA : e.ExtensionAcceptedByB;
+            applied = e.AcceptExtension(userId);
+            if (applied)
+            {
+                _notify.Add(e.UserAId, NotificationType.ExchangeExtended, new { exchangeId = e.Id, endDate = e.EndDate });
+                _notify.Add(e.UserBId, NotificationType.ExchangeExtended, new { exchangeId = e.Id, endDate = e.EndDate });
+            }
+            else if (!alreadyAgreed)
+            {
+                _notify.Add(e.PartnerOf(userId), NotificationType.ExtensionProposed, new { exchangeId = e.Id, userId, userName = me.Name });
+            }
+        });
+        _notify.Dispatch();
 
         var view = await ViewAsync(userId, exchangeId, ct);
         if (applied)
@@ -113,7 +148,7 @@ public sealed class ExchangeService
         }, ct);
     }
 
-    private async Task RequireActiveRegularAsync(Guid userId, CancellationToken ct)
+    private async Task<User> RequireActiveRegularAsync(Guid userId, CancellationToken ct)
     {
         var user = await _profiles.FindUserAsync(userId, ct) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
         if (!user.IsRegular)
@@ -125,6 +160,8 @@ public sealed class ExchangeService
         {
             throw new ForbiddenException("account_not_active", "Аккаунт недоступен.");
         }
+
+        return user;
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using SkillSwap.Application.Abstractions;
+using SkillSwap.Application.Notifications;
 using SkillSwap.Domain.Enums;
 
 namespace SkillSwap.Application.ExchangeRequests;
@@ -8,12 +9,14 @@ public sealed class ExchangeRequestJobs
 {
     private readonly IExchangeRequestStore _requests;
     private readonly IUnitOfWork _uow;
+    private readonly INotificationPublisher _notify;
     private readonly TimeProvider _clock;
 
-    public ExchangeRequestJobs(IExchangeRequestStore requests, IUnitOfWork uow, TimeProvider clock)
+    public ExchangeRequestJobs(IExchangeRequestStore requests, IUnitOfWork uow, INotificationPublisher notify, TimeProvider clock)
     {
         _requests = requests;
         _uow = uow;
+        _notify = notify;
         _clock = clock;
     }
 
@@ -34,10 +37,13 @@ public sealed class ExchangeRequestJobs
             if (request is { Status: ExchangeRequestStatus.Pending } && now >= request.ExpiresAt)
             {
                 request.Expire(now);
+                _notify.Add(request.FromUserId, NotificationType.RequestExpired, new { requestId, userId = peek.ToUser.Id, userName = peek.ToUser.Name });
                 await _requests.SaveAsync(ct);
             }
 
             return 0;
         }, CancellationToken.None);
+
+        _notify.Dispatch();   // после фиксации; если заявку уже закрыли, уведомлений нет
     }
 }
