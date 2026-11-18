@@ -922,6 +922,27 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.UserBlock", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BlockedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "BlockedUserId");
+
+                    b.HasIndex("BlockedUserId");
+
+                    b.ToTable("UserBlocks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_UserBlocks_NotSelf", "\"UserId\" <> \"BlockedUserId\"");
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.UserLanguage", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1065,6 +1086,21 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("LinkedUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.UserBlock", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.UserLanguage", b =>

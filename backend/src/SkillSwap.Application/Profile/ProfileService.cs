@@ -1,4 +1,5 @@
 using FluentValidation;
+using SkillSwap.Application.Blocks;
 using SkillSwap.Application.Common;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Domain.Entities;
@@ -11,13 +12,16 @@ public sealed class ProfileService
 {
     private readonly IProfileStore _store;
     private readonly IUserSkillStore _skills;
+    private readonly IUserBlockStore _blocks;
     private readonly IValidator<UpdateProfileRequest> _validator;
     private readonly TimeProvider _clock;
 
-    public ProfileService(IProfileStore store, IUserSkillStore skills, IValidator<UpdateProfileRequest> validator, TimeProvider clock)
+    public ProfileService(
+        IProfileStore store, IUserSkillStore skills, IUserBlockStore blocks, IValidator<UpdateProfileRequest> validator, TimeProvider clock)
     {
         _store = store;
         _skills = skills;
+        _blocks = blocks;
         _validator = validator;
         _clock = clock;
     }
@@ -61,7 +65,7 @@ public sealed class ProfileService
     /// <summary>
     /// Профиль другого пользователя. Нельзя увидеть: служебные аккаунты, заблокированных и удалённых, а также скрытых
     /// из подбора (кроме самого себя). Во всех этих случаях ответ одинаков: 404, чтобы по нему нельзя было узнать,
-    /// почему профиля нет. Остальные правила (взаимные блокировки, возрастные группы) добавляются в следующих шагах.
+    /// почему профиля нет. Так же скрыт профиль при блокировке в любую сторону. Возрастные группы добавятся на шаге 6.
     /// </summary>
     public async Task<PublicProfileDto> GetPublicAsync(Guid viewerId, bool viewerIsRegular, Guid targetId, CancellationToken ct)
     {
@@ -72,6 +76,13 @@ public sealed class ProfileService
 
         var user = await _store.FindUserAsync(targetId, ct);
         if (user is null || !user.IsRegular || user.Status != UserStatus.Active || (user.Id != viewerId && !user.IsSearchable))
+        {
+            throw new NotFoundException("user_not_found", "Пользователь не найден.");
+        }
+
+        // Блокировка в любую сторону: профиль для этой пары не существует. Ответ тот же 404, что и для скрытого или удалённого,
+        // поэтому заблокированный не узнаёт, что его заблокировали.
+        if (user.Id != viewerId && await _blocks.IsBlockedEitherWayAsync(viewerId, user.Id, ct))
         {
             throw new NotFoundException("user_not_found", "Пользователь не найден.");
         }

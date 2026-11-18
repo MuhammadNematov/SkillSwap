@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Options;
 using SkillSwap.Application.Profile;
+using SkillSwap.Application.Blocks;
 using SkillSwap.Application.Skills;
 using SkillSwap.Infrastructure.Profile;
 using SkillSwap.Infrastructure.Skills;
@@ -106,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<ISkillSuggestionStore, SkillSuggestionStore>();
         services.AddScoped<IProfileStore, ProfileStore>();
         services.AddScoped<IUserSkillStore, UserSkillStore>();
+        services.AddScoped<IUserBlockStore, UserBlockStore>();
 
         return services;
     }
