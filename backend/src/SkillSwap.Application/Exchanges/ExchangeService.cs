@@ -1,5 +1,6 @@
 using FluentValidation;
 using SkillSwap.Application.Abstractions;
+using SkillSwap.Application.Chat;
 using SkillSwap.Application.Common;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.Notifications;
@@ -17,6 +18,7 @@ namespace SkillSwap.Application.Exchanges;
 public sealed class ExchangeService
 {
     private readonly IExchangeStore _exchanges;
+    private readonly IMessageStore _messages;
     private readonly IProfileStore _profiles;
     private readonly IUnitOfWork _uow;
     private readonly IBackgroundJobs _jobs;
@@ -25,10 +27,11 @@ public sealed class ExchangeService
     private readonly TimeProvider _clock;
 
     public ExchangeService(
-        IExchangeStore exchanges, IProfileStore profiles, IUnitOfWork uow, IBackgroundJobs jobs,
+        IExchangeStore exchanges, IMessageStore messages, IProfileStore profiles, IUnitOfWork uow, IBackgroundJobs jobs,
         IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock)
     {
         _exchanges = exchanges;
+        _messages = messages;
         _profiles = profiles;
         _uow = uow;
         _jobs = jobs;
@@ -44,7 +47,8 @@ public sealed class ExchangeService
         Paging.Validate(page, pageSize);
         await RequireActiveRegularAsync(userId, ct);
         var (items, total) = await _exchanges.ListAsync(userId, status, page, pageSize, ct);
-        return new PagedResult<ExchangeDto>(items.Select(r => Map(r, userId)).ToList(), page, pageSize, total);
+        var unread = await _messages.CountUnreadAsync(userId, items.Select(r => r.Id).ToList(), ct);
+        return new PagedResult<ExchangeDto>(items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id))).ToList(), page, pageSize, total);
     }
 
     public async Task<ExchangeDto> GetAsync(Guid userId, Guid exchangeId, CancellationToken ct)
@@ -127,7 +131,8 @@ public sealed class ExchangeService
             throw new NotFoundException("exchange_not_found", "Обмен не найден.");
         }
 
-        return Map(row, userId);
+        var unread = await _messages.CountUnreadAsync(userId, [row.Id], ct);
+        return Map(row, userId, unread.GetValueOrDefault(row.Id));
     }
 
     private async Task Mutate(Guid userId, Guid exchangeId, CancellationToken ct, Action<Exchange> change)
@@ -173,8 +178,9 @@ public sealed class ExchangeService
 
     public const string PartnerUnavailable = "partner_unavailable";
 
-    private static ExchangeDto Map(ExchangeRow r, Guid viewerId)
+    private ExchangeDto Map(ExchangeRow r, Guid viewerId, int unread)
     {
+
         var isA = r.UserA.Id == viewerId;
         var abortedBy = r.AbortedById is null ? null : r.AbortedById == viewerId ? "me" : "partner";
 
@@ -185,6 +191,7 @@ public sealed class ExchangeService
             r.RequestId, r.StartDate, r.EndDate, r.IsExtended,
             isA ? r.CompletedByA : r.CompletedByB, isA ? r.CompletedByB : r.CompletedByA,
             isA ? r.ExtensionAcceptedByA : r.ExtensionAcceptedByB, isA ? r.ExtensionAcceptedByB : r.ExtensionAcceptedByA,
-            r.FrozenAt, abortedBy, AbortReasonFor(r, viewerId), r.ClosedAt, ExchangeBalance.Calculate(0, 0), r.CreatedAt);
+            r.FrozenAt, abortedBy, AbortReasonFor(r, viewerId), r.ClosedAt, ExchangeBalance.Calculate(0, 0), r.CreatedAt,
+            ChatAccess.Evaluate(r.Status, r.ClosedAt, Now()), unread);
     }
 }

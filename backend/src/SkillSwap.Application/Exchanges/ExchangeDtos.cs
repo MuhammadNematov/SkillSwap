@@ -1,4 +1,5 @@
 using SkillSwap.Application.ExchangeRequests;
+using SkillSwap.Application.Chat;
 using SkillSwap.Domain.Enums;
 
 namespace SkillSwap.Application.Exchanges;
@@ -34,7 +35,9 @@ public sealed record ExchangeDto(
     string? AbortReason,
     DateTime? ClosedAt,
     ExchangeBalanceDto Balance,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    ChatStateDto Chat,
+    int UnreadMessages);
 
 /// <summary>Обмен из хранилища с людьми и навыками обеих сторон.</summary>
 public sealed record ExchangeRow(

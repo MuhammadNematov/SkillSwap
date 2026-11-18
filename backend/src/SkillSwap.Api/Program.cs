@@ -27,6 +27,7 @@ builder.Services.AddScoped<TurnstileFilter>();
 builder.Services.AddSignalR().AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));   // перечисления строками, как в REST
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, SkillSwap.Api.Hubs.SubUserIdProvider>();
 builder.Services.AddScoped<SkillSwap.Application.Notifications.INotificationPusher, SkillSwap.Api.Hubs.SignalRNotificationPusher>();
+builder.Services.AddScoped<SkillSwap.Application.Chat.IChatBroadcaster, SkillSwap.Api.Hubs.SignalRChatBroadcaster>();
 
 // CORS: refresh-токен едет в cookie, поэтому нужен AllowCredentials и точный адрес фронтенда (не "*").
 var frontendOrigin = builder.Configuration[$"{FrontendOptions.SectionName}:BaseUrl"] ?? new FrontendOptions().BaseUrl;
@@ -80,6 +81,7 @@ app.UseDevelopmentHangfireDashboard();   // панель фоновых зада
 
 app.MapControllers();
 app.MapHub<SkillSwap.Api.Hubs.NotificationsHub>("/hubs/notifications");
+app.MapHub<SkillSwap.Api.Hubs.ChatHub>("/hubs/chat");
 
 app.Run();
 

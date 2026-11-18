@@ -23,6 +23,9 @@ public interface IExchangeStore
 
     Task<ExchangeRow?> GetViewAsync(Guid id, CancellationToken ct);
 
+    /// <summary>Обмены, чат которых виден пользователю: активные, замороженные и закрытые не раньше <paramref name="closedAfter"/>.</summary>
+    Task<IReadOnlyList<Guid>> ListChatExchangeIdsAsync(Guid userId, DateTime closedAfter, CancellationToken ct);
+
     /// <summary>Обмены, в которых участвует пользователь: новые сверху.</summary>
     Task<(IReadOnlyList<ExchangeRow> Items, int Total)> ListAsync(Guid userId, ExchangeStatus? status, int page, int pageSize, CancellationToken ct);
 }

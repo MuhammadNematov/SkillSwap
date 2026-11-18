@@ -73,3 +73,13 @@ public enum NotificationType
     /// <summary>Обмен продлён.</summary>
     ExchangeExtended,
 }
+
+/// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>
+public enum MessageType
+{
+    Text,
+    Voice,
+    File,
+    SessionCard,
+    System,
+}

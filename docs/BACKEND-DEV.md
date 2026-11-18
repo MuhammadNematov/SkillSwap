@@ -357,6 +357,29 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 
 **Как создавать уведомления в коде:** `INotificationPublisher.Add(userId, type, payload)` внутри транзакции (сохраняется вместе с изменением) и `Dispatch()` после её фиксации (ставит фоновые задачи доставки и письма). Класс `NotificationPolicy` решает, какие типы дублируются письмом.
 
+## Чат обмена (этап 4, шаг 5): контракт для фронтенда
+
+Чат работает через хаб **`/hubs/chat`** (SignalR, `@microsoft/signalr`) и два REST-метода (тег **Chat**). Токен: `accessTokenFactory` (параметр `access_token`) или заголовок `Authorization`; без токена соединение отклоняется (401). Одна группа на обмен; при подключении (и при каждом переподключении) сервер **сам** добавляет вас в группы всех ваших обменов, чей чат виден. Для обмена, созданного уже после подключения (вы только что приняли заявку), вызовите `Join(exchangeId)`. После переподключения за пропущенным сходите в историю (`GET …/messages`), события за время обрыва не доставляются повторно.
+
+**Методы хаба** (клиент вызывает `connection.invoke`): `Join(exchangeId)`, `Leave(exchangeId)`, `Send(exchangeId, text)` → сообщение, `Edit(messageId, text)` → сообщение, `Delete(messageId)` → `{ exchangeId, messageId, deletedAt }`, `Typing(exchangeId)`, `Read(exchangeId, upToMessageId)` (`null` — все) → `{ exchangeId, readerId, upToMessageId, marked, readAt }`. Ошибка приходит исключением, в тексте которого машинный код (`error.message.includes("chat_read_only")`).
+
+**События от сервера:** `message` и `messageEdited` (сообщение целиком), `messageDeleted` (`{ exchangeId, messageId, deletedAt }`), `messagesRead` (`{ exchangeId, readerId, upToMessageId, marked, readAt }`: собеседник прочитал, подсветить «прочитано»), `typing` (`{ exchangeId, userId }`, только собеседнику; сервер пропускает чаще раза в 2 секунды с одного соединения). Все события, кроме `typing`, получает и сам автор на других вкладках.
+
+**Сообщение:** `id`, `exchangeId`, `senderId` (null у системных), `type` (`Text`; `Voice`, `File`, `SessionCard`, `System` придут в шагах 6 и 7), `text` (null у удалённого), `paymentWarning`, `attachmentId`, `sessionId`, `createdAt`, `editedAt`, `deletedAt`, `readAt`. Статусы: сохранено на сервере = «отправлено» (приходит в ответе `Send`), `readAt` ≠ null = «прочитано». Отдельного «доставлено» нет.
+
+**История:** `GET /exchanges/{id}/messages?before=&limit=` (`limit` 1–100, по умолчанию 30). Без `before` — самые новые; ответ `{ items, nextBefore }`: `items` по возрастанию времени, `nextBefore` — курсор следующей, более старой страницы (его и передаём в `before`), `null`, когда истории больше нет. Курсор непрозрачный. `POST /exchanges/{id}/messages/read` (тело `{ "upToMessageId": … }` или без тела) — то же, что `Read` в хабе, работает и когда чат только для чтения.
+
+**Правила:**
+- Текст до 4000 символов, пробелы по краям убираются (`message_empty`, `message_too_long`). Не больше 20 сообщений за 10 секунд (`chat_rate_limited`, 429).
+- Править и удалять можно только своё сообщение в течение 15 минут (`not_message_author`, `edit_window_expired`, `message_deleted`). Прежний текст сохраняется в `MessageRevisions` для модератора. Правка с тем же текстом правкой не считается.
+- **Антифрод:** если в тексте номер банковской карты (проверка контрольной суммы) или призыв к оплате (ru, tg, en), у сообщения `paymentWarning: true`: фронтенд показывает обоим предупреждение о запрете денежных расчётов. Сообщение не блокируется. Проверка идёт до шифрования, при правке пересчитывается.
+- **Шифрование:** текст в БД лежит зашифрованным (Data Protection), в дампе его не прочитать.
+- **Режимы** (поле `chat` в карточке обмена): `ReadWrite` — обмен активен; `ReadOnly` — обмен заморожен (`readOnlyReason: "frozen"`) либо завершён или прерван не более 30 дней назад (`"completed"` / `"aborted"`, `readableUntil`); `Archived` — прошло больше 30 дней, участникам чат недоступен (403 `chat_archived`; через 90 дней его удалит фоновая очистка). Запись в режиме `ReadOnly` — 409/исключение `chat_read_only` (с `reason`). Блокировка прерывает обмен, поэтому чат пары становится только для чтения.
+- Чужой обмен и чужое сообщение — 404 `exchange_not_found` / `message_not_found` (в хабе то же в тексте исключения).
+- В `GET /exchanges` и `GET /exchanges/{id}` добавлено `unreadMessages` (чужие непрочитанные, удалённые не в счёт) и `chat` (режим).
+
+Письма и уведомления о новых сообщениях не отправляются: непрочитанное видно по `unreadMessages`.
+
 ## Тесты
 
 ```

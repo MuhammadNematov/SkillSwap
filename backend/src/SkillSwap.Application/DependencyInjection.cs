@@ -4,6 +4,7 @@ using SkillSwap.Application.Auth;
 using SkillSwap.Application.Blocks;
 using SkillSwap.Application.ExchangeRequests;
 using SkillSwap.Application.Exchanges;
+using SkillSwap.Application.Chat;
 using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Jobs;
 using SkillSwap.Application.LiveKit;
@@ -38,6 +39,8 @@ public static class DependencyInjection
         services.AddScoped<INotificationPublisher, NotificationPublisher>();
         services.AddScoped<NotificationService>();
         services.AddScoped<NotificationJobs>();
+        services.AddScoped<ChatService>();
+        services.AddSingleton<ChatThrottle>();
         services.AddScoped<SkillSuggestionService>();
         services.AddScoped<LiveKitWebhookService>();
         services.AddScoped<NoopJob>();
