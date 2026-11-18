@@ -506,7 +506,9 @@ public class ProfileTests
         var other = await NewPersonAsync();
         await SendAsync(owner.Token, HttpMethod.Put, "/me", Profile(isSearchable: true));
         var today = DateOnly.FromDateTime(_factory.Clock.GetUtcNow().UtcDateTime);
-        await ModifyUserAsync(owner.Id, u => Set(u, nameof(User.DateOfBirth), (DateOnly?)today.AddYears(-age).AddDays(-1)));
+        var birth = (DateOnly?)today.AddYears(-age).AddDays(-1);
+        await ModifyUserAsync(owner.Id, u => Set(u, nameof(User.DateOfBirth), birth));
+        await ModifyUserAsync(other.Id, u => Set(u, nameof(User.DateOfBirth), birth));   // зритель той же возрастной группы (раздел 10.4): иначе профиль скрыт
 
         var profile = await JsonAsync(await SendAsync(other.Token, HttpMethod.Get, $"/users/{owner.Id}"));
 

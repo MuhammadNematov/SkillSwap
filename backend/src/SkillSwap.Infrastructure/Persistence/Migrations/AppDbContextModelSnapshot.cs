@@ -746,6 +746,43 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("SkillSuggestions", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.SystemSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("SystemSettings", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Key = "Matching.MinorsMatchOnlyMinors",
+                            CreatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Подбор: пользователи 16–17 лет только друг с другом, взрослые только со взрослыми (раздел 10.4 ТЗ). true или false.",
+                            UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "true"
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>
                 {
                     b.Property<Guid>("Id")

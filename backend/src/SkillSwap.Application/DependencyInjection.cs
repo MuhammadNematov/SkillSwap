@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Auth;
 using SkillSwap.Application.Blocks;
 using SkillSwap.Application.LiveKit;
+using SkillSwap.Application.Matching;
 using SkillSwap.Application.Profile;
 using SkillSwap.Application.Skills;
 
@@ -25,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ProfileService>();
         services.AddScoped<MySkillsService>();
         services.AddScoped<UserBlockService>();
+        services.AddScoped<MatchService>();
         services.AddScoped<SkillSuggestionService>();
         services.AddScoped<LiveKitWebhookService>();
 

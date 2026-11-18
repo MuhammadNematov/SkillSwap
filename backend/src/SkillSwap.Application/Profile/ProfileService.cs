@@ -1,6 +1,8 @@
 using FluentValidation;
 using SkillSwap.Application.Blocks;
 using SkillSwap.Application.Common;
+using SkillSwap.Application.Matching;
+using SkillSwap.Application.Settings;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -13,15 +15,18 @@ public sealed class ProfileService
     private readonly IProfileStore _store;
     private readonly IUserSkillStore _skills;
     private readonly IUserBlockStore _blocks;
+    private readonly ISystemSettingsStore _settings;
     private readonly IValidator<UpdateProfileRequest> _validator;
     private readonly TimeProvider _clock;
 
     public ProfileService(
-        IProfileStore store, IUserSkillStore skills, IUserBlockStore blocks, IValidator<UpdateProfileRequest> validator, TimeProvider clock)
+        IProfileStore store, IUserSkillStore skills, IUserBlockStore blocks, ISystemSettingsStore settings,
+        IValidator<UpdateProfileRequest> validator, TimeProvider clock)
     {
         _store = store;
         _skills = skills;
         _blocks = blocks;
+        _settings = settings;
         _validator = validator;
         _clock = clock;
     }
@@ -85,6 +90,17 @@ public sealed class ProfileService
         if (user.Id != viewerId && await _blocks.IsBlockedEitherWayAsync(viewerId, user.Id, ct))
         {
             throw new NotFoundException("user_not_found", "Пользователь не найден.");
+        }
+
+        // Возрастные группы (раздел 10.4 ТЗ): пока настройка включена, 16–17 лет и 18+ друг друга не видят. Тот же 404.
+        if (user.Id != viewerId)
+        {
+            var viewer = await _store.FindUserAsync(viewerId, ct);
+            var restrict = await _settings.GetBoolAsync(SystemSettingKeys.MinorsMatchOnlyMinors, defaultValue: true, ct);
+            if (viewer is null || !AgeGroups.CanSeeEachOther(viewer, user, restrict, Today()))
+            {
+                throw new NotFoundException("user_not_found", "Пользователь не найден.");
+            }
         }
 
         var languages = await _store.GetLanguagesAsync(targetId, ct);

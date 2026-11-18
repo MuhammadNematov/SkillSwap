@@ -7,6 +7,9 @@ using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Options;
 using SkillSwap.Application.Profile;
 using SkillSwap.Application.Blocks;
+using SkillSwap.Application.Matching;
+using SkillSwap.Application.Settings;
+using SkillSwap.Infrastructure.Matching;
 using SkillSwap.Application.Skills;
 using SkillSwap.Infrastructure.Profile;
 using SkillSwap.Infrastructure.Skills;
@@ -109,6 +112,8 @@ public static class DependencyInjection
         services.AddScoped<IProfileStore, ProfileStore>();
         services.AddScoped<IUserSkillStore, UserSkillStore>();
         services.AddScoped<IUserBlockStore, UserBlockStore>();
+        services.AddScoped<IMatchStore, MatchStore>();
+        services.AddScoped<ISystemSettingsStore, SystemSettingsStore>();
 
         return services;
     }
