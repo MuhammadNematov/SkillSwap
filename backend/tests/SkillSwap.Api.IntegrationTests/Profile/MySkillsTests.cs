@@ -32,11 +32,20 @@ public class MySkillsTests
 
     private sealed record Person(string Token, Guid Id);
 
-    private async Task<Person> NewPersonAsync()
+    private async Task<Person> NewPersonAsync(bool withLanguage = true)
     {
         var email = await _api.RegisterConfirmedUserAsync();
         var token = (await _api.LoginSessionAsync(email)).AccessToken;
         var me = await JsonAsync(await SendAsync(token, HttpMethod.Get, "/me"));
+        if (withLanguage)
+        {
+            // Язык занятий нужен для полной анкеты (без него подбор закрыт): после навыков это делает анкету полной.
+            (await SendAsync(token, HttpMethod.Put, "/me", new
+            {
+                name = "Test User", bio = (string?)null, uiLanguage = "en", timeZone = "UTC", languages = new[] { "en" }, isSearchable = false,
+            })).EnsureSuccessStatusCode();
+        }
+
         return new Person(token, me.GetProperty("id").GetGuid());
     }
 

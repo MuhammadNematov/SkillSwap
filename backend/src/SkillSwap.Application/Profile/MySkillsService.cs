@@ -26,7 +26,7 @@ public sealed class MySkillsService
             throw new ForbiddenException("staff_has_no_profile", "У служебного аккаунта нет анкеты.");
         }
 
-        return ToDto(await _skills.ListAsync(userId, ct), user.IsSearchable);
+        return ToDto(await _skills.ListAsync(userId, ct), user.IsSearchable, await _skills.IsSkillsCompleteAsync(userId, ct));
     }
 
     public async Task<MySkillsDto> SaveAsync(Guid userId, SaveSkillsRequest request, CancellationToken ct)
@@ -62,20 +62,19 @@ public sealed class MySkillsService
             throw new ConflictException("concurrency_conflict", "Анкета была изменена параллельным запросом. Повторите действие.");
         }
 
-        return ToDto(await _skills.ListAsync(userId, ct), outcome.IsSearchable);
+        return ToDto(await _skills.ListAsync(userId, ct), outcome.IsSearchable, outcome.IsComplete);
     }
 
     private static DesiredSkill Desired(SkillDirection direction, SkillEntryRequest e) =>
         new(direction, e.SkillId, e.Level!.Value, e.Description);
 
-    private static MySkillsDto ToDto(IReadOnlyList<UserSkillRow> rows, bool isSearchable)
+    private static MySkillsDto ToDto(IReadOnlyList<UserSkillRow> rows, bool isSearchable, bool complete)
     {
         static UserSkillDto Map(UserSkillRow r) =>
             new(r.SkillId, r.CategoryId, r.NameTg, r.NameRu, r.NameEn, r.Level, r.Description, r.IsActive);
 
         var teach = rows.Where(r => r.Direction == SkillDirection.Teach).Select(Map).ToList();
         var learn = rows.Where(r => r.Direction == SkillDirection.Learn).Select(Map).ToList();
-        var complete = teach.Any(s => s.IsActive) && learn.Any(s => s.IsActive);
         return new MySkillsDto(teach, learn, complete, isSearchable);
     }
 }

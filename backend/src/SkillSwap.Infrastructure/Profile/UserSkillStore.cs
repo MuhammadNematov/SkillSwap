@@ -36,7 +36,10 @@ public sealed class UserSkillStore : IUserSkillStore
 
     public Task<bool> IsSkillsCompleteAsync(Guid userId, CancellationToken ct) => IsCompleteAsync(_db, userId, ct);
 
-    /// <summary>Есть включённый навык и в «Умею», и в «Хочу изучать».</summary>
+    /// <summary>
+    /// Анкета полная: включённый навык и в «Умею», и в «Хочу изучать», и хотя бы один язык занятий.
+    /// Без языка подбор пуст (общий язык обязателен), поэтому такая анкета полной не считается.
+    /// </summary>
     internal static async Task<bool> IsCompleteAsync(AppDbContext db, Guid userId, CancellationToken ct)
     {
         var directions = await db.UserSkills.AsNoTracking()
@@ -45,8 +48,10 @@ public sealed class UserSkillStore : IUserSkillStore
             .Select(g => new { Direction = g.Key, Count = g.Count() })
             .ToListAsync(ct);
 
-        return Has(directions.Select(d => (d.Direction, d.Count)), SkillDirection.Teach)
+        var skillsFilled = Has(directions.Select(d => (d.Direction, d.Count)), SkillDirection.Teach)
             && Has(directions.Select(d => (d.Direction, d.Count)), SkillDirection.Learn);
+
+        return skillsFilled && await db.UserLanguages.AsNoTracking().AnyAsync(l => l.UserId == userId, ct);
 
         static bool Has(IEnumerable<(SkillDirection Direction, int Count)> counts, SkillDirection direction) =>
             counts.Any(c => c.Direction == direction && c.Count >= UserSkill.MinPerDirectionForCompleteAnketa);

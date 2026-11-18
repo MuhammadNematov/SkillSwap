@@ -40,11 +40,9 @@ public sealed class ProfileStore : IProfileStore
             // с разными наборами языков увидели бы одно и то же «было» и сложили бы оба набора вместе.
             await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Users\" WHERE \"Id\" = {user.Id} FOR UPDATE", ct);
 
-            // Проверка под блокировкой: параллельная правка анкеты не успеет сделать её неполной между проверкой и записью.
-            if (user.IsSearchable && !await UserSkillStore.IsCompleteAsync(_db, user.Id, ct))
-            {
-                return ProfileSaveResult.SkillsIncomplete;   // транзакция откатится при выходе
-            }
+            // Полна ли анкета до этой правки (навыки и языки так, как они лежат в БД под блокировкой).
+            var wasComplete = await UserSkillStore.IsCompleteAsync(_db, user.Id, ct);
+            var wasVisible = _db.Entry(user).Property(u => u.IsSearchable).OriginalValue;
 
             var existing = await _db.UserLanguages.Where(l => l.UserId == user.Id).ToListAsync(ct);
             _db.UserLanguages.RemoveRange(existing.Where(l => !languages.Contains(l.LanguageCode)));
@@ -54,6 +52,28 @@ public sealed class ProfileStore : IProfileStore
             }
 
             await _db.SaveChangesAsync(ct);
+
+            // Видимость и полнота анкеты считаются уже по новым языкам. Правила те же, что и при правке навыков:
+            //  - просят показаться, а анкета неполная: отказ (ничего не сохраняется);
+            //  - был виден, а анкета перестала быть полной (например, убрали все языки): скрываем сами, это не отказ;
+            //  - анкета стала полной (например, добавили первый язык) и человек сам не скрывался: показываем сами.
+            var isComplete = await UserSkillStore.IsCompleteAsync(_db, user.Id, ct);
+            if (user.IsSearchable && !isComplete)
+            {
+                if (!wasVisible)
+                {
+                    return ProfileSaveResult.SkillsIncomplete;   // транзакция откатится при выходе
+                }
+
+                user.IsSearchable = false;
+                await _db.SaveChangesAsync(ct);
+            }
+            else if (!user.IsSearchable && isComplete && !wasComplete && !user.HiddenByUser)
+            {
+                user.IsSearchable = true;
+                await _db.SaveChangesAsync(ct);
+            }
+
             await transaction.CommitAsync(ct);
             return ProfileSaveResult.Saved;
         }
