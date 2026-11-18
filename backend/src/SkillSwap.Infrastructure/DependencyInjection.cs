@@ -21,6 +21,7 @@ using SkillSwap.Infrastructure.Captcha;
 using SkillSwap.Infrastructure.DataProtection;
 using SkillSwap.Infrastructure.LiveKit;
 using SkillSwap.Infrastructure.Email;
+using SkillSwap.Infrastructure.Jobs;
 using SkillSwap.Infrastructure.Persistence;
 
 namespace SkillSwap.Infrastructure;
@@ -103,8 +104,19 @@ public static class DependencyInjection
         services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();
         services.AddScoped<ILiveKitWebhookEventStore, LiveKitWebhookEventStore>();
 
-        // TODO: заменить на SMTP-отправитель до выхода за пределы разработки.
-        services.AddScoped<IMailSender, ConsoleMailSender>();
+        // Почта: приложение ставит письма в очередь (BackgroundMailSender), фоновая задача отправляет их по SMTP или,
+        // пока SMTP не настроен (только Development и Testing), пишет в консоль.
+        services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.SectionName));
+        services.AddHostedService<SmtpStartupCheck>();
+        services.AddScoped<IMailTransport>(sp => sp.GetRequiredService<IOptions<SmtpOptions>>().Value.IsConfigured
+            ? ActivatorUtilities.CreateInstance<SmtpMailTransport>(sp)
+            : ActivatorUtilities.CreateInstance<ConsoleMailSender>(sp));
+        services.AddScoped<IMailSender, BackgroundMailSender>();
+        services.AddScoped<MailJobs>();
+
+        // Фоновые задачи (Hangfire в PostgreSQL) и транзакции с блокировкой пользователей.
+        services.AddBackgroundJobs(configuration);
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
         services.AddScoped<ISkillCatalogReader, SkillCatalogReader>();
         services.AddScoped<ISkillCatalogRepository, SkillCatalogRepository>();

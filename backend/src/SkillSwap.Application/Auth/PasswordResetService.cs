@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Exceptions;
+using SkillSwap.Application.Jobs;
 using SkillSwap.Application.Options;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -18,6 +19,7 @@ public sealed class PasswordResetService
 {
     private readonly UserManager<User> _users;
     private readonly IMailSender _mail;
+    private readonly IBackgroundJobs _jobs;
     private readonly IRefreshTokenRepository _refreshTokens;
     private readonly IValidator<ForgotPasswordRequest> _forgotValidator;
     private readonly IValidator<ResetPasswordRequest> _resetValidator;
@@ -28,6 +30,7 @@ public sealed class PasswordResetService
     public PasswordResetService(
         UserManager<User> users,
         IMailSender mail,
+        IBackgroundJobs jobs,
         IRefreshTokenRepository refreshTokens,
         IValidator<ForgotPasswordRequest> forgotValidator,
         IValidator<ResetPasswordRequest> resetValidator,
@@ -37,6 +40,7 @@ public sealed class PasswordResetService
     {
         _users = users;
         _mail = mail;
+        _jobs = jobs;
         _refreshTokens = refreshTokens;
         _forgotValidator = forgotValidator;
         _resetValidator = resetValidator;
@@ -59,6 +63,8 @@ public sealed class PasswordResetService
         // Неподтверждённым и заблокированным письмо не шлём: подтверждённый email — доказательство владения ящиком.
         if (user is null || !user.EmailConfirmed || user.Status != UserStatus.Active)
         {
+            // Известный и неизвестный адрес работают одинаково долго: в обоих случаях в очередь попадает одна задача.
+            _jobs.Enqueue<NoopJob>(j => j.RunAsync());
             return;
         }
 

@@ -82,6 +82,14 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         settings["LiveKit:ApiKey"] = LiveKitApiKey;
         settings["LiveKit:ApiSecret"] = LiveKitApiSecret;
         settings["LiveKit:Url"] = LiveKitUrl;
+
+        // Фоновые задачи в тестах выполняются сразу, в процессе (без Hangfire и его таблиц): письма видны сразу после запроса.
+        settings["Hangfire:Enabled"] = "false";
+
+        // SMTP задан (как на боевом сервере): иначе приложения в окружении Production в тестах не запускались бы. Сами письма
+        // в тестах перехватывает CapturingMailSender, на этот адрес ничего не уходит.
+        settings["Smtp:Host"] = "smtp.skillswap.test";
+        settings["Smtp:FromAddress"] = "no-reply@skillswap.test";
         settings["Frontend:BaseUrl"] = FrontendUrl;
 
         // Ключи шифрования защищены сертификатом, как на боевом сервере (в тестах он создаётся на лету).

@@ -9,6 +9,7 @@ using SkillSwap.Api.RateLimiting;
 using SkillSwap.Application;
 using SkillSwap.Application.Options;
 using SkillSwap.Infrastructure;
+using SkillSwap.Infrastructure.Jobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +71,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseConfiguredRateLimiter();   // после UseAuthentication: общий лимит считается по авторизованному пользователю
 app.UseAuthorization();
+app.UseDevelopmentHangfireDashboard();   // панель фоновых задач: только в Development
 
 app.MapControllers();
 

@@ -39,5 +39,19 @@ services:
       # На Windows и macOS host.docker.internal есть сам; на Linux его нужно добавить, чтобы webhook доходил до API.
       - "host.docker.internal:host-gateway"
 
+  # Почта для разработки (этап 4): SMTP-сервер, который ловит все письма и показывает их в браузере.
+  # Приложению: Smtp:Host=localhost, Smtp:Port=1025, Smtp:Security=None (user-secrets). Письма: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: skillswap-mailpit
+    ports:
+      - "1025:1025"        # SMTP
+      - "8025:8025"        # веб-интерфейс и API
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   postgres-data:

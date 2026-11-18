@@ -27,6 +27,19 @@ internal sealed class FakeMailSender : IMailSender
 }
 
 /// <summary>UserManager с подменёнными методами: настоящего хранилища в юнит-тестах нет.</summary>
+/// <summary>Запоминает поставленные в очередь задачи (сами они в юнит-тестах не выполняются).</summary>
+internal sealed class FakeBackgroundJobs : IBackgroundJobs
+{
+    public List<string> Enqueued { get; } = [];
+
+    public int NoopCount => Enqueued.Count(e => e.Contains("NoopJob"));
+
+    public void Enqueue<T>(System.Linq.Expressions.Expression<Func<T, Task>> job) where T : notnull => Enqueued.Add($"{typeof(T).Name}: {job}");
+
+    public void Schedule<T>(System.Linq.Expressions.Expression<Func<T, Task>> job, DateTimeOffset runAt) where T : notnull =>
+        Enqueued.Add($"{typeof(T).Name}: {job} @ {runAt:O}");
+}
+
 internal sealed class FakeUserManager : UserManager<User>
 {
     public FakeUserManager() : base(
@@ -317,6 +330,7 @@ internal sealed class AuthFixture
     public FakeTimeProvider Clock { get; } = new(new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero));
     public FakeUserManager Users { get; } = new();
     public FakeMailSender Mail { get; } = new();
+    public FakeBackgroundJobs Jobs { get; } = new();
     public FakeRefreshTokenRepository RefreshTokens { get; } = new();
     public AuthService Service { get; }
     public TwoFactorService TwoFactor { get; }
@@ -345,6 +359,7 @@ internal sealed class AuthFixture
         Service = new AuthService(
             Users,
             Mail,
+            Jobs,
             new RegisterRequestValidator(Clock),
             new ConfirmEmailRequestValidator(),
             new ResendConfirmationRequestValidator(),
@@ -359,6 +374,7 @@ internal sealed class AuthFixture
         PasswordReset = new PasswordResetService(
             Users,
             Mail,
+            Jobs,
             RefreshTokens,
             new ForgotPasswordRequestValidator(),
             new ResetPasswordRequestValidator(),

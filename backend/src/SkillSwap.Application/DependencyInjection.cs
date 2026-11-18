@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Application.Auth;
 using SkillSwap.Application.Blocks;
+using SkillSwap.Application.Jobs;
 using SkillSwap.Application.LiveKit;
 using SkillSwap.Application.Matching;
 using SkillSwap.Application.Profile;
@@ -29,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<MatchService>();
         services.AddScoped<SkillSuggestionService>();
         services.AddScoped<LiveKitWebhookService>();
+        services.AddScoped<NoopJob>();
 
         return services;
     }

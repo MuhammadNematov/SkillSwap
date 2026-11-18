@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Common;
 using SkillSwap.Application.Exceptions;
+using SkillSwap.Application.Jobs;
 using SkillSwap.Application.Options;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -15,6 +16,7 @@ public sealed class AuthService
 {
     private readonly UserManager<User> _users;
     private readonly IMailSender _mail;
+    private readonly IBackgroundJobs _jobs;
     private readonly IValidator<RegisterRequest> _registerValidator;
     private readonly IValidator<ConfirmEmailRequest> _confirmValidator;
     private readonly IValidator<ResendConfirmationRequest> _resendValidator;
@@ -29,6 +31,7 @@ public sealed class AuthService
     public AuthService(
         UserManager<User> users,
         IMailSender mail,
+        IBackgroundJobs jobs,
         IValidator<RegisterRequest> registerValidator,
         IValidator<ConfirmEmailRequest> confirmValidator,
         IValidator<ResendConfirmationRequest> resendValidator,
@@ -42,6 +45,7 @@ public sealed class AuthService
     {
         _users = users;
         _mail = mail;
+        _jobs = jobs;
         _registerValidator = registerValidator;
         _confirmValidator = confirmValidator;
         _resendValidator = resendValidator;
@@ -164,6 +168,8 @@ public sealed class AuthService
         var user = await _users.FindByEmailAsync(request.Email.Trim());
         if (user is null || user.EmailConfirmed || user.Status != UserStatus.Active)
         {
+            // Известный и неизвестный адрес работают одинаково долго: в обоих случаях в очередь попадает одна задача.
+            _jobs.Enqueue<NoopJob>(j => j.RunAsync());
             return;
         }
 
