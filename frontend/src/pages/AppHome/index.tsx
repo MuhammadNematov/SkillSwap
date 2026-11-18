@@ -85,16 +85,19 @@ export default function AppHome() {
           )}
           {lesson && (
             <div className="mt-5">
-              <button
-                className="btn-primary"
-                disabled={!isJoinWindowOpen(lesson.startsAt)}
-                title={t('dashboard.joinHint')}
-              >
-                <Icon name="video" className="h-4 w-4" />
-                {t('dashboard.join')}
-              </button>
-              {!isJoinWindowOpen(lesson.startsAt) && (
-                <p className="mt-2 text-xs text-slate-400">{t('dashboard.joinHint')}</p>
+              {isJoinWindowOpen(lesson.startsAt) ? (
+                <Link to={`/app/call/${lesson.id}`} className="btn-primary">
+                  <Icon name="video" className="h-4 w-4" />
+                  {t('dashboard.join')}
+                </Link>
+              ) : (
+                <>
+                  <button className="btn-primary" disabled title={t('dashboard.joinHint')}>
+                    <Icon name="video" className="h-4 w-4" />
+                    {t('dashboard.join')}
+                  </button>
+                  <p className="mt-2 text-xs text-slate-400">{t('dashboard.joinHint')}</p>
+                </>
               )}
             </div>
           )}
@@ -123,8 +126,8 @@ export default function AppHome() {
                   <Icon name="star" className="h-4 w-4" />
                   {p.rating.toFixed(1)}
                 </span>
-                <Link to="/app/messages" className="btn-secondary px-4 py-2">
-                  {t('dashboard.write')}
+                <Link to={`/app/users/${p.id}`} className="btn-secondary px-4 py-2">
+                  {t('dashboard.profile')}
                 </Link>
               </li>
             ))}

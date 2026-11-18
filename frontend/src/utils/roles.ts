@@ -6,7 +6,7 @@ export function homeForRole(role: Role): string {
     case 'Moderator':
       return '/moderation'
     case 'Admin':
-    case 'Superadmin':
+    case 'SuperAdmin':
       return '/admin'
     default:
       return '/app'

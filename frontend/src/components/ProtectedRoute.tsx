@@ -19,5 +19,10 @@ export default function ProtectedRoute({ roles }: { roles?: Role[] }) {
     return <Navigate to={homeForRole(user.role)} replace />
   }
 
+  // Без анкеты подбор и обмены недоступны: сначала онбординг (ТЗ 5)
+  if (user.role === 'User' && !user.skillsComplete && location.pathname !== '/app/onboarding') {
+    return <Navigate to="/app/onboarding" replace />
+  }
+
   return <Outlet />
 }

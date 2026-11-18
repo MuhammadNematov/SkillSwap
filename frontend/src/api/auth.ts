@@ -1,24 +1,35 @@
-import { api } from './client'
+import { api, setAccessToken } from './client'
 import { USE_MOCKS } from './config'
 import { toApiError } from './errors'
-import { mockLogin, mockLoginTwoFactor, mockRegister } from './mocks/auth'
-import type { AuthSession, CurrentUser, UiLanguage } from './types'
+import {
+  mockConfirmEmail,
+  mockForgotPassword,
+  mockLogin,
+  mockLoginTwoFactor,
+  mockRegister,
+  mockResendConfirmation,
+  mockResetPassword,
+} from './mocks/auth'
+import { getMe, toCurrentUser } from './me'
+import type { AuthSession, UiLanguage } from './types'
 
 export interface LoginRequest {
   email: string
   password: string
+  captchaToken?: string
 }
 
-// По ТЗ (FR-6): /auth/login возвращает requires2fa, затем /auth/login/2fa с кодом.
-// challengeToken — временный токен между шагами; нужен ли он, уточним по Swagger.
+// /auth/login: обычный вход, второй шаг 2FA (requires2fa) или обязательная настройка 2FA для служебных аккаунтов (requires2faSetup).
+// В обоих «промежуточных» случаях приходит twoFactorToken.
 export type LoginResult =
-  | { requires2fa: false; session: AuthSession }
-  | { requires2fa: true; challengeToken?: string }
+  | { requires2fa: false; requires2faSetup: false; session: AuthSession }
+  | { requires2fa: true; twoFactorToken: string }
+  | { requires2fa: false; requires2faSetup: true; twoFactorToken: string }
 
 export interface TwoFactorRequest {
   code: string
   isRecoveryCode: boolean
-  challengeToken?: string
+  twoFactorToken: string
 }
 
 export interface RegisterRequest {
@@ -28,23 +39,41 @@ export interface RegisterRequest {
   dateOfBirth: string // YYYY-MM-DD
   uiLanguage: UiLanguage
   acceptTerms: boolean
-  consentModeratorAccess: boolean
+  consentModeratorAccess: boolean // уходит на сервер как acceptChatModeration
+  captchaToken?: string
 }
 
-// Ответ настоящего бэкенда на /auth/login (форму уточним по Swagger)
+// Ответ сервера с токеном (в user нет skillsComplete и аватара: их берём из GET /me)
+export interface AuthResponse {
+  accessToken: string
+  accessTokenExpiresAt?: string
+  user: { id: string; email: string; name: string; role: string; uiLanguage: string }
+}
+
 interface LoginResponse {
   requires2fa: boolean
-  challengeToken?: string
-  accessToken?: string
-  user?: CurrentUser
+  requires2faSetup: boolean
+  twoFactorToken: string | null
+  accessToken: string | null
+  accessTokenExpiresAt: string | null
+  user: AuthResponse['user'] | null
+}
+
+// Сразу сохраняем токен, чтобы запросить полный профиль (GET /me)
+export async function toSession(auth: AuthResponse): Promise<AuthSession> {
+  setAccessToken(auth.accessToken)
+  const me = await getMe()
+  return { accessToken: auth.accessToken, user: toCurrentUser(me) }
 }
 
 export async function login(req: LoginRequest): Promise<LoginResult> {
   if (USE_MOCKS) return mockLogin(req)
   try {
     const { data } = await api.post<LoginResponse>('/auth/login', req)
-    if (data.requires2fa) return { requires2fa: true, challengeToken: data.challengeToken }
-    return { requires2fa: false, session: { accessToken: data.accessToken!, user: data.user! } }
+    if (data.requires2fa) return { requires2fa: true, twoFactorToken: data.twoFactorToken! }
+    if (data.requires2faSetup) return { requires2fa: false, requires2faSetup: true, twoFactorToken: data.twoFactorToken! }
+    const session = await toSession({ accessToken: data.accessToken!, user: data.user! })
+    return { requires2fa: false, requires2faSetup: false, session }
   } catch (e) {
     throw toApiError(e)
   }
@@ -53,8 +82,8 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
 export async function loginTwoFactor(req: TwoFactorRequest): Promise<AuthSession> {
   if (USE_MOCKS) return mockLoginTwoFactor(req)
   try {
-    const { data } = await api.post<AuthSession>('/auth/login/2fa', req)
-    return data
+    const { data } = await api.post<LoginResponse>('/auth/login/2fa', req)
+    return await toSession({ accessToken: data.accessToken!, user: data.user! })
   } catch (e) {
     throw toApiError(e)
   }
@@ -63,7 +92,8 @@ export async function loginTwoFactor(req: TwoFactorRequest): Promise<AuthSession
 export async function register(req: RegisterRequest): Promise<void> {
   if (USE_MOCKS) return mockRegister(req)
   try {
-    await api.post('/auth/register', req)
+    const { consentModeratorAccess, ...rest } = req
+    await api.post('/auth/register', { ...rest, acceptChatModeration: consentModeratorAccess })
   } catch (e) {
     throw toApiError(e)
   }
@@ -73,11 +103,61 @@ export async function register(req: RegisterRequest): Promise<void> {
 // На заглушках сеанса после перезагрузки нет (как будто cookie не было).
 export async function refreshSession(): Promise<AuthSession | null> {
   if (USE_MOCKS) return null
-  const { data } = await api.post<AuthSession>('/auth/refresh')
-  return data
+  const { data } = await api.post<AuthResponse>('/auth/refresh')
+  return toSession(data)
 }
 
 export async function logoutRequest(): Promise<void> {
   if (USE_MOCKS) return
   await api.post('/auth/logout')
+}
+
+// ───────── Подтверждение email и сброс пароля (ТЗ FR-1, FR-4) ─────────
+// Ссылка из письма содержит ровно два параметра: userId и token.
+
+export interface ConfirmEmailRequest {
+  userId: string
+  token: string // Base64Url, передаём как есть
+}
+
+export async function confirmEmail(req: ConfirmEmailRequest): Promise<void> {
+  if (USE_MOCKS) return mockConfirmEmail(req)
+  try {
+    await api.post('/auth/confirm-email', req)
+  } catch (e) {
+    throw toApiError(e)
+  }
+}
+
+export async function resendConfirmation(email: string): Promise<void> {
+  if (USE_MOCKS) return mockResendConfirmation(email)
+  try {
+    await api.post('/auth/resend-confirmation', { email })
+  } catch (e) {
+    throw toApiError(e)
+  }
+}
+
+export async function forgotPassword(req: { email: string; captchaToken?: string }): Promise<void> {
+  if (USE_MOCKS) return mockForgotPassword(req.email)
+  try {
+    await api.post('/auth/forgot-password', req)
+  } catch (e) {
+    throw toApiError(e)
+  }
+}
+
+export interface ResetPasswordRequest {
+  userId: string
+  token: string // Base64Url, передаём как есть
+  newPassword: string
+}
+
+export async function resetPassword(req: ResetPasswordRequest): Promise<void> {
+  if (USE_MOCKS) return mockResetPassword(req)
+  try {
+    await api.post('/auth/reset-password', req)
+  } catch (e) {
+    throw toApiError(e)
+  }
 }

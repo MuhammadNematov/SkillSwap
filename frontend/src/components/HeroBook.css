@@ -1,0 +1,442 @@
+/* 3D-книга для hero на лендинге. Все классы с префиксом hb- */
+
+.hb-wrap {
+  --s: 0.5;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: calc(620px * var(--s));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1600px;
+}
+@media (min-width: 640px) { .hb-wrap { --s: 0.72; } }
+@media (min-width: 768px) { .hb-wrap { --s: 0.54; } }
+@media (min-width: 1024px) { .hb-wrap { --s: 0.7; } }
+@media (min-width: 1200px) { .hb-wrap { --s: 0.8; } }
+
+.hb-scene {
+  position: relative;
+  flex: none;
+  width: 640px;
+  height: 440px;
+  transform-style: preserve-3d;
+  transform: scale(var(--s)) rotateY(var(--ry, 0deg)) rotateX(var(--rx, 0deg));
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.hb-float {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: hb-float 6s ease-in-out 4.6s infinite;
+}
+.hb-book {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: hb-fly 3.2s cubic-bezier(0.16, 0.84, 0.3, 1) both;
+}
+.hb-book.hb-open { animation: hb-center 1.6s cubic-bezier(0.45, 0.05, 0.2, 1) forwards; }
+
+/* книга прилетает издалека */
+@keyframes hb-fly {
+  0%   { transform: translate3d(-160px, -120px, -3200px) rotateX(55deg) rotateY(-50deg) rotateZ(-25deg); opacity: 0; filter: blur(6px); }
+  25%  { opacity: 1; filter: blur(2px); }
+  70%  { transform: translate3d(-160px, 0, -150px) rotateX(18deg) rotateY(-14deg) rotateZ(-4deg); filter: blur(0); }
+  100% { transform: translate3d(-160px, 0, 0) rotateX(16deg) rotateY(-8deg) rotateZ(-2deg); }
+}
+/* после открытия встаёт по центру */
+@keyframes hb-center {
+  from { transform: translate3d(-160px, 0, 0) rotateX(16deg) rotateY(-8deg) rotateZ(-2deg); }
+  to   { transform: translate3d(0, 0, 0) rotateX(20deg) rotateY(0) rotateZ(0); }
+}
+/* бесконечно покачивается вверх-вниз */
+@keyframes hb-float {
+  0%, 100% { transform: translateY(0) rotateX(0) rotateZ(0); }
+  25% { transform: translateY(-16px) rotateX(2deg) rotateZ(0.6deg); }
+  50% { transform: translateY(-26px) rotateX(-1deg) rotateZ(0); }
+  75% { transform: translateY(-12px) rotateX(-2deg) rotateZ(-0.6deg); }
+}
+
+/* ---------- части книги ---------- */
+.hb-backcover,
+.hb-backcover-left {
+  position: absolute;
+  top: -8px;
+  width: calc(50% + 10px);
+  height: calc(100% + 16px);
+  background: linear-gradient(135deg, #4a2fb0, #2e1f6b);
+  transform: translateZ(-22px);
+}
+.hb-backcover {
+  left: 50%;
+  border-radius: 4px 14px 14px 4px;
+}
+.hb-backcover-left {
+  right: 50%;
+  border-radius: 14px 4px 4px 14px;
+  background: linear-gradient(225deg, #4a2fb0, #2e1f6b);
+  opacity: 0;
+  transition: opacity 0.4s 0.9s;
+}
+.hb-open .hb-backcover-left { opacity: 1; }
+
+.hb-block {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  transform: translateZ(-20px);
+  background: repeating-linear-gradient(90deg, #f4efff 0 1px, #ddd6f3 1px 2px);
+  border-radius: 0 6px 6px 0;
+}
+
+.hb-spine {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 24px;
+  height: calc(100% + 16px);
+  margin-left: -12px;
+  transform: translateZ(-10px) rotateY(90deg);
+  background: linear-gradient(90deg, #2e1f6b, #6d4aff, #2e1f6b);
+}
+
+/* бумага */
+.hb-paper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  background:
+    linear-gradient(90deg, rgba(46, 31, 107, 0.2), rgba(46, 31, 107, 0.05) 6%, transparent 14%),
+    linear-gradient(180deg, #fffdf8, #f6f1e6);
+  border-radius: 0 6px 6px 0;
+}
+.hb-paper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.3;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .45 0 0 0 0 .4 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.hb-paper--left {
+  border-radius: 6px 0 0 6px;
+  background:
+    linear-gradient(270deg, rgba(46, 31, 107, 0.2), rgba(46, 31, 107, 0.05) 6%, transparent 14%),
+    linear-gradient(180deg, #fffdf8, #f6f1e6);
+}
+
+.hb-right {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  transform: translateZ(-1px);
+}
+
+/* ---------- обложка ---------- */
+.hb-cover {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: calc(50% + 10px);
+  height: calc(100% + 16px);
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transform: translateZ(2px) rotateY(0);
+  transition: transform 1.9s cubic-bezier(0.6, 0.05, 0.25, 1);
+}
+.hb-open .hb-cover { transform: translateZ(2px) rotateY(-178deg); }
+.hb-cover-front,
+.hb-cover-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.hb-cover-front {
+  border-radius: 4px 14px 14px 4px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.25), transparent 45%),
+    linear-gradient(135deg, #8b5cf6 0%, #6d4aff 40%, #2e1f6b 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25), inset 14px 0 18px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #fff;
+  overflow: hidden;
+}
+.hb-cover-front::before {
+  content: '';
+  position: absolute;
+  inset: 18px 18px 18px 30px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+}
+.hb-cover-front::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 60%;
+  height: 200%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: rotate(20deg);
+  animation: hb-shine 3.4s ease-in-out 0.6s;
+}
+@keyframes hb-shine { to { left: 140%; } }
+
+.hb-badge {
+  width: 150px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 30px rgba(20, 10, 60, 0.35);
+}
+.hb-badge img { display: block; width: 100%; height: auto; }
+.hb-cover-title {
+  margin-top: 22px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.hb-cover-sub {
+  margin-top: 8px;
+  max-width: 230px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+.hb-cover-back {
+  transform: rotateY(180deg);
+  border-radius: 14px 4px 4px 14px;
+  background: #2e1f6b;
+}
+.hb-cover-back .hb-paper { inset: 8px 0 8px 10px; }
+
+/* ---------- листающиеся страницы ---------- */
+.hb-flip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  opacity: 0;
+}
+.hb-flip .hb-paper--back { transform: rotateY(180deg); border-radius: 6px 0 0 6px; }
+.hb-lines {
+  position: absolute;
+  inset: 40px 30px;
+  background: repeating-linear-gradient(180deg, transparent 0 16px, rgba(91, 58, 214, 0.1) 16px 17px);
+}
+.hb-go .hb-flip { animation: hb-pageflip 7s cubic-bezier(0.5, 0.1, 0.4, 1) infinite; }
+@keyframes hb-pageflip {
+  0%   { transform: translateZ(1px) rotateY(-1deg); opacity: 0; }
+  3%   { opacity: 1; }
+  12%  { transform: translateZ(14px) rotateY(-70deg); }
+  22%  { transform: translateZ(2px) rotateY(-179deg); opacity: 1; }
+  25%, 100% { transform: translateZ(2px) rotateY(-179deg); opacity: 0; }
+}
+
+/* ---------- контент страниц ---------- */
+.hb-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 32px 30px 30px;
+  color: #1e1b3a;
+}
+.hb-paper--left .hb-content { padding: 32px 34px 30px 26px; }
+.hb-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #6d4aff;
+}
+.hb-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 16px -6px rgba(109, 74, 255, 0.3);
+}
+.hb-letter {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #5b3ad6;
+  font-weight: 800;
+}
+.hb-row { font-size: 11px; color: #94a3b8; line-height: 1.3; }
+.hb-tag {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: opacity 0.4s, transform 0.4s;
+}
+.hb-tag--teach { background: #f5f3ff; color: #5b3ad6; }
+.hb-tag--learn { background: #ecfdf5; color: #047857; }
+.hb-fade .hb-tag { opacity: 0; transform: translateY(6px); }
+.hb-skills { display: flex; gap: 18px; }
+.hb-swapicon {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 10px 0 -2px;
+  border-radius: 999px;
+  background: #6d4aff;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(109, 74, 255, 0.4);
+  animation: hb-spin 3s ease-in-out infinite;
+}
+@keyframes hb-spin { 50% { transform: rotate(180deg); } }
+
+.hb-steps { list-style: none; padding: 0; margin: 14px 0 0; }
+.hb-steps li {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(91, 58, 214, 0.12);
+}
+.hb-steps i {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #ede9fe;
+  color: #5b3ad6;
+}
+.hb-steps b { display: block; font-size: 14px; color: #1e1b3a; }
+.hb-steps span { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: #64748b; }
+.hb-btn {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: #6d4aff;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(109, 74, 255, 0.35);
+  transition: background 0.2s;
+}
+.hb-btn:hover { background: #5b3ad6; }
+.hb-pagenum {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  text-align: center;
+  font-size: 10px;
+  color: #b3a9c9;
+}
+
+/* контент проявляется после открытия */
+.hb-reveal > * { opacity: 0; transform: translateY(10px); transition: opacity 0.6s, transform 0.6s; }
+.hb-go .hb-reveal > * { opacity: 1; transform: none; }
+.hb-go .hb-reveal > *:nth-child(2) { transition-delay: 0.1s; }
+.hb-go .hb-reveal > *:nth-child(3) { transition-delay: 0.2s; }
+.hb-go .hb-reveal > *:nth-child(4) { transition-delay: 0.3s; }
+.hb-go .hb-reveal > *:nth-child(5) { transition-delay: 0.4s; }
+
+/* свечение из книги */
+.hb-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 760px;
+  height: 540px;
+  margin: -270px 0 0 -380px;
+  background: radial-gradient(ellipse at center, rgba(167, 139, 250, 0.6), rgba(139, 92, 246, 0.2) 40%, transparent 70%);
+  transform: translateZ(-60px);
+  opacity: 0;
+  filter: blur(12px);
+  transition: opacity 1.5s 1s;
+  pointer-events: none;
+}
+.hb-open .hb-glow { opacity: 1; animation: hb-pulse 4s ease-in-out 2.5s infinite; }
+@keyframes hb-pulse { 50% { opacity: 0.6; } }
+
+/* тень на «полу» */
+.hb-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -80px;
+  width: 520px;
+  height: 56px;
+  margin-left: -260px;
+  background: radial-gradient(ellipse, rgba(46, 31, 107, 0.35), transparent 70%);
+  filter: blur(8px);
+  opacity: 0;
+  animation: hb-shadow-in 3.2s ease forwards, hb-shadow 6s ease-in-out 4.6s infinite;
+}
+@keyframes hb-shadow-in { to { opacity: 1; } }
+@keyframes hb-shadow { 50% { transform: scale(0.82); opacity: 0.6; } }
+
+/* навыки, летающие вокруг книги */
+.hb-chip {
+  position: absolute;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(91, 58, 214, 0.18);
+  color: #5b3ad6;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+.hb-go .hb-chip { animation: hb-chip-in 1s ease forwards, hb-bob var(--d, 5s) ease-in-out infinite; }
+@keyframes hb-chip-in { to { opacity: 1; } }
+@keyframes hb-bob { 50% { translate: 0 -16px; } }
+
+.hb-particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-float, .hb-chip, .hb-flip, .hb-glow, .hb-shadow, .hb-swapicon { animation: none !important; }
+  .hb-chip, .hb-shadow { opacity: 1; }
+}
