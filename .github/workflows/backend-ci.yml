@@ -41,7 +41,21 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory ${{ github.workspace }}/test-results
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet test --configuration Release --no-build \
+            --logger "trx;LogFileName=test-results.trx" \
+            --results-directory ${{ github.workspace }}/test-results 2>&1 | tee test-output.log
+
+      # Упавшие тесты выводятся аннотациями к запуску: их видно в интерфейсе и по API без скачивания логов.
+      - name: Summarize failed tests
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^\s+Failed |Error Message|Expected|Actual|Exception|Assert" -A2 test-output.log | head -60 | while IFS= read -r line; do
+            echo "::error title=Failed test::${line//$'\r'/}"
+          done
 
       - name: Upload test results
         if: always()
