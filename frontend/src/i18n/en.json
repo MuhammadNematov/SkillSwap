@@ -281,7 +281,8 @@
     "nameEn": "Name (English)",
     "nameTg": "Name (Tajik)",
     "synonyms": "Search synonyms",
-    "synonymsHint": "comma-separated"
+    "synonymsHint": "comma-separated",
+    "tab_staff": "Staff"
   },
   "errors": {
     "notFound": "Page not found",
@@ -350,7 +351,10 @@
       "category_not_empty": "The category has skills: delete or move them first",
       "skill_in_use": "Users have this skill selected: disable it instead of deleting",
       "skill_not_found": "Skill not found",
-      "category_not_found": "Category not found"
+      "category_not_found": "Category not found",
+      "invitation_not_found": "Invitation not found",
+      "invitation_expired": "The invitation has expired: ask for a new one",
+      "invitation_used": "The invitation has already been used"
     },
     "validation": {
       "required": "Fill in this field",
@@ -610,5 +614,24 @@
     "listHint": "Blocking works both ways.",
     "empty": "The list is empty",
     "unblock": "Unblock"
+  },
+  "staff": {
+    "role": "Role",
+    "role_Moderator": "Moderator",
+    "role_Admin": "Admin",
+    "invite": "Invite",
+    "sent": "Invitation sent. The link is valid for 72 hours.",
+    "mockLink": "Test mode, no email is sent. Link:",
+    "no2fa": "2FA not set up",
+    "remove": "Remove"
+  },
+  "staffInvite": {
+    "title": "Team invitation",
+    "subtitle": "{{email}} · {{role}}",
+    "name": "Name",
+    "twoFaNote": "You will need to set up two-factor protection on first sign-in.",
+    "submit": "Create account",
+    "doneTitle": "Account created",
+    "doneText": "Sign in and set up two-factor protection."
   }
 }
