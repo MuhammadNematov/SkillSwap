@@ -53,5 +53,27 @@ services:
       timeout: 3s
       retries: 10
 
+  # Хранилище файлов (этап 4, шаг 6): S3-совместимый Garage вместо MinIO (официальные образы MinIO больше не публикуются).
+  # Первый запуск: docker compose up -d garage, затем scripts/init-storage.ps1 (или .sh): раскладка, ключ доступа, бакет.
+  # Приложению: Storage:Endpoint=http://localhost:3900, ключи в user-secrets (скрипт напечатает команды).
+  garage:
+    image: dxflrs/garage:v1.0.1
+    container_name: skillswap-garage
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?Задайте GARAGE_RPC_SECRET в backend/.env (64 шестнадцатеричных символа)}
+    ports:
+      - "3900:3900"        # S3 API
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
+  garage-meta:
+  garage-data:
   postgres-data:

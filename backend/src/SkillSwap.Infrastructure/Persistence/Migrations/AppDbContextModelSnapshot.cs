@@ -105,6 +105,65 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Attachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DurationSec")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ExchangeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExchangeId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("Attachments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Attachments_Size", "\"SizeBytes\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.Exchange", b =>
                 {
                     b.Property<Guid>("Id")
@@ -365,6 +424,8 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AttachmentId");
 
                     b.HasIndex("SenderId");
 
@@ -1396,6 +1457,21 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Attachment", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Exchange", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.Exchange", b =>
                 {
                     b.HasOne("SkillSwap.Domain.Entities.ExchangeRequest", null)
@@ -1457,6 +1533,11 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.Message", b =>
                 {
+                    b.HasOne("SkillSwap.Domain.Entities.Attachment", null)
+                        .WithMany()
+                        .HasForeignKey("AttachmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SkillSwap.Domain.Entities.Exchange", null)
                         .WithMany()
                         .HasForeignKey("ExchangeId")

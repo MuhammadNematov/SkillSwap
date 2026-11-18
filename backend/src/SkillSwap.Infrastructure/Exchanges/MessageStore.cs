@@ -46,6 +46,19 @@ public sealed class MessageStore : IMessageStore
         return await query.ExecuteUpdateAsync(s => s.SetProperty(m => m.ReadAt, now), ct);
     }
 
+    public void AddAttachment(Attachment attachment) => _db.Attachments.Add(attachment);
+
+    public Task<Attachment?> FindAttachmentAsync(Guid id, CancellationToken ct) =>
+        _db.Attachments.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    public async Task<IReadOnlyDictionary<Guid, Attachment>> GetAttachmentsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        ids.Count == 0
+            ? new Dictionary<Guid, Attachment>()
+            : await _db.Attachments.AsNoTracking().Where(a => ids.Contains(a.Id)).ToDictionaryAsync(a => a.Id, ct);
+
+    public Task<Message?> FindByAttachmentAsync(Guid attachmentId, CancellationToken ct) =>
+        _db.Messages.AsNoTracking().FirstOrDefaultAsync(m => m.AttachmentId == attachmentId, ct);
+
     public async Task<DateTime?> OldestUnreadAtAsync(Guid recipientId, Guid exchangeId, DateTime? after, CancellationToken ct)
     {
         var query = _db.Messages.AsNoTracking()

@@ -24,6 +24,10 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
         // Автор: NoAction, потому что при удалении пользователя сообщения уйдут каскадом вместе с обменом.
         builder.HasOne<User>().WithMany().HasForeignKey(m => m.SenderId).OnDelete(DeleteBehavior.NoAction);
 
+        // Вложение сообщения; индекс нужен, чтобы по вложению быстро найти сообщение (проверка «не удалено» при выдаче ссылки).
+        builder.HasIndex(m => m.AttachmentId);
+        builder.HasOne<Attachment>().WithMany().HasForeignKey(m => m.AttachmentId).OnDelete(DeleteBehavior.NoAction);
+
         // Правка и удаление одновременно: второй получит 409.
         builder.Property<uint>("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
     }

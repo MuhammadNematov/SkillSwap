@@ -64,18 +64,43 @@ public sealed class ChatService
         await _messages.SaveAsync(ct);
 
         var dto = ToDto(message, clean);
-        await TryBroadcastAsync(() => _broadcaster.MessageCreatedAsync(dto, ct));
-        var sender = exchange.UserA.Id == userId ? exchange.UserA : exchange.UserB;
-        var recipient = exchange.UserA.Id == userId ? exchange.UserB : exchange.UserA;
-        await TryBroadcastAsync(() => _newMessages.OnMessageAsync(message, recipient.Id, userId, sender.Name, ct));   // уведомление: сбой не ломает отправку
+        await PublishAsync(message, dto, exchange, userId, ct);
         return dto;
     }
+
+    /// <summary>
+    /// Проверка перед отправкой вложения (то же, что у текста): пользователь обычный и активный, обмен его, чат открыт на запись,
+    /// не слишком часто. Возвращает обмен для <see cref="PublishAsync"/>.
+    /// </summary>
+    public async Task<ExchangeRow> AuthorizeSendAsync(Guid userId, Guid exchangeId, CancellationToken ct)
+    {
+        await RequireActiveRegularAsync(userId, ct);
+        var exchange = await AccessAsync(userId, exchangeId, write: true, ct);
+        _throttle.Hit(userId);
+        return exchange;
+    }
+
+    /// <summary>После сохранения нового сообщения: событие в группу обмена и уведомление собеседнику. Сбой рассылки отправку не ломает.</summary>
+    public async Task PublishAsync(Message message, MessageDto dto, ExchangeRow exchange, Guid senderId, CancellationToken ct)
+    {
+        await TryBroadcastAsync(() => _broadcaster.MessageCreatedAsync(dto, ct));
+        var sender = exchange.UserA.Id == senderId ? exchange.UserA : exchange.UserB;
+        var recipient = exchange.UserA.Id == senderId ? exchange.UserB : exchange.UserA;
+        await TryBroadcastAsync(() => _newMessages.OnMessageAsync(message, recipient.Id, senderId, sender.Name, ct));   // уведомление: сбой не ломает отправку
+    }
+
+    /// <summary>Сообщение для ответа клиенту и события (текст уже известен, вложение передаётся).</summary>
+    public MessageDto ToMessageDto(Message message, Files.AttachmentDto? attachment) => ToDto(message, null, attachment);
 
     public async Task<MessageDto> EditAsync(Guid userId, Guid messageId, string? text, CancellationToken ct)
     {
         await RequireActiveRegularAsync(userId, ct);
         var clean = CleanText(text);
         var message = await LoadOwnModifiableAsync(userId, messageId, ct);
+        if (message.Type != MessageType.Text || message.EncryptedContent is null)
+        {
+            throw new ConflictException("message_not_editable", "Файл и голосовое отредактировать нельзя: удалите сообщение и отправьте заново.");
+        }
 
         var previous = _cipher.Decrypt(message.EncryptedContent!);
         var changed = !string.Equals(previous, clean, StringComparison.Ordinal);
@@ -98,7 +123,12 @@ public sealed class ChatService
         await RequireActiveRegularAsync(userId, ct);
         var message = await LoadOwnModifiableAsync(userId, messageId, ct);
 
-        _messages.AddRevision(message.Delete(userId, Now()));
+        var revision = message.Delete(userId, Now());
+        if (revision is not null)
+        {
+            _messages.AddRevision(revision);
+        }
+
         await _messages.SaveAsync(ct);
 
         var deleted = new MessageDeletedDto(message.ExchangeId, message.Id, message.DeletedAt!.Value);
@@ -127,7 +157,8 @@ public sealed class ChatService
         var nextBefore = hasMore ? EncodeCursor(items[^1]) : null;
 
         items.Reverse();   // внутри страницы старые сверху
-        return new MessagePageDto(items.Select(m => ToDto(m, null)).ToList(), nextBefore);
+        var attachments = await _messages.GetAttachmentsAsync(items.Where(m => m.AttachmentId is not null).Select(m => m.AttachmentId!.Value).ToList(), ct);
+        return new MessagePageDto(items.Select(m => ToDto(m, null, m.AttachmentId is { } a && attachments.TryGetValue(a, out var att) ? Files.AttachmentMapper.ToDto(att) : null)).ToList(), nextBefore);
     }
 
     /// <summary>Отметить прочитанными сообщения собеседника до указанного включительно (без указания — все). Читать можно и в режиме «только чтение».</summary>
@@ -261,10 +292,11 @@ public sealed class ChatService
         return clean;
     }
 
-    private MessageDto ToDto(Message m, string? knownText) => new(
+    private MessageDto ToDto(Message m, string? knownText, Files.AttachmentDto? attachment = null) => new(
         m.Id, m.ExchangeId, m.SenderId, m.Type,
         m.IsDeleted || m.EncryptedContent is null ? null : knownText ?? _cipher.Decrypt(m.EncryptedContent),
-        m.PaymentWarning, m.AttachmentId, m.SessionId, m.CreatedAt, m.EditedAt, m.DeletedAt, m.ReadAt);
+        m.PaymentWarning, m.AttachmentId, m.SessionId, m.CreatedAt, m.EditedAt, m.DeletedAt, m.ReadAt,
+        m.IsDeleted ? null : attachment);   // у удалённого вложение не показывается
 
     private async Task TryBroadcastAsync(Func<Task> send)
     {

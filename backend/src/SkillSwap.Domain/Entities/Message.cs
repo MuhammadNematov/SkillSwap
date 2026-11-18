@@ -44,6 +44,17 @@ public class Message : BaseEntity
 
     public bool IsDeleted => DeletedAt is not null;
 
+    /// <summary>Сообщение с файлом или голосовым: текста нет, есть вложение.</summary>
+    public static Message CreateAttachment(Guid exchangeId, Guid senderId, MessageType type, Guid attachmentId)
+    {
+        if (type is not (MessageType.File or MessageType.Voice))
+        {
+            throw new DomainValidationException("invalid_message_type", "Вложение бывает только у файла или голосового.");
+        }
+
+        return new Message { ExchangeId = exchangeId, SenderId = senderId, Type = type, AttachmentId = attachmentId };
+    }
+
     public static Message CreateText(Guid exchangeId, Guid senderId, string encryptedContent, bool paymentWarning)
     {
         if (string.IsNullOrEmpty(encryptedContent))
@@ -76,11 +87,14 @@ public class Message : BaseEntity
         return revision;
     }
 
-    /// <summary>Автор удаляет сообщение: участникам оно больше не показывается, а текст остаётся для модератора.</summary>
-    public MessageRevision Delete(Guid userId, DateTime now)
+    /// <summary>
+    /// Автор удаляет сообщение: участникам оно больше не показывается, а текст остаётся для модератора (запись о прежнем тексте;
+    /// у вложения текста нет, файл остаётся в хранилище, записи нет).
+    /// </summary>
+    public MessageRevision? Delete(Guid userId, DateTime now)
     {
-        RequireModifiable(userId, now);
-        var revision = MessageRevision.Create(Id, EncryptedContent!, now);
+        RequireModifiable(userId, now, requireText: false);
+        var revision = EncryptedContent is null ? null : MessageRevision.Create(Id, EncryptedContent, now);
         DeletedAt = now;
         return revision;
     }
@@ -88,14 +102,14 @@ public class Message : BaseEntity
     /// <summary>Собеседник прочитал. Повтор ничего не меняет.</summary>
     public void MarkRead(DateTime now) => ReadAt ??= now;
 
-    private void RequireModifiable(Guid userId, DateTime now)
+    private void RequireModifiable(Guid userId, DateTime now, bool requireText = true)
     {
         if (SenderId != userId)
         {
             throw new DomainValidationException("not_message_author", "Менять можно только своё сообщение.");
         }
 
-        if (Type != MessageType.Text)
+        if (requireText && Type != MessageType.Text)
         {
             throw new DomainValidationException("message_not_editable", "Этот тип сообщений менять нельзя.");
         }

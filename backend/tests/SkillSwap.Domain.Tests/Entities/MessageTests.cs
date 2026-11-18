@@ -175,3 +175,61 @@ public class NotificationRefreshTests
     public void Too_long_a_payload_is_refused() =>
         Assert.Throws<DomainValidationException>(() => Notification.Create(Guid.NewGuid(), NotificationType.NewMessages, new string('x', 4001)));
 }
+
+/// <summary>Вложение и сообщение с вложением (раздел 13 ТЗ).</summary>
+public class AttachmentTests
+{
+    private static readonly Guid Owner = Guid.NewGuid();
+    private static readonly Guid Exchange = Guid.NewGuid();
+
+    [Fact]
+    public void A_file_gets_a_predictable_private_storage_key()
+    {
+        var a = Attachment.Create(Owner, Exchange, AttachmentKind.File, "a.pdf", "application/pdf", 10, null);
+
+        Assert.Equal($"exchanges/{Exchange:N}/{a.Id:N}", a.StorageKey);   // ключ не содержит имени файла
+        Assert.Null(a.DurationSec);
+    }
+
+    [Fact]
+    public void A_voice_needs_a_duration_and_other_kinds_drop_it()
+    {
+        Assert.Equal("invalid_duration", Assert.Throws<DomainValidationException>(
+            () => Attachment.Create(Owner, Exchange, AttachmentKind.Voice, "v.webm", "audio/webm", 10, null)).Code);
+        Assert.Equal(30, Attachment.Create(Owner, Exchange, AttachmentKind.Voice, "v.webm", "audio/webm", 10, 30).DurationSec);
+        Assert.Null(Attachment.Create(Owner, Exchange, AttachmentKind.File, "a.pdf", "application/pdf", 10, 30).DurationSec);
+    }
+
+    [Theory]
+    [InlineData("", 10)]
+    [InlineData("  ", 10)]
+    [InlineData("a.pdf", 0)]
+    [InlineData("a.pdf", -5)]
+    public void Empty_names_and_sizes_are_refused(string name, long size) =>
+        Assert.Throws<DomainValidationException>(() => Attachment.Create(Owner, Exchange, AttachmentKind.File, name, "application/pdf", size, null));
+
+    [Fact]
+    public void A_name_over_100_characters_is_refused() =>
+        Assert.Throws<DomainValidationException>(() => Attachment.Create(Owner, Exchange, AttachmentKind.File, new string('a', 101), "text/plain", 1, null));
+
+    [Fact]
+    public void An_attachment_message_has_no_text_and_cannot_be_edited_but_deleting_leaves_no_revision()
+    {
+        var message = Message.CreateAttachment(Exchange, Owner, MessageType.File, Guid.NewGuid());
+        message.CreatedAt = new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc);
+
+        Assert.Null(message.EncryptedContent);
+        Assert.Equal("message_not_editable", Assert.Throws<DomainValidationException>(
+            () => message.Edit(Owner, "x", false, true, message.CreatedAt.AddMinutes(1))).Code);
+
+        Assert.Null(message.Delete(Owner, message.CreatedAt.AddMinutes(1)));
+        Assert.True(message.IsDeleted);
+    }
+
+    [Theory]
+    [InlineData(MessageType.Text)]
+    [InlineData(MessageType.System)]
+    [InlineData(MessageType.SessionCard)]
+    public void Only_files_and_voice_carry_attachments(MessageType type) =>
+        Assert.Throws<DomainValidationException>(() => Message.CreateAttachment(Exchange, Owner, type, Guid.NewGuid()));
+}

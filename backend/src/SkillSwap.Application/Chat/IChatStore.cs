@@ -23,6 +23,16 @@ public interface IMessageStore
     Task<int> MarkReadAsync(Guid exchangeId, Guid readerId, (DateTime CreatedAt, Guid Id)? upTo, DateTime now, CancellationToken ct);
 
     /// <summary>Время самого раннего непрочитанного (чужого, не удалённого) сообщения в обмене, пришедшего позже <paramref name="after"/>; null, если таких нет.</summary>
+    void AddAttachment(Attachment attachment);
+
+    Task<Attachment?> FindAttachmentAsync(Guid id, CancellationToken ct);
+
+    /// <summary>Вложения по их id (для показа сообщений истории).</summary>
+    Task<IReadOnlyDictionary<Guid, Attachment>> GetAttachmentsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
+
+    /// <summary>Сообщение, к которому прикреплено вложение (для проверки «не удалено»).</summary>
+    Task<Message?> FindByAttachmentAsync(Guid attachmentId, CancellationToken ct);
+
     Task<DateTime?> OldestUnreadAtAsync(Guid recipientId, Guid exchangeId, DateTime? after, CancellationToken ct);
 
     /// <summary>Сколько непрочитанных (чужих, не удалённых) сообщений в каждом из обменов.</summary>

@@ -119,6 +119,15 @@ public static class DependencyInjection
         services.AddScoped<IMailSender, BackgroundMailSender>();
         services.AddScoped<MailJobs>();
 
+        // Файлы: закрытый бакет S3 (Garage, облачное S3 сменой настроек); пока не настроено (только Development и Testing), загрузка отвечает 503.
+        services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
+        services.AddHostedService<SkillSwap.Infrastructure.Storage.StorageStartupCheck>();
+        services.AddSingleton<IFileStorage>(sp => sp.GetRequiredService<IOptions<StorageOptions>>().Value.IsConfigured
+            ? ActivatorUtilities.CreateInstance<SkillSwap.Infrastructure.Storage.S3FileStorage>(sp)
+            : new SkillSwap.Infrastructure.Storage.UnavailableFileStorage());
+        services.AddHostedService<SkillSwap.Infrastructure.Storage.StorageInitializer>();
+        services.AddSingleton<IImageProcessor, SkillSwap.Infrastructure.Storage.SkiaImageProcessor>();
+
         // Фоновые задачи (Hangfire в PostgreSQL) и транзакции с блокировкой пользователей.
         services.AddBackgroundJobs(configuration);
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();

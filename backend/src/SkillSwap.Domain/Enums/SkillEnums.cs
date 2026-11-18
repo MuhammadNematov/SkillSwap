@@ -86,3 +86,11 @@ public enum MessageType
     SessionCard,
     System,
 }
+
+/// <summary>Вид вложения чата: картинка (png, jpg, webp), голосовое (WebM/Opus) или файл (pdf, docx, xlsx, pptx, zip, txt).</summary>
+public enum AttachmentKind
+{
+    File,
+    Voice,
+    Image,
+}

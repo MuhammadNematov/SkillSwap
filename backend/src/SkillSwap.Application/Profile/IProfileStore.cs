@@ -10,6 +10,9 @@ public interface IProfileStore
     /// <summary>Пользователь для изменения (с отслеживанием).</summary>
     Task<User?> FindUserForUpdateAsync(Guid id, CancellationToken ct);
 
+    /// <summary>Записывает адрес аватара (null — убрать). Меняет только это поле.</summary>
+    Task SetAvatarUrlAsync(Guid userId, string? avatarUrl, CancellationToken ct);
+
     /// <summary>Языки занятий, по алфавиту.</summary>
     Task<string[]> GetLanguagesAsync(Guid userId, CancellationToken ct);
 

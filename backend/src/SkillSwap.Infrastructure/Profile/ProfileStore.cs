@@ -19,6 +19,9 @@ public sealed class ProfileStore : IProfileStore
     public Task<User?> FindUserAsync(Guid id, CancellationToken ct) =>
         _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
 
+    public async Task SetAvatarUrlAsync(Guid userId, string? avatarUrl, CancellationToken ct) =>
+        await _db.Users.Where(u => u.Id == userId).ExecuteUpdateAsync(s => s.SetProperty(u => u.AvatarUrl, avatarUrl), ct);
+
     public Task<User?> FindUserForUpdateAsync(Guid id, CancellationToken ct) =>
         _db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
 
