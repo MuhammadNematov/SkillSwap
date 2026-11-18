@@ -68,6 +68,10 @@ public sealed class RateLimitingOptions
     [ValidateObjectMembers]
     public RateLimitRule RefreshPerIp { get; set; } = new(30, 60);
 
+    /// <summary>Предложения новых навыков (POST /skills/suggestions): 5 в час на пользователя.</summary>
+    [ValidateObjectMembers]
+    public RateLimitRule SuggestionsPerUser { get; set; } = new(5, 3600);
+
     /// <summary>Остальные запросы авторизованного пользователя: 100 в минуту (считается по пользователю, не по IP).</summary>
     [ValidateObjectMembers]
     public RateLimitRule AuthenticatedPerUser { get; set; } = new(100, 60);

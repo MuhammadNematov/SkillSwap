@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<SkillCatalogAdminService>();
         services.AddScoped<ProfileService>();
         services.AddScoped<MySkillsService>();
+        services.AddScoped<SkillSuggestionService>();
         services.AddScoped<LiveKitWebhookService>();
 
         return services;

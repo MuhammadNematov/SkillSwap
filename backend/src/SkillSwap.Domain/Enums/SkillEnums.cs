@@ -14,3 +14,12 @@ public enum SkillLevel
     Intermediate = 2,
     Advanced = 3,
 }
+
+/// <summary>Состояние предложения нового навыка (раздел 5.2 ТЗ): админ одобряет, объединяет с существующим или отклоняет.</summary>
+public enum SuggestionStatus
+{
+    Pending,
+    Approved,
+    Merged,
+    Rejected,
+}

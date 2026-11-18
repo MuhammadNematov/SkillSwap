@@ -688,6 +688,64 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.SkillSuggestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("ResolvedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ResolvedSkillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("SuggestedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("ResolvedById");
+
+                    b.HasIndex("ResolvedSkillId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.HasIndex("UserId", "CategoryId", "NormalizedName")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 'Pending'");
+
+                    b.ToTable("SkillSuggestions", (string)null);
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -965,6 +1023,31 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.SkillSuggestion", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.SkillCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SkillSwap.Domain.Entities.Skill", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedSkillId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>

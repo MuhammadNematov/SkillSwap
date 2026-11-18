@@ -23,6 +23,9 @@ public static class RateLimitingExtensions
     public const string ConfirmEmailPerIpPolicy = "confirm-email-per-ip";
     public const string RefreshPerIpPolicy = "refresh-per-ip";
 
+    /// <summary>Предложения новых навыков: лимит на пользователя (по его id, не по IP).</summary>
+    public const string SuggestionsPerUserPolicy = "suggestions-per-user";
+
     public static IServiceCollection AddRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
         // Значения читаются лениво и проверяются при старте: 0 запросов или 0 секунд — ошибка конфигурации.
@@ -63,6 +66,9 @@ public static class RateLimitingExtensions
                 SlidingLog(ClientIp.KeyFor(http), cfg.ConfirmEmailPerIp, clock));
             limiter.AddPolicy(RefreshPerIpPolicy, http =>
                 SlidingLog(ClientIp.KeyFor(http), cfg.RefreshPerIp, clock));
+
+            limiter.AddPolicy(SuggestionsPerUserPolicy, http =>
+                SlidingLog($"suggestions:{http.User.FindFirstValue("sub") ?? ClientIp.KeyFor(http)}", cfg.SuggestionsPerUser, clock));
 
             // Остальные запросы авторизованного пользователя: общий лимит по пользователю (не по IP,
             // чтобы офис за одним NAT не мешал друг другу). Запросы без токена этим лимитом не считаются:

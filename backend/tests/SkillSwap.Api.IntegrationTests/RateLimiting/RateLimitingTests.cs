@@ -55,6 +55,7 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
         Assert.Equal((10, Hour), (o.ResetPasswordPerIp.PermitLimit, o.ResetPasswordPerIp.WindowSeconds));
         Assert.Equal((20, Hour), (o.ConfirmEmailPerIp.PermitLimit, o.ConfirmEmailPerIp.WindowSeconds));
         Assert.Equal((30, Minute), (o.RefreshPerIp.PermitLimit, o.RefreshPerIp.WindowSeconds));
+        Assert.Equal((5, Hour), (o.SuggestionsPerUser.PermitLimit, o.SuggestionsPerUser.WindowSeconds));
         Assert.Equal((100, Minute), (o.AuthenticatedPerUser.PermitLimit, o.AuthenticatedPerUser.WindowSeconds));
     }
 
@@ -362,6 +363,27 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
 
         await RateLimitAssert.RateLimitedAsync(await api.MeAsync(access), Minute);
         await RateLimitAssert.RateLimitedAsync(await api.ListSessionsAsync(access), Minute);
+    }
+
+    [Fact]
+    public async Task Skill_suggestions_are_limited_to_five_per_hour_per_user_not_per_ip()
+    {
+        var shared = TestIps.Next();   // два пользователя за одним адресом
+        var apiA = new AuthApi(_factory, shared);
+        var apiB = new AuthApi(_factory, shared);
+        var (accessA, _) = await apiA.LoginTokensAsync(await apiA.RegisterConfirmedUserAsync());
+        var (accessB, _) = await apiB.LoginTokensAsync(await apiB.RegisterConfirmedUserAsync());
+
+        Task<HttpResponseMessage> Suggest(AuthApi api, string access) => api.PostAsync(
+            "/skills/suggestions",
+            new { categoryId = SkillSwap.Infrastructure.Persistence.Seed.SkillCatalogSeed.It, name = "Лимит" + Guid.NewGuid().ToString("N")[..8] },
+            access);
+
+        var statuses = await StatusesAsync(5, _ => Suggest(apiA, accessA));
+        Assert.All(statuses, s => Assert.Equal(HttpStatusCode.Created, s));
+
+        await RateLimitAssert.RateLimitedAsync(await Suggest(apiA, accessA), Hour);          // шестое за час
+        Assert.Equal(HttpStatusCode.Created, (await Suggest(apiB, accessB)).StatusCode);     // сосед по адресу не пострадал
     }
 
     [Fact]
