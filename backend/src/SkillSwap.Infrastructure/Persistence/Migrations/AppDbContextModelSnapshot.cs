@@ -105,6 +105,72 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.ExchangeRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("FromTeachesSkillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FromUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("ToTeachesSkillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ToUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromTeachesSkillId");
+
+                    b.HasIndex("ToTeachesSkillId");
+
+                    b.HasIndex("FromUserId", "Status", "CreatedAt");
+
+                    b.HasIndex("ToUserId", "Status", "CreatedAt");
+
+                    b.ToTable("ExchangeRequests", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ExchangeRequests_Duration", "\"DurationDays\" IN (30, 60)");
+
+                            t.HasCheckConstraint("CK_ExchangeRequests_NotSelf", "\"FromUserId\" <> \"ToUserId\"");
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.LiveKitWebhookEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -780,6 +846,38 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                             Description = "Подбор: пользователи 16–17 лет только друг с другом, взрослые только со взрослыми (раздел 10.4 ТЗ). true или false.",
                             UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "true"
+                        },
+                        new
+                        {
+                            Key = "Requests.MaxActiveExchanges",
+                            CreatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Антиспам: не более стольких активных обменов одновременно (раздел 5.3 ТЗ).",
+                            UpdatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "3"
+                        },
+                        new
+                        {
+                            Key = "Requests.MaxPendingOutgoing",
+                            CreatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Антиспам: не более стольких ожидающих исходящих заявок (раздел 5.3 ТЗ).",
+                            UpdatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "5"
+                        },
+                        new
+                        {
+                            Key = "Requests.MaxPerDay",
+                            CreatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Антиспам: не более стольких новых заявок за сутки (раздел 5.3 ТЗ).",
+                            UpdatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "10"
+                        },
+                        new
+                        {
+                            Key = "Requests.DeclineCooldownDays",
+                            CreatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Антиспам: через сколько дней после отказа можно снова отправить заявку тому же человеку (раздел 5.3 ТЗ).",
+                            UpdatedAt = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "30"
                         });
                 });
 
@@ -1059,6 +1157,32 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.HasOne("SkillSwap.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.ExchangeRequest", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Skill", null)
+                        .WithMany()
+                        .HasForeignKey("FromTeachesSkillId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("FromUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Skill", null)
+                        .WithMany()
+                        .HasForeignKey("ToTeachesSkillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ToUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

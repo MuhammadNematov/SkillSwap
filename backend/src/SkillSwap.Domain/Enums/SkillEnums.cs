@@ -23,3 +23,13 @@ public enum SuggestionStatus
     Merged,
     Rejected,
 }
+
+/// <summary>Статус заявки на обмен (раздел 9.1 ТЗ).</summary>
+public enum ExchangeRequestStatus
+{
+    Pending,
+    Accepted,
+    Declined,
+    Withdrawn,
+    Expired,
+}

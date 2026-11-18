@@ -282,6 +282,32 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 
 Для админов (`/admin/skills`, `/admin/skill-categories`) дополнительно: 409 `skill_name_taken`, `category_name_taken`, `category_not_empty`, `skill_in_use`; 404 `skill_not_found`, `category_not_found`.
 
+## Заявки на обмен (этап 4, шаг 1): контракт для фронтенда
+
+Все методы требуют входа и обычного аккаунта (служебному — 403 `regular_account_required`). Полная схема — `docs/openapi.json`, тег **Exchange requests**.
+
+| Метод | Что делает |
+| --- | --- |
+| `POST /exchange-requests` | Отправить заявку: `toUserId`, `toTeachesSkillId` (обязателен, навык из «Умею» получателя), `fromTeachesSkillId` (необязателен: свой навык из «Умею»), `durationDays` (30 или 60), `message` (до 1000 символов, необязательно). 201 + заявка |
+| `GET /exchange-requests?box=in\|out` | Входящие или исходящие, новые сверху. `box` обязателен. Фильтр `status`, страницы `page`/`pageSize` (до 50): `{ items, page, pageSize, totalCount }` |
+| `GET /exchange-requests/{id}` | Одна заявка (участнику) |
+| `POST /exchange-requests/{id}/accept` | Принять (получатель). Тело `{ "fromTeachesSkillId": … }` обязательно, если отправитель не указал свой навык: выбрать из его «Умею» (список — в публичном профиле отправителя) |
+| `POST /exchange-requests/{id}/decline` | Отклонить (получатель) |
+| `POST /exchange-requests/{id}/withdraw` | Отозвать (отправитель) |
+
+Заявка: `id`, `direction` (`in` — мне, `out` — от меня), `status` (`Pending`, `Accepted`, `Declined`, `Withdrawn`, `Expired`), `fromUser`/`toUser` (`id`, `name`, `avatarUrl`), `fromTeachesSkill` (**null**, пока получатель не выбрал при принятии) и `toTeachesSkill` (`id`, `nameTg`, `nameRu`, `nameEn`), `durationDays`, `message`, `expiresAt` (создание + 7 дней), `respondedAt`, `createdAt`. После принятия `fromTeachesSkill` всегда заполнен.
+
+Ошибки (поле `code`):
+- 404 `user_not_found` при отправке: получатель скрыт, удалён, заблокирован в любую сторону или другой возрастной группы. Заблокированный не узнаёт о блокировке.
+- 403 `skills_incomplete`: моя анкета неполная, фронтенд ведёт на онбординг.
+- 400 `skill_not_taught_by_recipient`, `skill_not_taught_by_sender`, `cannot_request_self`, `validation_failed` (срок не 30/60, длинное сообщение), при принятии `from_skill_required` и `from_skill_fixed` (отправитель уже указал навык, заменить нельзя), `invalid_box`.
+- 409 при отправке: `request_already_pending` и `reverse_request_pending` (в ответе `requestId`: открыть существующую заявку), `request_cooldown` (в ответе `retryAfter`: после отказа нельзя писать тому же человеку 30 дней), `too_many_pending_requests` (не больше 5 ожидающих исходящих).
+- 429 `daily_request_limit` (не больше 10 новых заявок за сутки).
+- 409 при ответе: `invalid_state_transition` (заявка уже не ждёт ответа), `request_expired`, `skill_no_longer_taught` (получатель убрал навык: можно только отклонить), `concurrency_conflict` (одновременное изменение: повторить).
+- 403 `not_request_recipient` / `not_request_sender` (не та сторона), 404 `request_not_found` (чужая или несуществующая).
+
+Лимиты (3 активных обмена, 5 ожидающих, 10 в сутки, 30 дней кулдауна) лежат в `SystemSettings` (`Requests.*`), правка суперадмином появится на этапе 7. Через 7 дней без ответа фоновая задача переводит заявку в `Expired`; просроченная, но ещё не закрытая задачей заявка в лимитах уже не считается, а принять её нельзя. Принятие пока только меняет статус: обмен создаётся в шаге 2 (и там же проверяется лимит активных обменов).
+
 ## Тесты
 
 ```
