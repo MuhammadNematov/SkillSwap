@@ -4,40 +4,94 @@
     "loading": "Loading...",
     "language": "Language",
     "logout": "Log out",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "cancel": "Cancel"
   },
   "landing": {
     "title1": "Exchange knowledge.",
     "title2": "Grow together.",
     "subtitle": "A platform for mutual learning where everyone can teach and learn.",
     "openApp": "Open the app",
-    "nav": { "home": "Home", "features": "Features", "about": "About", "faq": "FAQ" },
-    "cta": { "start": "Start for free", "more": "Learn more" },
-    "hero": { "teach": "Can teach", "learn": "Wants to learn" },
+    "nav": {
+      "home": "Home",
+      "features": "Features",
+      "about": "About",
+      "faq": "FAQ"
+    },
+    "cta": {
+      "start": "Start for free",
+      "more": "Learn more"
+    },
+    "hero": {
+      "teach": "Can teach",
+      "learn": "Wants to learn"
+    },
     "facts": {
-      "languages": { "value": "3", "label": "interface languages" },
-      "lesson": { "value": "45 min", "label": "one lesson in a video call" },
-      "free": { "value": "Free", "label": "mutual exchange, no money" }
+      "languages": {
+        "value": "3",
+        "label": "interface languages"
+      },
+      "lesson": {
+        "value": "45 min",
+        "label": "one lesson in a video call"
+      },
+      "free": {
+        "value": "Free",
+        "label": "mutual exchange, no money"
+      }
     },
     "how": {
       "title": "How it works",
-      "s1": { "title": "Create a profile", "text": "List what you can teach and what you want to learn" },
-      "s2": { "title": "Find a partner", "text": "Matching by mutual skills, language and time zone" },
-      "s3": { "title": "Start learning", "text": "Agree on a time in chat and meet for a video lesson" }
+      "s1": {
+        "title": "Create a profile",
+        "text": "List what you can teach and what you want to learn"
+      },
+      "s2": {
+        "title": "Find a partner",
+        "text": "Matching by mutual skills, language and time zone"
+      },
+      "s3": {
+        "title": "Start learning",
+        "text": "Agree on a time in chat and meet for a video lesson"
+      }
     },
     "features": {
       "title": "Everything you need, in one place",
-      "f1": { "title": "Smart matching", "text": "Full and partial matches by skills, language and time zone" },
-      "f2": { "title": "Chat and video calls", "text": "Text, voice messages, files and a 45-minute video lesson with no extra software" },
-      "f3": { "title": "Lesson balance", "text": "A counter shows who taught how many lessons, so the exchange stays fair" },
-      "f4": { "title": "Honest reviews", "text": "Blind mutual reviews and dispute resolution by a moderator" }
+      "f1": {
+        "title": "Smart matching",
+        "text": "Full and partial matches by skills, language and time zone"
+      },
+      "f2": {
+        "title": "Chat and video calls",
+        "text": "Text, voice messages, files and a 45-minute video lesson with no extra software"
+      },
+      "f3": {
+        "title": "Lesson balance",
+        "text": "A counter shows who taught how many lessons, so the exchange stays fair"
+      },
+      "f4": {
+        "title": "Honest reviews",
+        "text": "Blind mutual reviews and dispute resolution by a moderator"
+      }
     },
     "faq": {
       "title": "Frequently asked questions",
-      "q1": { "q": "Is it really free?", "a": "Yes. The exchange is mutual, and money transfers between users are forbidden." },
-      "q2": { "q": "Do I need to install anything?", "a": "No. Chat and video calls work right in the browser." },
-      "q3": { "q": "How long does an exchange last?", "a": "30 or 60 days. If both agree, it can be extended once by 30 days." },
-      "q4": { "q": "What is the minimum age?", "a": "16. Extra protection rules apply to users aged 16–17." }
+      "q1": {
+        "q": "Is it really free?",
+        "a": "Yes. The exchange is mutual, and money transfers between users are forbidden."
+      },
+      "q2": {
+        "q": "Do I need to install anything?",
+        "a": "No. Chat and video calls work right in the browser."
+      },
+      "q3": {
+        "q": "How long does an exchange last?",
+        "a": "30 or 60 days. If both agree, it can be extended once by 30 days."
+      },
+      "q4": {
+        "q": "What is the minimum age?",
+        "a": "16. Extra protection rules apply to users aged 16–17."
+      }
     }
   },
   "auth": {
@@ -49,7 +103,8 @@
     "email": "Email",
     "password": "Password",
     "submit": "Log in",
-    "noAccount": "Don't have an account?"
+    "noAccount": "Don't have an account?",
+    "forgot": "Forgot password?"
   },
   "twoFactor": {
     "title": "Confirm sign-in",
@@ -59,7 +114,19 @@
     "useRecovery": "Use a recovery code",
     "useApp": "Use a code from the app",
     "submit": "Confirm",
-    "back": "Back"
+    "back": "Back",
+    "setupTitle": "Set up 2FA",
+    "setupMandatory": "Two-factor authentication is mandatory for a staff account",
+    "setupInfo": "Add the key to an authenticator app (Google Authenticator, Authy…), then enter the 6-digit code from the app.",
+    "key": "Key for the app",
+    "copyKey": "Copy key",
+    "copied": "Copied",
+    "openApp": "Open in app",
+    "enable": "Confirm and enable",
+    "recoveryInfo": "Save your recovery codes. Each works once if you lose access to the app. We will not show them again.",
+    "copyCodes": "Copy codes",
+    "savedCodes": "I saved the recovery codes",
+    "finish": "Done"
   },
   "registerPage": {
     "title": "Sign up",
@@ -76,7 +143,70 @@
     "haveAccount": "Already have an account?",
     "successTitle": "Check your email",
     "successText": "We sent a confirmation link to {{email}}. Follow it to finish signing up.",
-    "toLogin": "Go to log in"
+    "toLogin": "Go to log in",
+    "resend": "Resend the email",
+    "resent": "The email was sent again",
+    "mockMail": "Mock mode: no email is sent.",
+    "mockConfirm": "Confirm email"
+  },
+  "levels": {
+    "Beginner": "Beginner",
+    "Intermediate": "Intermediate",
+    "Advanced": "Advanced"
+  },
+  "matches": {
+    "title": "Find partners",
+    "searchResults": "Results for “{{q}}”",
+    "tabAll": "All ({{count}})",
+    "tabFull": "Full matches",
+    "tabPartial": "Partial",
+    "filters": {
+      "skill": "Skill",
+      "language": "Language",
+      "level": "Level",
+      "rating": "Rating",
+      "any": "Any",
+      "ratingFrom": "from {{value}}",
+      "reset": "Reset"
+    },
+    "fullMatch": "Full match",
+    "partialMatch": "Partial match",
+    "profile": "Profile",
+    "request": "Request",
+    "requested": "Requested",
+    "sent": "Request sent",
+    "empty": "Nobody found",
+    "newbie": "Newcomer"
+  },
+  "request": {
+    "title": "Exchange request",
+    "iTeach": "I will teach",
+    "iLearn": "I want to learn",
+    "inMessage": "I'll offer in the message",
+    "duration": "Exchange duration",
+    "days30": "30 days",
+    "days60": "60 days",
+    "message": "Message",
+    "messagePlaceholder": "Tell what you want to learn and what you can offer",
+    "partialHint": "Partial match: offer your skill in the message",
+    "send": "Send request",
+    "cancel": "Cancel"
+  },
+  "profile": {
+    "tabAbout": "About",
+    "tabSkills": "Skills",
+    "tabReviews": "Reviews",
+    "teaches": "Can teach",
+    "learns": "Wants to learn",
+    "languages": "Languages",
+    "timeZone": "Time zone",
+    "exchangesDone": "Exchanges completed",
+    "rating": "Rating",
+    "reviewsCount": "Reviews",
+    "requestExchange": "Request exchange",
+    "noReviews": "No reviews yet",
+    "fullExchange": "Full exchange",
+    "noBio": "No description yet"
   },
   "validation": {
     "required": "Required field",
@@ -122,13 +252,36 @@
     "joinHint": "The room opens 10 minutes before the start",
     "recommended": "Recommended partners",
     "all": "All",
-    "write": "Message"
+    "profile": "Profile"
   },
   "moderation": {
     "title": "Moderation"
   },
   "admin": {
-    "title": "Admin panel"
+    "title": "Admin panel",
+    "tab_skills": "Skills",
+    "tab_categories": "Categories",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "enable": "Enable",
+    "disable": "Disable",
+    "order": "Order",
+    "skillCount": "skills: {{count}}",
+    "status": "Status",
+    "statusAll": "All",
+    "statusActive": "Enabled",
+    "statusInactive": "Disabled",
+    "total": "Total: {{count}}",
+    "newCategory": "New category",
+    "editCategory": "Category",
+    "newSkill": "New skill",
+    "editSkill": "Skill",
+    "nameRu": "Name (Russian)",
+    "nameEn": "Name (English)",
+    "nameTg": "Name (Tajik)",
+    "synonyms": "Search synonyms",
+    "synonymsHint": "comma-separated"
   },
   "errors": {
     "notFound": "Page not found",
@@ -141,7 +294,321 @@
       "UNDERAGE": "Sign-up is available from age 16",
       "ACCOUNT_BLOCKED": "Account is blocked",
       "NETWORK_ERROR": "Cannot reach the server",
-      "UNKNOWN": "Something went wrong. Please try again"
+      "NOT_FOUND": "Not found",
+      "REQUEST_LIMIT": "Request limit reached",
+      "REQUEST_COOLDOWN": "You can send a new request to this user 30 days after a decline",
+      "UNKNOWN": "Something went wrong. Please try again",
+      "ALREADY_EXTENDED": "This exchange was already extended",
+      "CHAT_READ_ONLY": "The chat is read-only",
+      "FILE_TOO_LARGE": "File is larger than 20 MB",
+      "FILE_TYPE_NOT_ALLOWED": "This file type is not allowed",
+      "INVALID_STATE_TRANSITION": "This action is not available now",
+      "SESSION_AFTER_END": "A lesson cannot be after the exchange ends",
+      "SESSION_CONFLICT": "You or your partner already have a lesson at this time",
+      "SESSION_TOO_SOON": "A lesson must be scheduled at least 2 hours ahead",
+      "NOT_IMPLEMENTED": "Not available yet",
+      "captcha_required": "Please confirm you are not a robot",
+      "captcha_invalid": "Verification failed, please try again",
+      "captcha_unavailable": "Verification is temporarily unavailable, try again later",
+      "skills_incomplete": "Please complete your profile first: skills, languages and time zone",
+      "INVALID_TOKEN": "The link is invalid or has expired",
+      "TOO_MANY_REQUESTS": "Too many requests, try again later",
+      "account_locked_out": "Sign-in is temporarily blocked. Try later",
+      "email_already_registered": "This email is already registered",
+      "invalid_two_factor_code": "Wrong code",
+      "invalid_two_factor_token": "Sign-in timed out, please sign in again",
+      "invalid_confirmation_token": "The link is invalid or has expired",
+      "invalid_password": "Wrong password",
+      "two_factor_already_enabled": "2FA is already enabled",
+      "two_factor_mandatory": "2FA cannot be disabled for this account",
+      "two_factor_not_enabled": "2FA is not enabled",
+      "two_factor_not_set_up": "Set up 2FA first",
+      "registration_failed": "Registration failed",
+      "validation_failed": "Please check the fields",
+      "internal_error": "Server error, try again later",
+      "rate_limited": "Too many requests, try again later",
+      "concurrency_conflict": "Data changed, please repeat",
+      "invalid_paging": "Invalid list parameters",
+      "unsupported_language": "Language is not supported",
+      "query_too_long": "Query is too long",
+      "invalid_language": "Invalid language",
+      "invalid_level": "Invalid level",
+      "invalid_min_rating": "Invalid rating",
+      "unknown_skill": "This skill does not exist or is disabled",
+      "unknown_category": "This category does not exist",
+      "regular_account_required": "This action is for regular accounts only",
+      "staff_has_no_profile": "A staff account has no profile",
+      "account_not_active": "The account is blocked",
+      "user_not_found": "User not found or unavailable",
+      "skill_already_exists": "This skill is already in the catalog",
+      "suggestion_already_pending": "You already suggested this skill",
+      "too_many_pending_suggestions": "Too many pending suggestions",
+      "too_many_blocks": "Too many blocked users",
+      "cannot_block_self": "You cannot block yourself",
+      "skill_name_taken": "A skill with this name already exists in the category",
+      "category_name_taken": "A category with this name already exists",
+      "category_not_empty": "The category has skills: delete or move them first",
+      "skill_in_use": "Users have this skill selected: disable it instead of deleting",
+      "skill_not_found": "Skill not found",
+      "category_not_found": "Category not found"
+    },
+    "validation": {
+      "required": "Fill in this field",
+      "invalid_email": "Enter a valid email",
+      "password_too_short": "Password: at least 8 characters",
+      "password_needs_letter": "Password needs at least one letter",
+      "password_needs_digit": "Password needs at least one digit",
+      "too_young": "The service is available from age 16",
+      "date_in_future": "The date cannot be in the future",
+      "terms_not_accepted": "You must accept the rules",
+      "chat_moderation_not_accepted": "Consent to moderator access to the chat is required",
+      "too_long": "Value is too long",
+      "too_many": "Too many items",
+      "duplicate_skill": "Skill added twice",
+      "invalid_level": "Invalid level",
+      "invalid_time_zone": "Invalid time zone",
+      "unsupported_language": "Language is not supported"
     }
+  },
+  "call": {
+    "title": "Video lesson"
+  },
+  "exchanges": {
+    "title": "My exchanges",
+    "tabExchanges": "Exchanges",
+    "tabIncoming": "Incoming",
+    "tabOutgoing": "Outgoing",
+    "empty": "No exchanges yet.",
+    "goToMatches": "Find a partner",
+    "emptyIncoming": "No incoming requests",
+    "emptyOutgoing": "No outgoing requests",
+    "iTeach": "I teach",
+    "iLearn": "I learn",
+    "inMessage": "in message",
+    "expiresOn": "Valid until {{date}}",
+    "accept": "Accept",
+    "decline": "Decline",
+    "withdraw": "Withdraw",
+    "open": "Open exchange",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left"
+  },
+  "exchangeStatus": {
+    "Active": "Active",
+    "Frozen": "Frozen",
+    "Completed": "Completed",
+    "Aborted": "Aborted"
+  },
+  "requestStatus": {
+    "Pending": "Pending",
+    "Accepted": "Accepted",
+    "Declined": "Declined",
+    "Withdrawn": "Withdrawn",
+    "Expired": "Expired"
+  },
+  "exchange": {
+    "back": "Back to exchanges",
+    "balance": "Lesson balance",
+    "you": "You",
+    "balanceHint": "Lessons taught by each of you",
+    "balanceWarning": "The balance is noticeably uneven: try to arrange lessons the other way.",
+    "term": "Exchange term",
+    "progress": "Progress",
+    "plan": "Lessons",
+    "proposeLesson": "Propose a lesson",
+    "noSessions": "No lessons yet",
+    "complete": "Complete exchange",
+    "waitingPartner": "You completed the exchange, waiting for your partner",
+    "extend": "Extend exchange",
+    "abort": "Leave exchange",
+    "abortReason": "Reason for leaving",
+    "abortConfirm": "Leave",
+    "readOnly": "The exchange is not active: chat is read-only",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left"
+  },
+  "chat": {
+    "attach": "Attach file",
+    "empty": "No messages yet",
+    "placeholder": "Write a message",
+    "proposeLesson": "Propose a lesson",
+    "send": "Send",
+    "sessionCard": "Lesson proposal",
+    "voice": "Voice message"
+  },
+  "session": {
+    "accept": "Accept",
+    "otherTime": "Another time",
+    "cancel": "Cancel",
+    "cancelConfirm": "Cancel lesson",
+    "cancelTitle": "Cancel lesson",
+    "cancelText": "Are you sure you want to cancel this lesson?",
+    "keep": "Keep",
+    "lateCancelWarning": "The lesson starts in less than 2 hours: cancelling counts as a late cancellation.",
+    "date": "Date",
+    "time": "Time",
+    "duration": "Duration 45 minutes",
+    "iTeach": "I teach",
+    "join": "Join",
+    "partnerLocal": "Partner's time: {{time}}",
+    "propose": "Propose",
+    "proposeTitle": "Propose a lesson",
+    "teacher": "Teacher",
+    "topic": "Topic",
+    "topicPlaceholder": "What the lesson is about (optional)",
+    "whoTeaches": "Who teaches",
+    "withdraw": "Withdraw",
+    "you": "You",
+    "status": {
+      "Proposed": "Proposed",
+      "Scheduled": "Scheduled",
+      "Declined": "Declined",
+      "Expired": "Expired",
+      "Cancelled": "Cancelled",
+      "LateCancelled": "Late cancel",
+      "InProgress": "In progress",
+      "Missed": "Missed",
+      "NoShow": "No-show",
+      "Completed": "Completed",
+      "Unconfirmed": "Unconfirmed",
+      "NotCounted": "Not counted"
+    }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "upcoming": "Upcoming lessons",
+    "past": "Past",
+    "none": "No scheduled lessons",
+    "today": "Today",
+    "tomorrow": "Tomorrow"
+  },
+  "messages": {
+    "title": "Messages",
+    "empty": "Chats appear once an exchange starts",
+    "you": "You: "
+  },
+  "onboarding": {
+    "title": "Tell us about yourself",
+    "subtitle": "You need at least 1 skill in \"I can teach\" and 1 in \"I want to learn\" to unlock matching.",
+    "teach": "I can teach",
+    "learn": "I want to learn",
+    "add": "Add",
+    "teachEmpty": "Add a skill you can teach",
+    "learnEmpty": "Add a skill you want to learn",
+    "level": "Level",
+    "currentLevel": "Current level",
+    "experience": "Short note about your experience",
+    "remove": "Remove",
+    "languages": "Lesson languages",
+    "timeZone": "Time zone",
+    "save": "Save and find a partner",
+    "needSkills": "Add at least 1 skill to \"I can teach\" and 1 to \"I want to learn\"",
+    "needLanguage": "Choose at least one lesson language",
+    "needTimeZone": "Enter your time zone",
+    "pickSkill": "Choose a skill",
+    "category": "Category",
+    "allCategories": "All categories",
+    "searchSkill": "Search skills",
+    "nothingFound": "Nothing found",
+    "suggestLink": "Can't find a skill?",
+    "suggestTitle": "Suggest a skill",
+    "suggestName": "Skill name",
+    "suggestSend": "Send",
+    "suggestSent": "Thanks! An administrator will review your suggestion.",
+    "ok": "Got it",
+    "badTimeZone": "Choose a time zone from the list, e.g. Asia/Dushanbe",
+    "disabledSkill": "disabled",
+    "findExisting": "Find this skill in the catalog"
+  },
+  "confirmEmail": {
+    "title": "Email confirmation",
+    "noToken": "The link has no token. Open the link from the email again.",
+    "success": "Email confirmed. You can now sign in and fill in your profile."
+  },
+  "forgot": {
+    "title": "Password recovery",
+    "hint": "Enter your email and we will send a reset link.",
+    "submit": "Send link",
+    "backToLogin": "Back to sign in",
+    "sentTitle": "Check your email",
+    "sentText": "If an account with {{email}} exists, we sent a password reset link to it. It is valid for 1 hour."
+  },
+  "reset": {
+    "title": "New password",
+    "newPassword": "New password",
+    "submit": "Save password",
+    "requestNew": "Request a new link",
+    "doneTitle": "Password changed",
+    "doneText": "You can now sign in with your new password."
+  },
+  "reviews": {
+    "title": "Reviews",
+    "toWrite": "To write",
+    "noneToWrite": "No reviews to write",
+    "write": "Write",
+    "deadline": "You can leave it until {{date}}",
+    "waitingPartner": "Waiting for your partner's review",
+    "aboutMe": "About me",
+    "writeTitle": "Review of {{name}}",
+    "criteria": {
+      "knowledge": "Subject knowledge",
+      "explaining": "Explaining skill",
+      "punctuality": "Punctuality",
+      "politeness": "Politeness"
+    },
+    "textPlaceholder": "Tell how the exchange went (20+ characters)",
+    "needScores": "Rate all four criteria",
+    "textLength": "Review text: 20 to 1000 characters",
+    "blindHint": "Reviews are published together: when both are written or after 7 days. They cannot be edited after publishing.",
+    "send": "Send review"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "readAll": "Mark all as read",
+    "empty": "No notifications yet",
+    "types": {
+      "default": "New notification",
+      "RequestReceived": "{{partnerName}} sent you an exchange request",
+      "RequestAccepted": "{{partnerName}} accepted your request",
+      "RequestDeclined": "{{partnerName}} declined your request",
+      "SessionProposed": "{{partnerName}} proposes a lesson: {{time}}",
+      "SessionConfirmed": "Lesson with {{partnerName}} confirmed: {{time}}",
+      "SessionReminder": "Lesson with {{partnerName}} is coming up: {{time}}",
+      "ReviewAvailable": "You can now review {{partnerName}}",
+      "ReviewPublished": "A new review about you was published",
+      "CaseTaken": "A moderator started reviewing and got temporary access to the chat"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "bio": "About me",
+    "badName": "Name: 1 to 100 characters",
+    "searchable": "Show me in matching",
+    "searchableHint": "Turns on automatically once your profile is complete",
+    "save": "Save",
+    "saved": "Saved",
+    "twoFactor": "Two-factor authentication",
+    "twoFactorHint": "A code from an authenticator app protects your account even if the password leaks.",
+    "on": "On",
+    "off": "Off",
+    "enable2fa": "Enable 2FA",
+    "disable2fa": "Disable 2FA",
+    "sessions": "Sign-in sessions",
+    "revokeOthers": "Sign out others",
+    "revoke": "Sign out",
+    "unknownDevice": "Unknown device",
+    "thisDevice": "This device",
+    "lastActive": "active {{date}}"
+  },
+  "block": {
+    "action": "Block",
+    "title": "Block {{name}}?",
+    "text": "You will stop seeing each other in matching and profiles. They will not be told. You can unblock in settings.",
+    "confirm": "Block",
+    "listTitle": "Blocked users",
+    "listHint": "Blocking works both ways.",
+    "empty": "The list is empty",
+    "unblock": "Unblock"
   }
 }

@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate } from 'react-router-dom'
-import { register as registerRequest } from '../../api/auth'
-import { errorMessage } from '../../api/errors'
+import { register as registerRequest, resendConfirmation } from '../../api/auth'
+import { ApiError, errorMessage } from '../../api/errors'
 import type { UiLanguage } from '../../api/types'
 import AuthLayout from '../../components/AuthLayout'
 import FormField from '../../components/FormField'
+import Turnstile, { type TurnstileHandle } from '../../components/Turnstile'
+import { USE_MOCKS } from '../../api/config'
 import { useAuth } from '../../hooks/useAuth'
 import { ageFromBirthDate, todayIso } from '../../utils/dates'
 import { homeForRole } from '../../utils/roles'
@@ -27,6 +29,9 @@ export default function Register() {
   const { t, i18n } = useTranslation()
   const { user, loading } = useAuth()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const captcha = useRef<TurnstileHandle>(null)
+  const [resent, setResent] = useState(false)
   const [doneEmail, setDoneEmail] = useState<string | null>(null)
 
   const {
@@ -40,8 +45,13 @@ export default function Register() {
 
   async function onSubmit(values: RegisterForm) {
     setServerError(null)
+    if (!USE_MOCKS && !captchaToken) {
+      setServerError(errorMessage(t, new ApiError('captcha_required', 400)))
+      return
+    }
     try {
       await registerRequest({
+        captchaToken: captchaToken ?? undefined,
         name: values.name.trim(),
         email: values.email.trim(),
         password: values.password,
@@ -53,6 +63,8 @@ export default function Register() {
       setDoneEmail(values.email.trim())
     } catch (e) {
       setServerError(errorMessage(t, e))
+    } finally {
+      captcha.current?.reset() // токен одноразовый
     }
   }
 
@@ -61,6 +73,28 @@ export default function Register() {
     return (
       <AuthLayout title={t('registerPage.successTitle')}>
         <p className="text-sm text-slate-600">{t('registerPage.successText', { email: doneEmail })}</p>
+        {USE_MOCKS && (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {t('registerPage.mockMail')}{' '}
+            <Link className="font-medium underline" to={`/confirm-email?userId=${encodeURIComponent(`mock-${doneEmail.trim().toLowerCase()}`)}&token=mock`}>
+              {t('registerPage.mockConfirm')}
+            </Link>
+          </p>
+        )}
+        {resent ? (
+          <p className="mt-3 text-sm text-emerald-700">{t('registerPage.resent')}</p>
+        ) : (
+          <button
+            className="mt-3 text-sm font-medium text-brand-600 hover:underline"
+            onClick={() =>
+              resendConfirmation(doneEmail)
+                .then(() => setResent(true))
+                .catch((e) => setServerError(errorMessage(t, e)))
+            }
+          >
+            {t('registerPage.resend')}
+          </button>
+        )}
         <Link to="/login" className="btn-primary mt-6 w-full">
           {t('registerPage.toLogin')}
         </Link>
@@ -169,7 +203,7 @@ export default function Register() {
           )}
         </div>
 
-        {/* TODO: капча Cloudflare Turnstile (FR-5) — подключим вместе с бэкендом */}
+        <Turnstile ref={captcha} onToken={setCaptchaToken} />
 
         {serverError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
 

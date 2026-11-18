@@ -2,6 +2,9 @@
 // GET /exchanges, GET /me/sessions?from=&to=, GET /matches и GET /me — или попросим у бэкендера
 // один агрегирующий эндпоинт. Пока всегда возвращаем заглушку.
 
+import { db } from './mocks/exchanges'
+import { ME, PEOPLE } from './mocks/people'
+
 export interface DashboardLesson {
   id: string
   title: string
@@ -29,24 +32,23 @@ const sleep = (ms = 350) => new Promise((r) => setTimeout(r, ms))
 
 export async function getDashboard(): Promise<DashboardData> {
   await sleep()
-  // MOCK: урок «через пару часов», чтобы было видно кнопку «Присоединиться» в выключенном состоянии
-  const start = new Date()
-  start.setHours(start.getHours() + 2, 0, 0, 0)
+  // MOCK: считаем по тем же данным, что и страницы обменов и календаря
+  const upcoming = db.sessions
+    .filter((s) => s.status === 'Scheduled' && new Date(s.startAt).getTime() > Date.now())
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+  const next = upcoming[0]
 
   return {
-    activeExchanges: 2,
-    upcomingLessons: 1,
-    rating: 4.8,
-    nextLesson: {
-      id: 'mock-lesson-1',
-      title: 'C# для начинающих',
-      startsAt: start.toISOString(),
-      partnerName: 'Diyorbek',
-    },
-    recommended: [
-      { id: 'p1', name: 'Diyorbek', skills: ['C#', 'Python'], rating: 4.9, online: true },
-      { id: 'p2', name: 'Sabrina', skills: ['English', 'UI/UX'], rating: 4.8, online: false },
-      { id: 'p3', name: 'Farrukh', skills: ['React', 'TypeScript'], rating: 4.7, online: false },
-    ],
+    activeExchanges: db.exchanges.filter((e) => e.status === 'Active').length,
+    upcomingLessons: upcoming.length,
+    rating: ME.ratingAvg,
+    nextLesson: next
+      ? { id: next.id, title: next.topic ?? next.partnerName, startsAt: next.startAt, partnerName: next.partnerName }
+      : null,
+    // id совпадают с mocks/people.ts, чтобы открывался профиль
+    recommended: ['u2', 'u1', 'u7'].map((id) => {
+      const p = PEOPLE.find((x) => x.id === id)!
+      return { id: p.id, name: p.name, skills: p.teach.map((s) => s.name), rating: p.ratingAvg, online: id === 'u2' }
+    }),
   }
 }

@@ -8,6 +8,34 @@ export function ageFromBirthDate(iso: string, today = new Date()): number {
   return age
 }
 
+// «UTC+5» для часового пояса IANA (Asia/Dushanbe → UTC+5)
+export function utcOffsetLabel(timeZone: string): string {
+  try {
+    const options = { timeZone, timeZoneName: 'shortOffset' } as unknown as Intl.DateTimeFormatOptions
+    const part = new Intl.DateTimeFormat('en', options)
+      .formatToParts(new Date())
+      .find((p) => p.type === 'timeZoneName')?.value
+    return (part ?? '').replace('GMT', 'UTC') || 'UTC'
+  } catch {
+    return timeZone
+  }
+}
+
+// Время в часовом поясе партнёра («17:00»)
+export function formatInZone(iso: string, timeZone: string, lang: string): string {
+  return new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit', timeZone }).format(new Date(iso))
+}
+
+// «вторник, 18 ноября»
+export function formatDay(iso: string, lang: string): string {
+  return new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(iso))
+}
+
+export function dayKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }

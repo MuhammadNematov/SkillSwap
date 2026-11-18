@@ -48,6 +48,9 @@ const icons = {
   arrowRight: <path d="M5 12h14M13 6l6 6-6 6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
   play: <path d="M8 5v14l11-7z" />,
+  send: <path d="m22 2-11 11M22 2l-7 20-4-9-9-4z" />,
+  paperclip: <path d="m21 12-8.5 8.5a5 5 0 0 1-7-7L14 5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 8" />,
+  file: <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5" />,
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof icons

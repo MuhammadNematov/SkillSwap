@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useUnreadCount } from '../hooks/useNotifications'
 import Avatar from './Avatar'
 import Icon, { type IconName } from './Icon'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -51,6 +52,7 @@ function SideLink({ item }: { item: NavItem }) {
 export default function AppLayout() {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
+  const unread = useUnreadCount()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -125,7 +127,14 @@ export default function AppLayout() {
               className="rounded-lg p-2 text-slate-600 hover:bg-white/60"
               aria-label={t('nav.notifications')}
             >
-              <Icon name="bell" />
+              <span className="relative">
+                <Icon name="bell" />
+                {unread > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 min-w-[1.1rem] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-[1.1rem] text-white">
+                    {unread > 9 ? '9+' : unread}
+                  </span>
+                )}
+              </span>
             </Link>
             <Link to="/app/profile" className="flex items-center gap-2">
               <Avatar name={user?.name ?? ''} src={user?.avatarUrl} className="h-9 w-9" />

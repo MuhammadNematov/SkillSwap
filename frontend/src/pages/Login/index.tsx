@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { login, loginTwoFactor } from '../../api/auth'
-import { errorMessage } from '../../api/errors'
+import { login, loginTwoFactor, resendConfirmation } from '../../api/auth'
+import { ApiError, errorMessage, isErrorCode } from '../../api/errors'
 import type { AuthSession } from '../../api/types'
 import AuthLayout from '../../components/AuthLayout'
 import FormField from '../../components/FormField'
+import TwoFactorSetup from '../../components/TwoFactorSetup'
+import Turnstile, { type TurnstileHandle } from '../../components/Turnstile'
+import { USE_MOCKS } from '../../api/config'
 import { useAuth } from '../../hooks/useAuth'
 import { homeForRole } from '../../utils/roles'
 
@@ -24,10 +27,15 @@ export default function Login() {
   const location = useLocation()
   const { user, loading, setSession } = useAuth()
 
-  const [step, setStep] = useState<'credentials' | '2fa'>('credentials')
-  const [challengeToken, setChallengeToken] = useState<string | undefined>()
+  const [step, setStep] = useState<'credentials' | '2fa' | 'setup'>('credentials')
+  const [twoFactorToken, setTwoFactorToken] = useState<string | undefined>()
   const [useRecovery, setUseRecovery] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
+  const [resent, setResent] = useState(false)
+
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const captcha = useRef<TurnstileHandle>(null)
 
   const credentialsForm = useForm<CredentialsForm>()
   const codeForm = useForm<CodeForm>()
@@ -44,16 +52,28 @@ export default function Login() {
 
   async function onCredentials(values: CredentialsForm) {
     setServerError(null)
+    if (!USE_MOCKS && !captchaToken) {
+      setServerError(errorMessage(t, new ApiError('captcha_required', 400)))
+      return
+    }
     try {
-      const result = await login(values)
+      const result = await login({ ...values, captchaToken: captchaToken ?? undefined })
       if (result.requires2fa) {
-        setChallengeToken(result.challengeToken)
+        setTwoFactorToken(result.twoFactorToken)
         setStep('2fa')
+      } else if (result.requires2faSetup) {
+        // Служебным аккаунтам без 2FA вход разрешён только после её настройки
+        setTwoFactorToken(result.twoFactorToken)
+        setStep('setup')
       } else {
         finish(result.session)
       }
     } catch (e) {
       setServerError(errorMessage(t, e))
+      setUnconfirmedEmail(isErrorCode(e, 'EMAIL_NOT_CONFIRMED') ? values.email.trim() : null)
+      setResent(false)
+    } finally {
+      captcha.current?.reset() // токен одноразовый
     }
   }
 
@@ -63,12 +83,24 @@ export default function Login() {
       const session = await loginTwoFactor({
         code: code.trim(),
         isRecoveryCode: useRecovery,
-        challengeToken,
+        twoFactorToken: twoFactorToken ?? '',
       })
       finish(session)
     } catch (e) {
       setServerError(errorMessage(t, e))
     }
+  }
+
+  if (step === 'setup') {
+    return (
+      <AuthLayout title={t('twoFactor.setupTitle')} subtitle={t('twoFactor.setupMandatory')}>
+        <TwoFactorSetup
+          twoFactorToken={twoFactorToken}
+          onDone={(session) => (session ? finish(session) : setStep('credentials'))}
+          onCancel={() => setStep('credentials')}
+        />
+      </AuthLayout>
+    )
   }
 
   if (step === '2fa') {
@@ -155,13 +187,35 @@ export default function Login() {
           />
         </FormField>
 
-        {/* TODO: капча Cloudflare Turnstile (FR-5) — подключим вместе с бэкендом */}
+        <Turnstile ref={captcha} onToken={setCaptchaToken} />
 
         {serverError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
+        {unconfirmedEmail &&
+          (resent ? (
+            <p className="text-sm text-emerald-700">{t('registerPage.resent')}</p>
+          ) : (
+            <button
+              type="button"
+              className="text-sm font-medium text-brand-600 hover:underline"
+              onClick={() =>
+                resendConfirmation(unconfirmedEmail)
+                  .then(() => setResent(true))
+                  .catch((e) => setServerError(errorMessage(t, e)))
+              }
+            >
+              {t('registerPage.resend')}
+            </button>
+          ))}
 
         <button className="btn-primary w-full" disabled={isSubmitting}>
           {isSubmitting ? t('common.loading') : t('loginPage.submit')}
         </button>
+
+        <p className="text-center text-sm">
+          <Link to="/forgot-password" className="font-medium text-brand-600 hover:underline">
+            {t('loginPage.forgot')}
+          </Link>
+        </p>
 
         <p className="text-center text-sm text-slate-500">
           {t('loginPage.noAccount')}{' '}
