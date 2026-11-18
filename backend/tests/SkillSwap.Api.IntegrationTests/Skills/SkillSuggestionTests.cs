@@ -154,18 +154,20 @@ public class SkillSuggestionTests
     // ---------- такой навык уже есть ----------
 
     [Theory]
-    [InlineData("python")]                  // название, другой регистр
-    [InlineData("  PYTHON ")]
-    [InlineData("питон")]                   // синоним
-    [InlineData("Js")]
-    public async Task A_skill_that_is_already_in_the_category_is_a_409(string name)
+    [InlineData("python", 1)]                  // название, другой регистр
+    [InlineData("  PYTHON ", 1)]
+    [InlineData("питон", 1)]                   // синоним
+    [InlineData("Js", 2)]                      // синоним JavaScript
+    public async Task A_skill_that_is_already_in_the_category_is_a_409_with_its_id(string name, int seedNumber)
     {
         var person = await NewPersonAsync();
 
         var response = await SuggestAsync(person, name, SkillCatalogSeed.It);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal("skill_already_exists", await CodeAsync(response));
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("skill_already_exists", body.GetProperty("code").GetString());
+        Assert.Equal(SkillCatalogSeed.SkillId(seedNumber), body.GetProperty("existingSkillId").GetGuid());   // фронтенд предложит добавить его
     }
 
     [Fact]
@@ -177,7 +179,9 @@ public class SkillSuggestionTests
         {
             var response = await SuggestAsync(person, name, SkillCatalogSeed.Languages);
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Equal("skill_already_exists", await CodeAsync(response));
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("skill_already_exists", body.GetProperty("code").GetString());
+            Assert.Equal(SkillCatalogSeed.SkillId(12), body.GetProperty("existingSkillId").GetGuid());
         }
     }
 

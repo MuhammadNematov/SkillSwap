@@ -19,13 +19,15 @@ public enum SuggestionOutcome
     /// <summary>В этой категории уже есть включённый навык с таким названием или синонимом.</summary>
     AlreadyInCatalog,
 
+
     /// <summary>Такое же предложение от этого пользователя уже ждёт разбора.</summary>
     AlreadyPending,
 
     TooManyPending,
 }
 
-public sealed record SuggestionResult(SuggestionOutcome Outcome, SkillSuggestion? Suggestion);
+/// <param name="ExistingSkillId">При <see cref="SuggestionOutcome.AlreadyInCatalog"/> — id уже существующего навыка.</param>
+public sealed record SuggestionResult(SuggestionOutcome Outcome, SkillSuggestion? Suggestion, Guid? ExistingSkillId = null);
 
 public interface ISkillSuggestionStore
 {
@@ -102,7 +104,8 @@ public sealed class SkillSuggestionService
             SuggestionOutcome.Created => ToDto(result.Suggestion!),
             SuggestionOutcome.CategoryNotFound => throw new BadRequestException("unknown_category", "Категории нет или она выключена."),
             SuggestionOutcome.AlreadyInCatalog => throw new ConflictException("skill_already_exists",
-                "Такой навык уже есть в этой категории: найдите его в каталоге."),
+                "Такой навык уже есть в этой категории: добавьте его из каталога.",
+                new Dictionary<string, object?> { ["existingSkillId"] = result.ExistingSkillId }),
             SuggestionOutcome.AlreadyPending => throw new ConflictException("suggestion_already_pending",
                 "Вы уже предложили этот навык, он ждёт решения администратора."),
             _ => throw new ConflictException("too_many_pending_suggestions",

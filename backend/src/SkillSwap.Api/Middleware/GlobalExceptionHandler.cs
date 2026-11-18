@@ -14,6 +14,9 @@ namespace SkillSwap.Api.Middleware;
 /// </summary>
 public sealed class GlobalExceptionHandler : IExceptionHandler
 {
+    private static readonly HashSet<string> ReservedKeys =
+        new(["code", "status", "title", "detail", "type", "instance", "errors", "traceId"], StringComparer.OrdinalIgnoreCase);
+
     private readonly IProblemDetailsService _problemDetails;
     private readonly ILogger<GlobalExceptionHandler> _logger;
 
@@ -45,6 +48,18 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             Detail = detail,
         };
         problem.Extensions["code"] = code;
+        if (exception is AppException { Extensions: { } extra })
+        {
+            // Поля, которые ошибка добавляет от себя. Служебные (code, status и т. п.) перезаписать нельзя.
+            foreach (var (key, value) in extra)
+            {
+                if (!ReservedKeys.Contains(key))
+                {
+                    problem.Extensions[key] = value;
+                }
+            }
+        }
+
         if (validationErrors is not null)
         {
             // Поле -> коды ошибок; фронтенд сам подбирает переводы.

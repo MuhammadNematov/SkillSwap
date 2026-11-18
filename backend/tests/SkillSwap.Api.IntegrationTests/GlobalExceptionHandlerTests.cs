@@ -102,4 +102,30 @@ public class GlobalExceptionHandlerTests
         Assert.Equal("internal_error", body.GetProperty("code").GetString());
         Assert.DoesNotContain("секрет", body.GetRawText());
     }
+
+    [Fact]
+    public async Task An_error_can_add_its_own_fields_to_the_response()
+    {
+        var id = Guid.NewGuid();
+
+        var (status, body) = await HandleAsync(new ConflictException("skill_already_exists", "уже есть",
+            new Dictionary<string, object?> { ["existingSkillId"] = id }));
+
+        Assert.Equal(409, status);
+        Assert.Equal("skill_already_exists", body.GetProperty("code").GetString());
+        Assert.Equal(id, body.GetProperty("existingSkillId").GetGuid());
+    }
+
+    [Fact]
+    public async Task An_error_cannot_overwrite_the_standard_fields_of_the_response()
+    {
+        var (status, body) = await HandleAsync(new ConflictException("real_code", "detail",
+            new Dictionary<string, object?> { ["code"] = "fake", ["status"] = 200, ["errors"] = "x", ["Code"] = "fake2", ["extra"] = 1 }));
+
+        Assert.Equal(409, status);
+        Assert.Equal("real_code", body.GetProperty("code").GetString());
+        Assert.Equal(409, body.GetProperty("status").GetInt32());
+        Assert.False(body.TryGetProperty("errors", out _));
+        Assert.Equal(1, body.GetProperty("extra").GetInt32());
+    }
 }

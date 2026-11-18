@@ -6,12 +6,16 @@ namespace SkillSwap.Application.Exceptions;
 /// </summary>
 public abstract class AppException : Exception
 {
-    protected AppException(string code, string message) : base(message)
+    protected AppException(string code, string message, IReadOnlyDictionary<string, object?>? extensions = null) : base(message)
     {
         Code = code;
+        Extensions = extensions;
     }
 
     public string Code { get; }
+
+    /// <summary>Дополнительные поля ответа ProblemDetails (например, id найденного навыка), ключи в camelCase.</summary>
+    public IReadOnlyDictionary<string, object?>? Extensions { get; }
 }
 
 /// <summary>HTTP 400: запрос некорректен.</summary>
@@ -73,7 +77,8 @@ public sealed class PayloadTooLargeException : AppException
 /// <summary>HTTP 409: конфликт с текущим состоянием (например, email уже занят).</summary>
 public sealed class ConflictException : AppException
 {
-    public ConflictException(string code, string message) : base(code, message)
+    public ConflictException(string code, string message, IReadOnlyDictionary<string, object?>? extensions = null)
+        : base(code, message, extensions)
     {
     }
 }

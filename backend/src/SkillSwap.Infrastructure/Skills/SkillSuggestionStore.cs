@@ -35,13 +35,17 @@ public sealed class SkillSuggestionStore : ISkillSuggestionStore
             }
 
             // Навык уже есть: совпало название на любом из трёх языков или синоним (они хранятся в нижнем регистре).
-            var exists = await _db.Skills.AnyAsync(s =>
-                s.CategoryId == categoryId && s.IsActive &&
-                (s.NameTg.ToLower() == normalized || s.NameRu.ToLower() == normalized || s.NameEn.ToLower() == normalized ||
-                 s.Synonyms.Contains(normalized)), ct);
-            if (exists)
+            // Возвращаем его id, чтобы фронтенд сразу предложил добавить существующий навык.
+            var existingSkillId = await _db.Skills
+                .Where(s => s.CategoryId == categoryId && s.IsActive &&
+                    (s.NameTg.ToLower() == normalized || s.NameRu.ToLower() == normalized || s.NameEn.ToLower() == normalized ||
+                     s.Synonyms.Contains(normalized)))
+                .OrderBy(s => s.Id)
+                .Select(s => (Guid?)s.Id)
+                .FirstOrDefaultAsync(ct);
+            if (existingSkillId is not null)
             {
-                return new SuggestionResult(SuggestionOutcome.AlreadyInCatalog, null);
+                return new SuggestionResult(SuggestionOutcome.AlreadyInCatalog, null, existingSkillId);
             }
 
             var pending = _db.SkillSuggestions.Where(s => s.UserId == userId && s.Status == SuggestionStatus.Pending);
