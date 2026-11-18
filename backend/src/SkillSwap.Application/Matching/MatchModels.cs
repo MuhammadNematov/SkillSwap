@@ -25,7 +25,7 @@ public sealed record MatchedSkillDto(
 
 /// <summary>Кандидат в выдаче подбора.</summary>
 /// <param name="TimeZoneDifferenceHours">Разница часовых поясов с моим в часах (сейчас, с учётом перехода на летнее время).</param>
-/// <param name="CommonLanguages">Языки занятий, общие со мной.</param>
+/// <param name="CommonLanguages">Языки занятий, общие со мной (хотя бы один: без общего языка человека в выдаче нет).</param>
 /// <param name="TheyTeach">Что он преподаёт из моего «Хочу изучать» (уровень не ниже моего).</param>
 /// <param name="TheyLearn">Что он хочет изучать из моего «Умею» (мой уровень не ниже его). Пусто у частичных матчей.</param>
 public sealed record MatchDto(
@@ -72,7 +72,8 @@ public sealed class MatchCandidate
     /// <summary>Самый высокий уровень (1–3), на котором он преподаёт нужный мне навык.</summary>
     public int BestLevel { get; set; }
 
-    public bool HasCommonLanguage { get; set; }
+    /// <summary>Сколько навыков совпало в обе стороны вместе (те, что в <c>theyTeach</c> и <c>theyLearn</c>): при равенстве выше тот, у кого их больше.</summary>
+    public int MatchedSkillCount { get; set; }
 }
 
 public sealed record MatchPageDetails(

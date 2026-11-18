@@ -9,13 +9,14 @@ public sealed record RankedCandidate(MatchCandidate Candidate, int TimeZoneDiffe
 /// Порядок выдачи подбора (раздел 5.3 ТЗ). Ключи по убыванию важности:
 /// <list type="number">
 /// <item>полный матч выше частичного;</item>
-/// <item>есть общий язык занятий;</item>
 /// <item>меньше разница часовых поясов;</item>
 /// <item>выше уровень, на котором партнёр преподаёт нужный мне навык;</item>
 /// <item>выше рейтинг (у «Новичка» оценки нет, он ниже оценённых);</item>
 /// <item>был активен за последние 7 дней;</item>
+/// <item>больше совпавших навыков (<c>theyTeach</c> + <c>theyLearn</c>);</item>
 /// <item>позже был активен; затем по Id, чтобы порядок на страницах не «прыгал».</item>
 /// </list>
+/// Общий язык занятий здесь не критерий: без него человек в выдачу вообще не попадает (условие отбора в запросе).
 /// Чистая функция без обращений к БД: порядок проверяется обычными тестами.
 /// </summary>
 public static class MatchRanking
@@ -30,11 +31,11 @@ public static class MatchRanking
         return candidates
             .Select(c => new RankedCandidate(c, Math.Abs(TimeZoneOffsets.Minutes(c.TimeZone, now) - mine)))
             .OrderByDescending(r => r.Candidate.IsFull)
-            .ThenByDescending(r => r.Candidate.HasCommonLanguage)
             .ThenBy(r => r.TimeZoneDifferenceMinutes)
             .ThenByDescending(r => r.Candidate.BestLevel)
             .ThenByDescending(r => r.Candidate.RatingCount >= User.NewcomerReviewThreshold ? r.Candidate.RatingAvg : -1m)
             .ThenByDescending(r => r.Candidate.LastActiveAt >= activeSince)
+            .ThenByDescending(r => r.Candidate.MatchedSkillCount)
             .ThenByDescending(r => r.Candidate.LastActiveAt ?? DateTime.MinValue)
             .ThenBy(r => r.Candidate.UserId)
             .ToList();

@@ -264,23 +264,51 @@ public class MatchesTests
     // ---------- порядок ----------
 
     [Fact]
-    public async Task A_common_lesson_language_ranks_higher_and_is_reported()
+    public async Task Only_people_with_a_common_lesson_language_are_shown_and_the_shared_languages_are_reported()
     {
         var w = await MatchTestWorld.CreateAsync(_factory);
         var me = await w.UserAsync((0, Mid), (1, Mid), new MatchTestWorld.Options(Languages: ["ru", "tg"]));
         var noCommon = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["de"]));
-        var none = await w.UserAsync((1, Mid), (0, Mid));
+        var noLanguages = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: []));
         var common = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["tg", "en", "ru"]));
+        var oneShared = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["tg"]));
 
         var result = await w.GetAsync(me);
 
         var items = result.GetProperty("items").EnumerateArray().ToList();
-        Assert.Equal(common.Id, items[0].GetProperty("userId").GetGuid());
-        Assert.Equal(["ru", "tg"], items[0].GetProperty("commonLanguages").EnumerateArray().Select(l => l.GetString()));
-        Assert.Equal(["en", "ru", "tg"], items[0].GetProperty("languages").EnumerateArray().Select(l => l.GetString()));
-        Assert.Equal(0, items[1].GetProperty("commonLanguages").GetArrayLength());
-        Assert.Contains(noCommon.Id, items.Select(i => i.GetProperty("userId").GetGuid()));
-        Assert.Contains(none.Id, items.Select(i => i.GetProperty("userId").GetGuid()));
+        var ids = items.Select(i => i.GetProperty("userId").GetGuid()).ToList();
+        Assert.Equal(new[] { common.Id, oneShared.Id }.Order(), ids.Order());   // урок без общего языка невозможен
+        Assert.DoesNotContain(noCommon.Id, ids);
+        Assert.DoesNotContain(noLanguages.Id, ids);
+        Assert.Equal(2, result.GetProperty("totalCount").GetInt32());
+
+        var shared = items.Single(i => i.GetProperty("userId").GetGuid() == common.Id);
+        Assert.Equal(["ru", "tg"], shared.GetProperty("commonLanguages").EnumerateArray().Select(l => l.GetString()));
+        Assert.Equal(["en", "ru", "tg"], shared.GetProperty("languages").EnumerateArray().Select(l => l.GetString()));
+        Assert.All(items, i => Assert.True(i.GetProperty("commonLanguages").GetArrayLength() >= 1));
+    }
+
+    [Fact]
+    public async Task A_user_who_has_not_listed_any_language_sees_nobody()
+    {
+        var w = await MatchTestWorld.CreateAsync(_factory);
+        var me = await w.UserAsync((0, Mid), (1, Mid), new MatchTestWorld.Options(Languages: []));
+        await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["en", "ru"]));
+
+        var result = await w.GetAsync(me);
+
+        Assert.Equal(0, result.GetProperty("totalCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_common_language_is_not_a_ranking_key_only_a_condition()
+    {
+        var w = await MatchTestWorld.CreateAsync(_factory);
+        var me = await w.UserAsync((0, Mid), (1, Mid), new MatchTestWorld.Options(Languages: ["ru", "tg", "en"], TimeZone: "Asia/Dushanbe"));
+        var manyShared = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["ru", "tg", "en"], TimeZone: "Asia/Tokyo"));
+        var oneSharedNearer = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["en"], TimeZone: "Asia/Tashkent"));
+
+        Assert.Equal(Order(oneSharedNearer, manyShared), await w.IdsAsync(me));   // решает часовой пояс, а не число общих языков
     }
 
     [Fact]
@@ -337,11 +365,52 @@ public class MatchesTests
         var w = await MatchTestWorld.CreateAsync(_factory);
         var me = await w.UserAsync((0, Mid), (1, Mid), new MatchTestWorld.Options(Languages: ["ru"], TimeZone: "Asia/Dushanbe"));
         var partialPerfect = await w.UserAsync((1, Adv), (5, Mid), new MatchTestWorld.Options(Languages: ["ru"], TimeZone: "Asia/Dushanbe", RatingCount: 50, Rating: 5m));
-        var fullFarNoLanguage = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(TimeZone: "America/Los_Angeles"));
-        var fullWithLanguageFar = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["ru"], TimeZone: "America/Los_Angeles"));
-        var fullWithLanguageNear = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["ru"], TimeZone: "Asia/Dushanbe"));
+        var fullFar = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["ru"], TimeZone: "America/Los_Angeles"));
+        var fullNear = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["ru"], TimeZone: "Asia/Dushanbe"));
 
-        Assert.Equal(Order(fullWithLanguageNear, fullWithLanguageFar, fullFarNoLanguage, partialPerfect), await w.IdsAsync(me));
+        Assert.Equal(Order(fullNear, fullFar, partialPerfect), await w.IdsAsync(me));   // полнота, затем часовой пояс; остальное частичного не спасает
+    }
+
+    [Fact]
+    public async Task With_everything_else_equal_more_matched_skills_rank_higher_and_the_count_covers_both_directions()
+    {
+        var w = await MatchTestWorld.CreateAsync(_factory);
+        var me = await w.UserAsync([(0, Mid), (1, Mid)], [(2, Mid), (3, Mid)]);
+        var oneSkill = await w.UserAsync([(2, Mid)], [(0, Mid)]);                         // 1 + 1 = 2 совпадения
+        var threeSkills = await w.UserAsync([(2, Mid), (3, Mid)], [(0, Mid)]);            // 2 + 1 = 3
+        var fourSkills = await w.UserAsync([(2, Mid), (3, Mid)], [(0, Mid), (1, Mid)]);   // 2 + 2 = 4
+        var onlyTeachTwo = await w.UserAsync([(2, Mid), (3, Mid)], [(5, Mid)]);           // частичный: 2 совпадения, но ниже полных
+
+        var result = await w.GetAsync(me);
+
+        var items = result.GetProperty("items").EnumerateArray().ToList();
+        Assert.Equal(Order(fourSkills, threeSkills, oneSkill, onlyTeachTwo), items.Select(i => i.GetProperty("userId").GetGuid()));
+        Assert.Equal([4, 3, 2, 2], items.Select(i =>
+            i.GetProperty("theyTeach").GetArrayLength() + i.GetProperty("theyLearn").GetArrayLength()));   // порядок следует из того, что видно в карточке
+    }
+
+    [Fact]
+    public async Task The_matched_count_only_decides_after_all_the_earlier_criteria()
+    {
+        var w = await MatchTestWorld.CreateAsync(_factory);
+        var me = await w.UserAsync([(0, Mid), (1, Mid)], [(2, Mid), (3, Mid)], new MatchTestWorld.Options(TimeZone: "Asia/Dushanbe"));
+        var fewButNear = await w.UserAsync([(2, Mid)], [(0, Mid)], new MatchTestWorld.Options(TimeZone: "Asia/Dushanbe"));
+        var manyButFar = await w.UserAsync([(2, Mid), (3, Mid)], [(0, Mid), (1, Mid)], new MatchTestWorld.Options(TimeZone: "Asia/Tokyo"));
+
+        Assert.Equal(Order(fewButNear, manyButFar), await w.IdsAsync(me));
+    }
+
+    [Fact]
+    public async Task Filters_do_not_change_the_matched_count_used_for_ordering()
+    {
+        var w = await MatchTestWorld.CreateAsync(_factory);
+        var me = await w.UserAsync([(0, Mid)], [(2, Mid), (3, Mid)]);
+        var two = await w.UserAsync([(2, Mid), (3, Mid)], [(0, Mid)]);
+        var one = await w.UserAsync([(2, Mid)], [(0, Mid)]);
+
+        var filtered = await w.IdsAsync(me, $"?skill={w.S(2)}");   // оба учат навык 2, а у первого есть ещё навык 3
+
+        Assert.Equal(Order(two, one), filtered);
     }
 
     // ---------- фильтры ----------
@@ -366,15 +435,27 @@ public class MatchesTests
     public async Task The_language_filter_keeps_only_people_who_speak_it_and_accepts_any_case()
     {
         var w = await MatchTestWorld.CreateAsync(_factory);
-        var me = await w.UserAsync((0, Mid), (1, Mid));
+        var me = await w.UserAsync((0, Mid), (1, Mid), new MatchTestWorld.Options(Languages: ["en", "de", "fr"]));
         var german = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["de", "en"]));
         var french = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["fr"]));
-        await w.UserAsync((1, Mid), (0, Mid));   // без языков
+        var japanese = await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["ja", "en"]));
+        await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: []));   // без языков: в выдаче нет вовсе
 
         Assert.Equal([german.Id], await w.IdsAsync(me, "?lang=de"));
         Assert.Equal([german.Id], await w.IdsAsync(me, "?lang=DE"));
         Assert.Equal([french.Id], await w.IdsAsync(me, "?lang=fr"));
-        Assert.Empty(await w.IdsAsync(me, "?lang=ja"));
+        Assert.Equal([japanese.Id], await w.IdsAsync(me, "?lang=ja"));   // язык фильтра не обязан быть моим: общий язык (en) у нас есть
+        Assert.Empty(await w.IdsAsync(me, "?lang=zh"));
+    }
+
+    [Fact]
+    public async Task The_language_filter_cannot_bring_back_someone_without_a_common_language()
+    {
+        var w = await MatchTestWorld.CreateAsync(_factory);
+        var me = await w.UserAsync((0, Mid), (1, Mid), new MatchTestWorld.Options(Languages: ["ru"]));
+        await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["de"]));
+
+        Assert.Empty(await w.IdsAsync(me, "?lang=de"));
     }
 
     [Fact]
@@ -412,12 +493,12 @@ public class MatchesTests
     public async Task Filters_combine_and_each_narrows_the_result()
     {
         var w = await MatchTestWorld.CreateAsync(_factory);
-        var me = await w.UserAsync([(0, Mid)], [(1, Mid), (2, Mid)]);
-        var target = await w.UserAsync((1, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["de"], RatingCount: 6, Rating: 4.7m));
-        await w.UserAsync((1, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["fr"], RatingCount: 6, Rating: 4.7m));   // другой язык
-        await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["de"], RatingCount: 6, Rating: 4.7m));   // другой уровень
-        await w.UserAsync((2, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["de"], RatingCount: 6, Rating: 4.7m));   // другой навык
-        await w.UserAsync((1, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["de"], RatingCount: 6, Rating: 3.0m));   // низкий рейтинг
+        var me = await w.UserAsync([(0, Mid)], [(1, Mid), (2, Mid)]);   // язык по умолчанию: en
+        var target = await w.UserAsync((1, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["de", "en"], RatingCount: 6, Rating: 4.7m));
+        await w.UserAsync((1, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["fr", "en"], RatingCount: 6, Rating: 4.7m));   // другой язык
+        await w.UserAsync((1, Mid), (0, Mid), new MatchTestWorld.Options(Languages: ["de", "en"], RatingCount: 6, Rating: 4.7m));   // другой уровень
+        await w.UserAsync((2, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["de", "en"], RatingCount: 6, Rating: 4.7m));   // другой навык
+        await w.UserAsync((1, Adv), (0, Mid), new MatchTestWorld.Options(Languages: ["de", "en"], RatingCount: 6, Rating: 3.0m));   // низкий рейтинг
 
         var ids = await w.IdsAsync(me, $"?skill={w.S(1)}&lang=de&level=Advanced&minRating=4.5");
 

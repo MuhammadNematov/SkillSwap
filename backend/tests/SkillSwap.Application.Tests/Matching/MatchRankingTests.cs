@@ -9,12 +9,12 @@ public class MatchRankingTests
     private static int _seq;
 
     private static MatchCandidate C(
-        bool full = false, bool lang = false, string tz = "Asia/Dushanbe", int level = 1,
-        int ratingCount = 0, decimal rating = 0m, DateTime? lastActive = null) => new()
+        bool full = false, string tz = "Asia/Dushanbe", int level = 1,
+        int ratingCount = 0, decimal rating = 0m, DateTime? lastActive = null, int matched = 1) => new()
     {
         UserId = new Guid(++_seq, 0, 0, new byte[8]),
         IsFull = full,
-        HasCommonLanguage = lang,
+        MatchedSkillCount = matched,
         TimeZone = tz,
         BestLevel = level,
         RatingCount = ratingCount,
@@ -28,19 +28,10 @@ public class MatchRankingTests
     [Fact]
     public void Full_matches_come_before_partial_ones_even_when_everything_else_favours_the_partial()
     {
-        var partial = C(full: false, lang: true, tz: "Asia/Dushanbe", level: 3, ratingCount: 50, rating: 5m, lastActive: Now.UtcDateTime);
-        var full = C(full: true, lang: false, tz: "Pacific/Auckland", level: 1);
+        var partial = C(full: false, tz: "Asia/Dushanbe", level: 3, ratingCount: 50, rating: 5m, lastActive: Now.UtcDateTime);
+        var full = C(full: true, tz: "Pacific/Auckland", level: 1);
 
         Assert.Equal([full, partial], Order("Asia/Dushanbe", partial, full));
-    }
-
-    [Fact]
-    public void A_common_language_beats_a_nearer_time_zone()
-    {
-        var sameZoneNoLanguage = C(lang: false, tz: "Asia/Dushanbe");
-        var farWithLanguage = C(lang: true, tz: "America/Los_Angeles");
-
-        Assert.Equal([farWithLanguage, sameZoneNoLanguage], Order("Asia/Dushanbe", sameZoneNoLanguage, farWithLanguage));
     }
 
     [Fact]
@@ -126,6 +117,50 @@ public class MatchRankingTests
         Assert.Equal([rated, active], Order("Asia/Dushanbe", active, rated));
     }
 
+
+    [Fact]
+    public void With_everything_else_equal_more_matched_skills_come_first()
+    {
+        var one = C(matched: 1);
+        var three = C(matched: 3);
+        var two = C(matched: 2);
+
+        Assert.Equal([three, two, one], Order("Asia/Dushanbe", one, two, three));
+    }
+
+    [Fact]
+    public void The_matched_skill_count_never_beats_an_earlier_criterion()
+    {
+        var many = 9;
+        var fewButFull = C(full: true, matched: 1);
+        var manyPartial = C(full: false, matched: many);
+        Assert.Equal([fewButFull, manyPartial], Order("Asia/Dushanbe", manyPartial, fewButFull));          // полнота важнее
+
+        var near = C(tz: "Asia/Dushanbe", matched: 1);
+        var farMany = C(tz: "Asia/Tokyo", matched: many);
+        Assert.Equal([near, farMany], Order("Asia/Dushanbe", farMany, near));                              // часовой пояс важнее
+
+        var advanced = C(level: 3, matched: 1);
+        var beginnerMany = C(level: 1, matched: many);
+        Assert.Equal([advanced, beginnerMany], Order("Asia/Dushanbe", beginnerMany, advanced));            // уровень важнее
+
+        var rated = C(ratingCount: 10, rating: 4.5m, matched: 1);
+        var unratedMany = C(ratingCount: 0, matched: many);
+        Assert.Equal([rated, unratedMany], Order("Asia/Dushanbe", unratedMany, rated));                    // рейтинг важнее
+
+        var activeFew = C(lastActive: Now.UtcDateTime - TimeSpan.FromDays(1), matched: 1);
+        var staleMany = C(lastActive: Now.UtcDateTime - TimeSpan.FromDays(20), matched: many);
+        Assert.Equal([activeFew, staleMany], Order("Asia/Dushanbe", staleMany, activeFew));                // активность за неделю важнее
+    }
+
+    [Fact]
+    public void Inside_the_same_activity_bucket_the_matched_count_beats_exact_recency()
+    {
+        var recentFew = C(lastActive: Now.UtcDateTime - TimeSpan.FromHours(1), matched: 1);
+        var olderMany = C(lastActive: Now.UtcDateTime - TimeSpan.FromDays(5), matched: 3);
+
+        Assert.Equal([olderMany, recentFew], Order("Asia/Dushanbe", recentFew, olderMany));
+    }
     [Fact]
     public void Full_ordering_is_deterministic_for_identical_candidates()
     {

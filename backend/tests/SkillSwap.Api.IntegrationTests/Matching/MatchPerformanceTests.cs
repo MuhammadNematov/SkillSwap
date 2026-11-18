@@ -192,6 +192,14 @@ public class MatchPerformanceTests : IClassFixture<ApiFactory>
         {
             var me = await db.Users.SingleAsync(u => u.Id == viewer!.Id);
             typeof(User).GetProperty(nameof(User.DateOfBirth))!.SetValue(me, (DateOnly?)today.AddYears(-30));
+
+            // Общий язык обязателен, поэтому ищущий знает все восемь языков: худший случай, ни один кандидат не отсекается по языку.
+            db.UserLanguages.RemoveRange(await db.UserLanguages.Where(l => l.UserId == me.Id).ToListAsync());
+            foreach (var language in Languages)
+            {
+                db.UserLanguages.Add(UserLanguage.Create(me.Id, language));
+            }
+
             await db.SaveChangesAsync();
             return 0;
         });

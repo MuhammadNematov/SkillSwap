@@ -13,7 +13,7 @@ public sealed class MatchStore : IMatchStore
     private const string LevelCase = "CASE us.\"Level\" WHEN 'Beginner' THEN 1 WHEN 'Intermediate' THEN 2 ELSE 3 END";
 
     // Один запрос на всех кандидатов. Идея:
-    //   cand        — кто вообще может попасть в выдачу (видимый, активный, не заблокирован, той же возрастной группы, фильтры);
+    //   cand        — кто вообще может попасть в выдачу (видимый, активный, не заблокирован, той же возрастной группы, с общим языком, фильтры);
     //   wanted      — включённые навыки, которые есть в моей анкете (остальные навыки кандидатов не интересуют);
     //   sk          — эти навыки у кандидатов с числовым уровнем;
     //   they_teach  — что кандидат преподаёт из моего «Хочу изучать» на уровне НЕ НИЖЕ моего (лучший уровень на человека);
@@ -50,6 +50,10 @@ public sealed class MatchStore : IMatchStore
                   WHERE (b."UserId" = @me AND b."BlockedUserId" = u."Id")
                      OR (b."UserId" = u."Id" AND b."BlockedUserId" = @me))
               AND (@minRating IS NULL OR (u."RatingCount" >= @newcomerThreshold AND u."RatingAvg" >= @minRating))
+              -- урок без общего языка невозможен: общий язык занятий со мной обязателен (не критерий порядка, а условие отбора)
+              AND EXISTS (
+                  SELECT 1 FROM "UserLanguages" cl
+                  WHERE cl."UserId" = u."Id" AND cl."LanguageCode" IN (SELECT "LanguageCode" FROM my_langs))
               AND (@lang IS NULL OR EXISTS (
                   SELECT 1 FROM "UserLanguages" l WHERE l."UserId" = u."Id" AND l."LanguageCode" = @lang))
         ),
@@ -60,26 +64,27 @@ public sealed class MatchStore : IMatchStore
             JOIN cand c ON c."Id" = us."UserId"
         ),
         they_teach AS (
-            SELECT sk.user_id, max(sk.lvl) AS best
+            -- n и best считаются по всем подходящим парам; фильтры skill и level только решают, остаётся ли человек в выдаче
+            SELECT sk.user_id,
+                   max(sk.lvl) AS best,
+                   count(*) AS n,
+                   bool_or((@skill IS NULL OR sk.skill_id = @skill) AND (@level IS NULL OR sk.lvl = @level)) AS passes
             FROM sk JOIN me_learn ml ON ml.skill_id = sk.skill_id
             WHERE sk.direction = 'Teach' AND sk.lvl >= ml.level
-              AND (@skill IS NULL OR sk.skill_id = @skill)
-              AND (@level IS NULL OR sk.lvl = @level)
             GROUP BY sk.user_id
         ),
         they_learn AS (
-            SELECT DISTINCT sk.user_id
+            SELECT sk.user_id, count(*) AS n
             FROM sk JOIN me_teach mt ON mt.skill_id = sk.skill_id
             WHERE sk.direction = 'Learn' AND mt.level >= sk.lvl
+            GROUP BY sk.user_id
         )
         SELECT c."Id" AS "UserId", c."TimeZone", c."RatingAvg", c."RatingCount", c."LastActiveAt",
                (tl.user_id IS NOT NULL) AS "IsFull",
                tt.best AS "BestLevel",
-               EXISTS (
-                   SELECT 1 FROM "UserLanguages" l
-                   WHERE l."UserId" = c."Id" AND l."LanguageCode" IN (SELECT "LanguageCode" FROM my_langs)) AS "HasCommonLanguage"
+               (tt.n + COALESCE(tl.n, 0))::int AS "MatchedSkillCount"
         FROM cand c
-        JOIN they_teach tt ON tt.user_id = c."Id"
+        JOIN they_teach tt ON tt.user_id = c."Id" AND tt.passes
         LEFT JOIN they_learn tl ON tl.user_id = c."Id"
         """;
 

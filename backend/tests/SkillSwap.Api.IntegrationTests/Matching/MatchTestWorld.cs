@@ -53,7 +53,7 @@ public sealed class MatchTestWorld
     }
 
     public sealed record Options(
-        string[]? Languages = null,
+        string[]? Languages = null,   // по умолчанию ["en"]: общий язык нужен для попадания в выдачу; [] — язык не указан
         string TimeZone = "Asia/Dushanbe",
         DateOnly? BirthDate = null,
         bool Searchable = true,
@@ -88,7 +88,7 @@ public sealed class MatchTestWorld
                 db.UserSkills.Add(UserSkill.Create(user.Id, S(skill), SkillDirection.Learn, level, null));
             }
 
-            foreach (var language in options.Languages ?? [])
+            foreach (var language in options.Languages ?? ["en"])
             {
                 db.UserLanguages.Add(UserLanguage.Create(user.Id, language));
             }
