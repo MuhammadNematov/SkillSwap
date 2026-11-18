@@ -14,6 +14,7 @@ import Notifications from './pages/Notifications'
 import Onboarding from './pages/Onboarding'
 import Reviews from './pages/Reviews'
 import Settings from './pages/Settings'
+import StaffInvitation from './pages/StaffInvitation'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Matches from './pages/Matches'
@@ -33,6 +34,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/confirm-email" element={<ConfirmEmail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/staff-invitation/:token" element={<StaffInvitation />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Защита по ролям (раздел 11.2 ТЗ) */}

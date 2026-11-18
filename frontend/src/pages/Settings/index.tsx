@@ -60,7 +60,7 @@ function ProfileSection() {
     onSuccess: (p) => {
       qc.invalidateQueries({ queryKey: ['me'] })
       qc.invalidateQueries({ queryKey: ['profile'] })
-      if (user) updateUser({ ...user, name: p.name })
+      if (user) updateUser({ ...user, name: p.name, skillsComplete: p.skillsComplete })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     },
