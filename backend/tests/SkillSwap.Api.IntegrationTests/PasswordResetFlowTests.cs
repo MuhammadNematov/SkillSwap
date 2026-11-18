@@ -380,7 +380,8 @@ public class PasswordResetFlowTests
     public async Task A_real_reset_token_is_valid_only_for_the_reset_provider()
     {
         var email = await _api.RegisterConfirmedUserAsync();
-        var (_, token) = await RequestResetAsync(email);
+        var (_, linkToken) = await RequestResetAsync(email);
+        var token = SkillSwap.Application.Auth.UrlSafeToken.Decode(linkToken);   // в ссылке токен в виде Base64Url, Identity ждёт обычный Base64
         using var scope = _factory.Services.CreateScope();
         var manager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
         var user = await manager.FindByEmailAsync(email);

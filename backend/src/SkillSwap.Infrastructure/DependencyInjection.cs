@@ -82,6 +82,7 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddHostedService<TurnstileStartupCheck>();
+        services.AddHostedService<FrontendUrlStartupCheck>();
         services.AddHttpClient(TurnstileCaptchaVerifier.HttpClientName)
             .ConfigureHttpClient((sp, client) =>
                 client.Timeout = TimeSpan.FromSeconds(sp.GetRequiredService<IOptions<TurnstileOptions>>().Value.TimeoutSeconds));

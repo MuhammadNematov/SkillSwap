@@ -90,7 +90,7 @@ internal sealed class FakeUserManager : UserManager<User>
     public override Task<IdentityResult> UpdateAsync(User user) => Task.FromResult(IdentityResult.Success);
 
     // Сброс пароля
-    public string ResetToken { get; set; } = "reset-token";
+    public string ResetToken { get; set; } = "cmVzZXQtdG9rZW4=";
     public bool ResetTokenConsumed { get; private set; }
     public IdentityResult? ForcedResetResult { get; set; }
     public int LockoutEndClearedCalls { get; private set; }

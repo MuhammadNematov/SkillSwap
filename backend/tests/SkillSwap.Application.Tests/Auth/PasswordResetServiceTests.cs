@@ -21,7 +21,7 @@ public class PasswordResetServiceTests
         return user;
     }
 
-    private Task Reset(User user, string token = "reset-token", string password = "newpass123") =>
+    private Task Reset(User user, string token = "cmVzZXQtdG9rZW4=", string password = "newpass123") =>
         _fx.PasswordReset.ResetPasswordAsync(new ResetPasswordRequest(user.Id, token, password));
 
     // ---------- запрос сброса ----------
@@ -36,19 +36,19 @@ public class PasswordResetServiceTests
         var mail = Assert.Single(_fx.Mail.Sent);
         Assert.Equal("ali@example.com", mail.To);
         Assert.Contains("сброс пароля", mail.Subject);
-        Assert.Contains($"https://app.test/reset-password?userId={user.Id}&token=reset-token", mail.Body);
+        Assert.Contains($"https://app.test/reset-password?userId={user.Id}&token=cmVzZXQtdG9rZW4", mail.Body);
         Assert.Contains("1 час", mail.Body);
     }
 
     [Fact]
-    public async Task Forgot_escapes_the_token_for_use_in_a_url()
+    public async Task Forgot_puts_a_url_safe_token_in_the_link()
     {
         var user = AddUser();
         _fx.Users.ResetToken = "a/b+c=";
 
         await _fx.PasswordReset.ForgotPasswordAsync(new ForgotPasswordRequest("ali@example.com"));
 
-        Assert.Contains($"userId={user.Id}&token=a%2Fb%2Bc%3D", Assert.Single(_fx.Mail.Sent).Body);
+        Assert.Contains($"userId={user.Id}&token=a_b-c", Assert.Single(_fx.Mail.Sent).Body);   // «/»→«_», «+»→«-», «=» убран
     }
 
     [Fact]
@@ -209,7 +209,7 @@ public class PasswordResetServiceTests
     public async Task Reset_for_an_unknown_user_gives_the_same_error_as_a_wrong_token()
     {
         var ex = await Assert.ThrowsAsync<BadRequestException>(
-            () => _fx.PasswordReset.ResetPasswordAsync(new ResetPasswordRequest(Guid.NewGuid(), "reset-token", "newpass123")));
+            () => _fx.PasswordReset.ResetPasswordAsync(new ResetPasswordRequest(Guid.NewGuid(), "cmVzZXQtdG9rZW4=", "newpass123")));
 
         Assert.Equal("invalid_reset_token", ex.Code);
     }

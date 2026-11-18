@@ -66,7 +66,7 @@ public sealed class PasswordResetService
         {
             var token = await _users.GeneratePasswordResetTokenAsync(user);
             var link = $"{_frontend.BaseUrl.TrimEnd('/')}/reset-password" +
-                       $"?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+                       $"?userId={user.Id}&token={UrlSafeToken.Encode(token)}";
             var (subject, body) = EmailTemplates.ResetPassword(user.UiLanguage, user.Name, link);
             await _mail.SendAsync(user.Email!, subject, body, ct);
         }
@@ -94,7 +94,7 @@ public sealed class PasswordResetService
             throw InvalidResetToken();
         }
 
-        var result = await _users.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        var result = await _users.ResetPasswordAsync(user, UrlSafeToken.Decode(request.Token), request.NewPassword);
         if (!result.Succeeded)
         {
             throw MapResetError(result);

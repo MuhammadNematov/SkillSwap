@@ -149,7 +149,7 @@ public sealed class AuthService
             throw InvalidConfirmationToken();
         }
 
-        var result = await _users.ConfirmEmailAsync(user, request.Token);
+        var result = await _users.ConfirmEmailAsync(user, UrlSafeToken.Decode(request.Token));
         if (!result.Succeeded)
         {
             throw InvalidConfirmationToken();
@@ -176,7 +176,7 @@ public sealed class AuthService
         {
             var token = await _users.GenerateEmailConfirmationTokenAsync(user);
             var link = $"{_frontend.BaseUrl.TrimEnd('/')}/confirm-email" +
-                       $"?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+                       $"?userId={user.Id}&token={UrlSafeToken.Encode(token)}";
             var (subject, body) = EmailTemplates.ConfirmEmail(user.UiLanguage, user.Name, link);
             await _mail.SendAsync(user.Email!, subject, body, ct);
         }

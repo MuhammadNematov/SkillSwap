@@ -43,6 +43,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public const string LiveKitApiSecret = "livekit-integration-test-secret-0123456789-abcdef";
     public const string LiveKitUrl = "ws://livekit.test:7880";
 
+    /// <summary>Адрес фронтенда для ссылок в письмах. Не localhost: приложение в окружении Production localhost не принимает.</summary>
+    public const string FrontendUrl = "https://frontend.test";
+
     public async Task InitializeAsync()
     {
         await _postgres.StartAsync();
@@ -79,6 +82,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         settings["LiveKit:ApiKey"] = LiveKitApiKey;
         settings["LiveKit:ApiSecret"] = LiveKitApiSecret;
         settings["LiveKit:Url"] = LiveKitUrl;
+        settings["Frontend:BaseUrl"] = FrontendUrl;
 
         // Ключи шифрования защищены сертификатом, как на боевом сервере (в тестах он создаётся на лету).
         settings["DataProtection:CertificateBase64"] = TestCertificates.Shared.Base64;
