@@ -205,8 +205,16 @@ public class UserBlockTests
         var bob = await NewPersonAsync();
         var carol = await NewPersonAsync();
         await BlockAsync(alice, bob.Id);
-        _factory.Clock.Advance(TimeSpan.FromMinutes(1));   // время блокировки берётся с часов приложения
         await BlockAsync(alice, carol.Id);
+        // Время блокировки ставится часами приложения; общие часы набора сдвигать нельзя (на них опираются другие тесты),
+        // поэтому «старую» блокировку делаем старой прямо в БД.
+        await _factory.QueryAsync(async db =>
+        {
+            var older = await db.UserBlocks.SingleAsync(b => b.UserId == alice.Id && b.BlockedUserId == bob.Id);
+            older.CreatedAt = older.CreatedAt.AddMinutes(-1);
+            await db.SaveChangesAsync();
+            return 0;
+        });
 
         var list = (await JsonAsync(await SendAsync(alice.Token, HttpMethod.Get, "/me/blocks"))).EnumerateArray().ToList();
 
