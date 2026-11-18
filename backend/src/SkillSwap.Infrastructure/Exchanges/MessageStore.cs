@@ -46,6 +46,18 @@ public sealed class MessageStore : IMessageStore
         return await query.ExecuteUpdateAsync(s => s.SetProperty(m => m.ReadAt, now), ct);
     }
 
+    public async Task<DateTime?> OldestUnreadAtAsync(Guid recipientId, Guid exchangeId, DateTime? after, CancellationToken ct)
+    {
+        var query = _db.Messages.AsNoTracking()
+            .Where(m => m.ExchangeId == exchangeId && m.ReadAt == null && m.DeletedAt == null && m.SenderId != recipientId);
+        if (after is { } since)
+        {
+            query = query.Where(m => m.CreatedAt > since);
+        }
+
+        return await query.OrderBy(m => m.CreatedAt).Select(m => (DateTime?)m.CreatedAt).FirstOrDefaultAsync(ct);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, int>> CountUnreadAsync(Guid userId, IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct) =>
         await _db.Messages.AsNoTracking()
             .Where(m => exchangeIds.Contains(m.ExchangeId) && m.ReadAt == null && m.DeletedAt == null && m.SenderId != userId)

@@ -22,6 +22,9 @@ public interface IMessageStore
     /// <summary>Собеседник прочитал сообщения до указанного включительно (null — все). Возвращает, сколько отмечено.</summary>
     Task<int> MarkReadAsync(Guid exchangeId, Guid readerId, (DateTime CreatedAt, Guid Id)? upTo, DateTime now, CancellationToken ct);
 
+    /// <summary>Время самого раннего непрочитанного (чужого, не удалённого) сообщения в обмене, пришедшего позже <paramref name="after"/>; null, если таких нет.</summary>
+    Task<DateTime?> OldestUnreadAtAsync(Guid recipientId, Guid exchangeId, DateTime? after, CancellationToken ct);
+
     /// <summary>Сколько непрочитанных (чужих, не удалённых) сообщений в каждом из обменов.</summary>
     Task<IReadOnlyDictionary<Guid, int>> CountUnreadAsync(Guid userId, IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct);
 }

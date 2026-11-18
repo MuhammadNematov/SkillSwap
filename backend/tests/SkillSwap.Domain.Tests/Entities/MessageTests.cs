@@ -117,3 +117,61 @@ public class MessageTests
         Assert.Equal(Sent.AddMinutes(1), m.ReadAt);
     }
 }
+
+/// <summary>Уведомление: обновление непрочитанного (счётчик «новых сообщений») и отметка письма.</summary>
+public class NotificationRefreshTests
+{
+    private static readonly DateTime T = new(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc);
+
+    private static Notification New() =>
+        Notification.Create(Guid.NewGuid(), NotificationType.NewMessages, "{\"count\":1}", Guid.NewGuid());
+
+    [Fact]
+    public void Refreshing_replaces_the_payload_and_moves_the_creation_time()
+    {
+        var n = New();
+
+        n.Refresh("{\"count\":5}", T);
+
+        Assert.Equal("{\"count\":5}", n.PayloadJson);
+        Assert.Equal(T, n.CreatedAt);
+        Assert.False(n.IsRead);
+    }
+
+    [Fact]
+    public void A_read_notification_is_not_refreshed_a_new_one_is_made_instead()
+    {
+        var n = New();
+        n.MarkRead(T);
+
+        Assert.Throws<InvalidStateTransitionException>(() => n.Refresh("{}", T));
+    }
+
+    [Fact]
+    public void Reading_keeps_the_first_time_and_the_exchange_is_remembered()
+    {
+        var exchange = Guid.NewGuid();
+        var n = Notification.Create(Guid.NewGuid(), NotificationType.NewMessages, "{}", exchange);
+
+        n.MarkRead(T);
+        n.MarkRead(T.AddHours(1));
+
+        Assert.Equal(T, n.ReadAt);
+        Assert.Equal(exchange, n.ExchangeId);
+    }
+
+    [Fact]
+    public void The_email_time_is_recorded_each_time_for_the_daily_limit()
+    {
+        var n = New();
+
+        n.RecordEmailSent(T);
+        n.RecordEmailSent(T.AddDays(1));
+
+        Assert.Equal(T.AddDays(1), n.EmailQueuedAt);
+    }
+
+    [Fact]
+    public void Too_long_a_payload_is_refused() =>
+        Assert.Throws<DomainValidationException>(() => Notification.Create(Guid.NewGuid(), NotificationType.NewMessages, new string('x', 4001)));
+}

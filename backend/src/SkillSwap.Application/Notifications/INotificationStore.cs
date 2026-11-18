@@ -16,6 +16,18 @@ public interface INotificationStore
 
     Task<int> CountUnreadAsync(Guid userId, CancellationToken ct);
 
+    /// <summary>Непрочитанное уведомление «новые сообщения» по обмену (с отслеживанием) или null.</summary>
+    Task<Notification?> FindUnreadNewMessagesAsync(Guid userId, Guid exchangeId, CancellationToken ct);
+
+    /// <summary>Самое свежее уведомление «новые сообщения» по обмену, прочитанное или нет (с отслеживанием).</summary>
+    Task<Notification?> FindLatestNewMessagesAsync(Guid userId, Guid exchangeId, CancellationToken ct);
+
+    /// <summary>Когда по этому обмену в последний раз отправлялось письмо о непрочитанных сообщениях.</summary>
+    Task<DateTime?> LastNewMessagesEmailAtAsync(Guid userId, Guid exchangeId, CancellationToken ct);
+
+    /// <summary>Собеседник прочитал чат: уведомление по обмену становится прочитанным. Возвращает, сколько отмечено (0 или 1).</summary>
+    Task<int> MarkNewMessagesReadAsync(Guid userId, Guid exchangeId, DateTime now, CancellationToken ct);
+
     /// <summary>Помечает все непрочитанные прочитанными, возвращает сколько.</summary>
     Task<int> MarkAllReadAsync(Guid userId, DateTime now, CancellationToken ct);
 }

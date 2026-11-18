@@ -22,6 +22,20 @@ internal static class NotificationEmailTemplates
         };
     }
 
+    /// <summary>Письмо о непрочитанных сообщениях (не чаще раза в сутки на обмен). Текст сообщений в письмо не попадает.</summary>
+    public static (string Subject, string Body) UnreadMessages(string language, string name, string other, int count, string link) => language switch
+    {
+        "ru" => (
+            "SkillSwap: у вас непрочитанные сообщения",
+            $"Здравствуйте, {name}!\n\n{other} написал(а) вам в чате обмена. Непрочитанных сообщений: {count}. Откройте чат:\n{link}"),
+        "tg" => (
+            "SkillSwap: шумо паёмҳои нохондашуда доред",
+            $"Салом, {name}!\n\n{other} дар чати мубодила ба шумо навишт. Шумораи паёмҳои нохондашуда: {count}. Чатро кушоед:\n{link}"),
+        _ => (
+            "SkillSwap: you have unread messages",
+            $"Hello, {name}!\n\n{other} wrote to you in your exchange chat. Unread messages: {count}. Open the chat:\n{link}"),
+    };
+
     private static string ExchangeLink(JsonElement payload, FrontendOptions frontend) =>
         Guid.TryParse(Text(payload, "exchangeId"), out var id) ? frontend.ExchangeUrl(id) : frontend.BaseUrl.TrimEnd('/');
 

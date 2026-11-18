@@ -415,6 +415,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("EmailQueuedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("ExchangeId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
@@ -437,6 +440,10 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ExchangeId")
+                        .IsUnique()
+                        .HasFilter("\"Type\" = 'NewMessages' AND NOT \"IsRead\"");
 
                     b.HasIndex("UserId", "IsRead", "CreatedAt");
 

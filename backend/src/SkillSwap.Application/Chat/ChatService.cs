@@ -28,12 +28,13 @@ public sealed class ChatService
     private readonly IMessageCipher _cipher;
     private readonly IChatBroadcaster _broadcaster;
     private readonly ChatThrottle _throttle;
+    private readonly NewMessagesNotifier _newMessages;
     private readonly TimeProvider _clock;
     private readonly ILogger<ChatService> _logger;
 
     public ChatService(
         IMessageStore messages, IExchangeStore exchanges, IProfileStore profiles, IMessageCipher cipher, IChatBroadcaster broadcaster,
-        ChatThrottle throttle, TimeProvider clock, ILogger<ChatService> logger)
+        ChatThrottle throttle, NewMessagesNotifier newMessages, TimeProvider clock, ILogger<ChatService> logger)
     {
         _messages = messages;
         _exchanges = exchanges;
@@ -41,6 +42,7 @@ public sealed class ChatService
         _cipher = cipher;
         _broadcaster = broadcaster;
         _throttle = throttle;
+        _newMessages = newMessages;
         _clock = clock;
         _logger = logger;
     }
@@ -53,7 +55,7 @@ public sealed class ChatService
     {
         await RequireActiveRegularAsync(userId, ct);
         var clean = CleanText(text);
-        await AccessAsync(userId, exchangeId, write: true, ct);
+        var exchange = await AccessAsync(userId, exchangeId, write: true, ct);
         _throttle.Hit(userId);
 
         var warning = PaymentContentDetector.LooksLikePayment(clean);   // до шифрования: потом текст сервер не читает
@@ -63,6 +65,9 @@ public sealed class ChatService
 
         var dto = ToDto(message, clean);
         await TryBroadcastAsync(() => _broadcaster.MessageCreatedAsync(dto, ct));
+        var sender = exchange.UserA.Id == userId ? exchange.UserA : exchange.UserB;
+        var recipient = exchange.UserA.Id == userId ? exchange.UserB : exchange.UserA;
+        await TryBroadcastAsync(() => _newMessages.OnMessageAsync(message, recipient.Id, userId, sender.Name, ct));   // уведомление: сбой не ломает отправку
         return dto;
     }
 
@@ -146,12 +151,23 @@ public sealed class ChatService
         var now = Now();
         var marked = await _messages.MarkReadAsync(exchangeId, userId, upTo, now, ct);
         var receipt = new ReadReceiptDto(exchangeId, userId, upToMessageId, marked, now);
+        await TryBroadcastAsync(() => OnReadAsync(userId, exchangeId, ct));
         if (marked > 0)
         {
             await TryBroadcastAsync(() => _broadcaster.MessagesReadAsync(receipt, ct));
         }
 
         return receipt;
+    }
+
+    /// <summary>Если непрочитанных не осталось, уведомление «новые сообщения» по обмену становится прочитанным.</summary>
+    private async Task OnReadAsync(Guid userId, Guid exchangeId, CancellationToken ct)
+    {
+        var left = (await _messages.CountUnreadAsync(userId, [exchangeId], ct)).GetValueOrDefault(exchangeId);
+        if (left == 0)
+        {
+            await _newMessages.OnReadAsync(userId, exchangeId, ct);
+        }
     }
 
     // ---------- хаб: вход в группы и «печатает» ----------

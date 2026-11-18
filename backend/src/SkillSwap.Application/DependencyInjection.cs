@@ -41,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<NotificationJobs>();
         services.AddScoped<ChatService>();
         services.AddSingleton<ChatThrottle>();
+        services.AddScoped<NewMessagesNotifier>();
+        services.AddScoped<UnreadMessagesJobs>();
         services.AddScoped<SkillSuggestionService>();
         services.AddScoped<LiveKitWebhookService>();
         services.AddScoped<NoopJob>();
