@@ -79,10 +79,14 @@ public sealed class ExchangeRequestStore : IExchangeRequestStore
         var skills = await _db.Skills.AsNoTracking().Where(s => skillIds.Contains(s.Id))
             .Select(s => new RequestSkillDto(s.Id, s.NameTg, s.NameRu, s.NameEn)).ToDictionaryAsync(s => s.Id, ct);
 
+        var requestIds = list.Select(r => r.Id).ToList();
+        var exchangeIds = await _db.Exchanges.AsNoTracking().Where(e => requestIds.Contains(e.RequestId))
+            .Select(e => new { e.RequestId, e.Id }).ToDictionaryAsync(e => e.RequestId, e => (Guid?)e.Id, ct);
+
         return list.Select(r => new ExchangeRequestRow(
             r.Id, r.Status, users[r.FromUserId], users[r.ToUserId],
             r.FromTeachesSkillId is { } from ? skills[from] : null,
             skills[r.ToTeachesSkillId],
-            r.DurationDays, r.Message, r.ExpiresAt, r.RespondedAt, r.CreatedAt)).ToList();
+            r.DurationDays, r.Message, r.ExpiresAt, r.RespondedAt, r.CreatedAt, exchangeIds.GetValueOrDefault(r.Id))).ToList();
     }
 }

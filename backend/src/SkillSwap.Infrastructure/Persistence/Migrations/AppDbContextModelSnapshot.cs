@@ -105,6 +105,101 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Exchange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AbortReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("AbortedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("CompletedByA")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CompletedByB")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("ExtensionAcceptedByA")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ExtensionAcceptedByB")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("FrozenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsExtended")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SkillAId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SkillBId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserAId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserBId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("SkillAId");
+
+                    b.HasIndex("SkillBId");
+
+                    b.HasIndex("Status", "EndDate");
+
+                    b.HasIndex("UserAId", "Status");
+
+                    b.HasIndex("UserBId", "Status");
+
+                    b.ToTable("Exchanges", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Exchanges_Dates", "\"EndDate\" > \"StartDate\"");
+
+                            t.HasCheckConstraint("CK_Exchanges_DifferentUsers", "\"UserAId\" <> \"UserBId\"");
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.ExchangeRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1157,6 +1252,39 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.HasOne("SkillSwap.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Exchange", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.ExchangeRequest", null)
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Skill", null)
+                        .WithMany()
+                        .HasForeignKey("SkillAId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Skill", null)
+                        .WithMany()
+                        .HasForeignKey("SkillBId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserAId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserBId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

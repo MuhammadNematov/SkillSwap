@@ -33,3 +33,12 @@ public enum ExchangeRequestStatus
     Withdrawn,
     Expired,
 }
+
+/// <summary>Статус обмена (раздел 9.2 ТЗ).</summary>
+public enum ExchangeStatus
+{
+    Active,
+    Completed,
+    Aborted,
+    Frozen,
+}

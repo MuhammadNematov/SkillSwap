@@ -17,6 +17,7 @@ public sealed record RequestSkillDto(Guid Id, string NameTg, string NameRu, stri
 
 /// <param name="Direction">in — мне прислали, out — я отправил.</param>
 /// <param name="FromTeachesSkill">Навык отправителя; null, пока получатель не выбрал его при принятии.</param>
+/// <param name="ExchangeId">Обмен, созданный при принятии заявки; null, пока заявка не принята.</param>
 public sealed record ExchangeRequestDto(
     Guid Id,
     string Direction,
@@ -29,7 +30,8 @@ public sealed record ExchangeRequestDto(
     string? Message,
     DateTime ExpiresAt,
     DateTime? RespondedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    Guid? ExchangeId);
 
 /// <summary>Строка из хранилища: направление добавляет сервис.</summary>
 public sealed record ExchangeRequestRow(
@@ -43,4 +45,5 @@ public sealed record ExchangeRequestRow(
     string? Message,
     DateTime ExpiresAt,
     DateTime? RespondedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    Guid? ExchangeId);

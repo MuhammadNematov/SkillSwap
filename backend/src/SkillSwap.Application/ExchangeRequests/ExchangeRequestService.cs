@@ -2,6 +2,7 @@ using FluentValidation;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Blocks;
 using SkillSwap.Application.Common;
+using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.Matching;
 using SkillSwap.Application.Profile;
@@ -21,8 +22,18 @@ public sealed class ExchangeRequestService
     private const int DefaultMaxPending = 5;
     private const int DefaultMaxPerDay = 10;
     private const int DefaultCooldownDays = 30;
+    private const int DefaultMaxActiveExchanges = 3;
+
+    /// <summary>409 <c>exchange_limit_reached</c>; <c>limitReachedFor</c>: you — у меня, partner — у партнёра.</summary>
+    private static ConflictException LimitReached(int max, string who) => new(
+        "exchange_limit_reached",
+        who == "you"
+            ? $"Достигнут лимит активных обменов ({max}). Завершите один из них."
+            : $"У собеседника достигнут лимит активных обменов ({max}): принять заявку сейчас нельзя.",
+        new Dictionary<string, object?> { ["limitReachedFor"] = who });
 
     private readonly IExchangeRequestStore _requests;
+    private readonly IExchangeStore _exchanges;
     private readonly IProfileStore _profiles;
     private readonly IUserSkillStore _skills;
     private readonly IUserBlockStore _blocks;
@@ -33,11 +44,12 @@ public sealed class ExchangeRequestService
     private readonly TimeProvider _clock;
 
     public ExchangeRequestService(
-        IExchangeRequestStore requests, IProfileStore profiles, IUserSkillStore skills, IUserBlockStore blocks,
+        IExchangeRequestStore requests, IExchangeStore exchanges, IProfileStore profiles, IUserSkillStore skills, IUserBlockStore blocks,
         ISystemSettingsStore settings, IUnitOfWork uow, IBackgroundJobs jobs, IValidator<CreateExchangeRequestRequest> validator,
         TimeProvider clock)
     {
         _requests = requests;
+        _exchanges = exchanges;
         _profiles = profiles;
         _skills = skills;
         _blocks = blocks;
@@ -105,6 +117,19 @@ public sealed class ExchangeRequestService
                     new Dictionary<string, object?> { ["requestId"] = open.Id });
             }
 
+            // Между двумя людьми одновременно один обмен, и у отправителя не больше лимита активных обменов
+            // (у получателя лимит проверяется при принятии).
+            if (await _exchanges.HasActiveBetweenAsync(fromId, target.Id, token))
+            {
+                throw new ConflictException("exchange_already_active", "У вас уже есть активный обмен с этим человеком.");
+            }
+
+            var maxActive = await _settings.GetIntAsync(SystemSettingKeys.MaxActiveExchanges, DefaultMaxActiveExchanges, token);
+            if (await _exchanges.CountActiveAsync(fromId, token) >= maxActive)
+            {
+                throw LimitReached(maxActive, "you");
+            }
+
             var cooldownDays = await _settings.GetIntAsync(SystemSettingKeys.DeclineCooldownDays, DefaultCooldownDays, token);
             if (await _requests.LastDeclinedAtAsync(fromId, target.Id, token) is { } declinedAt && declinedAt.AddDays(cooldownDays) > now)
             {
@@ -145,6 +170,7 @@ public sealed class ExchangeRequestService
     {
         await RequireActiveRegularAsync(userId, ct);
         var expired = false;
+        (Guid Id, DateTime EndDate)? createdExchange = null;
 
         await Mutate(userId, requestId, ct, async (request, token) =>
         {
@@ -183,14 +209,41 @@ public sealed class ExchangeRequestService
                 throw new ConflictException("skill_no_longer_taught", "Вы больше не преподаёте этот навык: заявку можно только отклонить.");
             }
 
+            if (request.FromTeachesSkillId is { } named && !(await TeachSkillIdsAsync(request.FromUserId, token)).Contains(named))
+            {
+                throw new ConflictException("sender_skill_no_longer_taught", "Отправитель больше не преподаёт указанный навык: заявку можно только отклонить.");
+            }
+
             // Для заявки без навыка отправителя выбор из «Умею» отправителя обязателен (иначе 400 from_skill_required).
-            // Обмен создаётся здесь же, в этой транзакции (шаг 2 этапа 4).
             request.Accept(chosen, now);
+
+            // Лимит активных обменов у обоих, под блокировкой обоих (она взята в Mutate). При отказе исключение откатывает транзакцию:
+            // заявка остаётся Pending, обмен не создаётся.
+            var max = await _settings.GetIntAsync(SystemSettingKeys.MaxActiveExchanges, DefaultMaxActiveExchanges, token);
+            var mineBusy = await _exchanges.CountActiveAsync(request.ToUserId, token) >= max;
+            var theirsBusy = await _exchanges.CountActiveAsync(request.FromUserId, token) >= max;
+            if (mineBusy || theirsBusy)
+            {
+                throw LimitReached(max, mineBusy ? "you" : "partner");
+            }
+
+            // Принятие заявки и создание обмена: одна транзакция. A — отправитель, B — получатель.
+            var exchange = Exchange.Create(
+                request.Id, request.FromUserId, request.ToUserId, request.FromTeachesSkillId!.Value, request.ToTeachesSkillId,
+                request.DurationDays, now);
+            _exchanges.Add(exchange);
+            createdExchange = (exchange.Id, exchange.EndDate);
         });
 
         if (expired)
         {
             throw new ConflictException("request_expired", "Срок заявки истёк.");
+        }
+
+        if (createdExchange is { } created)
+        {
+            // После фиксации: по истечении срока обмен завершится сам (раздел 9.2 ТЗ).
+            _jobs.Schedule<ExchangeJobs>(j => j.CompleteDueAsync(created.Id), new DateTimeOffset(created.EndDate, TimeSpan.Zero));
         }
 
         return await GetAsync(userId, requestId, ct);
@@ -299,5 +352,5 @@ public sealed class ExchangeRequestService
 
     private static ExchangeRequestDto Map(ExchangeRequestRow r, Guid viewerId) => new(
         r.Id, r.ToUser.Id == viewerId ? "in" : "out", r.Status, r.FromUser, r.ToUser, r.FromTeachesSkill, r.ToTeachesSkill,
-        r.DurationDays, r.Message, r.ExpiresAt, r.RespondedAt, r.CreatedAt);
+        r.DurationDays, r.Message, r.ExpiresAt, r.RespondedAt, r.CreatedAt, r.ExchangeId);
 }

@@ -27,7 +27,7 @@ public class ExchangeRequestsController : ControllerBase
     /// Ошибки: 400 <c>validation_failed</c>, <c>skill_not_taught_by_recipient</c>, <c>skill_not_taught_by_sender</c>; 403 <c>skills_incomplete</c> (моя анкета
     /// неполная); 404 <c>user_not_found</c> (получатель скрыт, удалён, заблокирован в любую сторону или другой возрастной группы);
     /// 409 <c>request_already_pending</c> и <c>reverse_request_pending</c> (в ответе <c>requestId</c>), <c>request_cooldown</c> (в ответе <c>retryAfter</c>),
-    /// <c>too_many_pending_requests</c> (лимит ожидающих исходящих, по умолчанию 5); 429 <c>daily_request_limit</c> (по умолчанию 10 за сутки).
+    /// <c>too_many_pending_requests</c> (лимит ожидающих исходящих, по умолчанию 5), <c>exchange_already_active</c> (с этим человеком уже есть активный обмен), <c>exchange_limit_reached</c> (у меня уже 3 активных обмена); 429 <c>daily_request_limit</c> (по умолчанию 10 за сутки).
     /// </summary>
     [HttpPost]
     [ProducesResponseType<ExchangeRequestDto>(StatusCodes.Status201Created)]
@@ -69,7 +69,7 @@ public class ExchangeRequestsController : ControllerBase
     /// Принять (только получатель). Если отправитель не указал свой навык, в теле обязателен <c>fromTeachesSkillId</c> из «Умею» отправителя
     /// (400 <c>from_skill_required</c>); если указал, заменить его нельзя (400 <c>from_skill_fixed</c>). Ошибки: 400 <c>skill_not_taught_by_sender</c>;
     /// 403 <c>not_request_recipient</c>; 404 <c>request_not_found</c>; 409 <c>invalid_state_transition</c> (уже не ждёт ответа), <c>request_expired</c>,
-    /// <c>skill_no_longer_taught</c>, <c>concurrency_conflict</c> (одновременно изменили: повторить).
+    /// <c>skill_no_longer_taught</c>, <c>sender_skill_no_longer_taught</c>, <c>exchange_limit_reached</c> (у кого-то из двоих уже 3 активных обмена; <c>limitReachedFor</c>: you или partner; заявка остаётся Pending), <c>concurrency_conflict</c> (одновременно изменили: повторить). При успехе создаётся обмен в той же транзакции, его id в поле <c>exchangeId</c>.
     /// </summary>
     [HttpPost("{id:guid}/accept")]
     [ProducesResponseType<ExchangeRequestDto>(StatusCodes.Status200OK)]

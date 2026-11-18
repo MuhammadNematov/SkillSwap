@@ -8,6 +8,7 @@ using SkillSwap.Application.Options;
 using SkillSwap.Application.Profile;
 using SkillSwap.Application.Blocks;
 using SkillSwap.Application.ExchangeRequests;
+using SkillSwap.Application.Exchanges;
 using SkillSwap.Infrastructure.Exchanges;
 using SkillSwap.Application.Matching;
 using SkillSwap.Application.Settings;
@@ -129,6 +130,7 @@ public static class DependencyInjection
         services.AddScoped<IMatchStore, MatchStore>();
         services.AddScoped<ISystemSettingsStore, SystemSettingsStore>();
         services.AddScoped<IExchangeRequestStore, ExchangeRequestStore>();
+        services.AddScoped<IExchangeStore, ExchangeStore>();
 
         return services;
     }
