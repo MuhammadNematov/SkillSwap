@@ -42,5 +42,11 @@ public sealed class LiveKitWebhookEventStore : ILiveKitWebhookEventStore
     public async Task<IReadOnlyList<LiveKitWebhookEvent>> ListByRoomAsync(string roomName, CancellationToken ct = default) =>
         await _db.Set<LiveKitWebhookEvent>().AsNoTracking().Where(e => e.RoomName == roomName).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<string>> ListUnprocessedIdsAsync(string roomName, CancellationToken ct = default) =>
+        await _db.Set<LiveKitWebhookEvent>().AsNoTracking()
+            .Where(e => e.RoomName == roomName && e.ProcessedAt == null)
+            .OrderBy(e => e.OccurredAt).ThenBy(e => e.CreatedAt)
+            .Select(e => e.EventId).ToListAsync(ct);
+
     public Task SaveAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
 }

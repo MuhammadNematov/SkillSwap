@@ -16,6 +16,8 @@ public sealed record RescheduleSessionRequest(DateTimeOffset? StartAt);
 /// <param name="CancelledById">Кто отменил; null — отмена без виновного (обмен прерван, заморожен или завершён).</param>
 /// <param name="ConfirmedBy">Кто из участников нажал «Урок состоялся» (для неподтверждённого урока).</param>
 /// <param name="ConfirmDeadlineAt">До какого времени можно подтвердить урок вручную (у Unconfirmed).</param>
+/// <param name="NoShowUserId">Кто не пришёл на урок (у NoShow; остаётся и если опоздавший потом засчитан).</param>
+/// <param name="LateJoinMinutes">На сколько минут опоздал второй участник, если урок засчитан (иначе null).</param>
 public sealed record LessonSessionDto(
     Guid Id,
     Guid ExchangeId,
@@ -31,7 +33,9 @@ public sealed record LessonSessionDto(
     IReadOnlyList<Guid> ConfirmedBy,
     DateTime? UnconfirmedAt,
     DateTime? ConfirmDeadlineAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    Guid? NoShowUserId = null,
+    int? LateJoinMinutes = null);
 
 /// <summary>Урок в календаре: с партнёром по обмену.</summary>
 public sealed record CalendarSessionDto(LessonSessionDto Session, RequestUserDto Partner);

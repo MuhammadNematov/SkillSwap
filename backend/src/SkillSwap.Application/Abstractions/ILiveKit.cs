@@ -15,6 +15,9 @@ public interface ILiveKitTokenService
     /// </summary>
     /// <exception cref="InvalidOperationException">LiveKit не настроен (нет секрета).</exception>
     LiveKitToken CreateJoinToken(string room, string identity, string? displayName);
+
+    /// <summary>Короткий серверный токен (60 секунд) на удаление комнаты через API медиасервера. Участникам не выдаётся.</summary>
+    string CreateRoomDeleteToken(string room);
 }
 
 /// <summary>Проверка подлинности webhook от LiveKit (раздел 10.2 ТЗ).</summary>
@@ -43,6 +46,9 @@ public interface ILiveKitWebhookEventStore
     /// <summary>Все события комнаты без отслеживания: из них собирается присутствие.</summary>
     Task<IReadOnlyList<LiveKitWebhookEvent>> ListByRoomAsync(string roomName, CancellationToken ct = default);
 
+    /// <summary>Id событий комнаты, которые записаны, но ещё не учтены (ProcessedAt пусто), по порядку времени.</summary>
+    Task<IReadOnlyList<string>> ListUnprocessedIdsAsync(string roomName, CancellationToken ct = default);
+
     Task SaveAsync(CancellationToken ct = default);
 }
 
@@ -50,4 +56,22 @@ public interface ILiveKitWebhookEventStore
 public interface ILiveKitEventProcessor
 {
     Task ProcessAsync(string eventId, CancellationToken ct);
+}
+
+/// <summary>Серверные вызовы медиасервера LiveKit (раздел 7.2 ТЗ: при закрытии окна бэкенд удаляет комнату).</summary>
+public interface ILiveKitRoomService
+{
+    /// <summary>Настроено ли всё нужное (адрес, ключ и секрет). Если нет, удалять нечего: комнат не было.</summary>
+    bool IsConfigured { get; }
+
+    /// <summary>Удаляет комнату и отключает всех, кто в ней. Комнаты нет — не ошибка (её могли удалить или она закрылась сама).</summary>
+    /// <exception cref="LiveKitUnavailableException">Медиасервер недоступен или ответил ошибкой: вызывающий повторит позже.</exception>
+    Task DeleteRoomAsync(string room, CancellationToken ct);
+}
+
+public sealed class LiveKitUnavailableException : Exception
+{
+    public LiveKitUnavailableException(string message, Exception? inner = null) : base(message, inner)
+    {
+    }
 }

@@ -109,6 +109,10 @@ public static class DependencyInjection
                 $"LiveKit:ApiSecret короче {LiveKitOptions.MinSecretLength} символов: такой секрет слишком слаб для подписи токенов.")
             .ValidateOnStart();
         services.AddSingleton<ILiveKitTokenService, LiveKitTokenService>();
+        services.AddHttpClient(LiveKitRoomService.HttpClientName)
+            .ConfigureHttpClient((sp, client) =>
+                client.Timeout = TimeSpan.FromSeconds(sp.GetRequiredService<IOptions<LiveKitOptions>>().Value.ApiTimeoutSeconds));
+        services.AddScoped<ILiveKitRoomService, LiveKitRoomService>();
         services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();
         services.AddScoped<ILiveKitWebhookEventStore, LiveKitWebhookEventStore>();
 

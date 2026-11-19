@@ -327,7 +327,8 @@ public class LessonTests
         Assert.Equal("Scheduled", (await JsonAsync(response)).GetProperty("status").GetString());
         var scheduled = jobs.Scheduled.Skip(before).ToList();
         Assert.Equal(2, scheduled.Count(j => j.Description.Contains(nameof(LessonSessionJobs.RemindAsync))));   // за сутки и за 15 минут
-        Assert.Contains(scheduled, j => j.Description.Contains(nameof(LessonSessionJobs.EndAsync)) && Math.Abs((j.RunAt.UtcDateTime - start.AddMinutes(45)).TotalMilliseconds) < 5);
+        Assert.Contains(scheduled, j => j.Description.Contains(nameof(VideoLessonJobs.FirstCheckAsync)) && Math.Abs((j.RunAt.UtcDateTime - start.AddMinutes(15)).TotalMilliseconds) < 5);
+        Assert.Contains(scheduled, j => j.Description.Contains(nameof(VideoLessonJobs.CloseRoomAsync)) && Math.Abs((j.RunAt.UtcDateTime - start.AddMinutes(75)).TotalMilliseconds) < 5);
         Assert.Single(await NotificationsOf(a, "SessionConfirmed"));   // автор узнал, что время принято
 
         var card = (await JsonAsync(await SendAsync(a, HttpMethod.Get, $"/exchanges/{exchangeId}/messages"))).GetProperty("items")[0];
@@ -810,16 +811,34 @@ public class LessonTests
         var (_, a, b, exchangeId) = await ExchangeAsync();
         var id = await ScheduledAsync(a, b, exchangeId, Now.AddDays(2));
         var ticks = (await LoadAsync(id)).StartAt.Ticks;
-        await MoveAsync(id, Now.AddHours(-2));   // урок давно закончился
+        await MoveAsync(id, Now.AddHours(-2));   // урок давно закончился и комната закрыта
         var moved = (await LoadAsync(id)).StartAt.Ticks;
-        await RunJobAsync(j => j.EndAsync(id, ticks));      // задача на прежнее время ничего не делает
-        Assert.Equal(SessionStatus.Scheduled, await StatusAsync(id));
-        await RunJobAsync(j => j.EndAsync(id, moved));
+        var start = new DateTime(moved, DateTimeKind.Utc);
+
+        // Оба были в комнате, но совместно всего 10 минут: итог — Unconfirmed.
+        await _factory.QueryAsync(async db =>
+        {
+            db.Add(SessionAttendance.Restore(id, a.Id, start.AddMinutes(5), start.AddMinutes(15)));
+            db.Add(SessionAttendance.Restore(id, b.Id, start.AddMinutes(5), start.AddMinutes(15)));
+            await db.Sessions.Where(s => s.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, SessionStatus.InProgress));
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        await RunVideoJobAsync(j => j.CloseRoomAsync(id, ticks));      // задача на прежнее время ничего не делает
+        Assert.Equal(SessionStatus.InProgress, await StatusAsync(id));
+        await RunVideoJobAsync(j => j.CloseRoomAsync(id, moved));
         return (a, b, exchangeId, id);
     }
 
+    private async Task RunVideoJobAsync(Func<VideoLessonJobs, Task> job)
+    {
+        using var scope = _factory.Services.CreateScope();
+        await job(scope.ServiceProvider.GetRequiredService<VideoLessonJobs>());
+    }
+
     [Fact]
-    public async Task After_the_planned_end_the_lesson_waits_for_confirmation_and_both_are_asked()
+    public async Task When_the_room_closes_with_less_than_thirty_joint_minutes_the_lesson_waits_for_confirmation_and_both_are_asked()
     {
         var (a, b, _, id) = await FinishedLessonAsync();
 

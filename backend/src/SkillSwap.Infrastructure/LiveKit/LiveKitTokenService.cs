@@ -66,4 +66,29 @@ public sealed class LiveKitTokenService : ILiveKitTokenService
 
         return new LiveKitToken(token, expires);
     }
+
+    public string CreateRoomDeleteToken(string room)
+    {
+        if (!_options.IsConfigured)
+        {
+            throw new InvalidOperationException("LiveKit не настроен: задайте LiveKit:ApiSecret.");
+        }
+
+        var now = _clock.GetUtcNow().UtcDateTime;
+        return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = _options.ApiKey,
+            NotBefore = now,
+            Expires = now.AddSeconds(60),
+            Claims = new Dictionary<string, object>
+            {
+                [JwtRegisteredClaimNames.Sub] = "skillswap-server",
+                // roomCreate в LiveKit — право создавать и удалять комнаты. Токен привязан к одной комнате.
+                ["video"] = new Dictionary<string, object> { ["roomCreate"] = true, ["room"] = room },
+            },
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.ApiSecret!)),
+                SecurityAlgorithms.HmacSha256),
+        });
+    }
 }

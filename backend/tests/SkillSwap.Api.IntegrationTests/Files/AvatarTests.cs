@@ -196,7 +196,7 @@ public class AvatarTests
         await PutAvatarAsync(person, TestFiles.Png());
         var url = (await AvatarUrlInAsync(person, "/api/v1/me"))!;
 
-        Assert.Matches("X-Amz-Expires=(359[5-9]|3600)", url);   // час
+        SignedLinks.AssertLifetime(url, TimeSpan.FromHours(1));   // час
         Assert.Equal(HttpStatusCode.OK, (await _storageClient.GetAsync(url)).StatusCode);
 
         var unsigned = url[..url.IndexOf('?')];

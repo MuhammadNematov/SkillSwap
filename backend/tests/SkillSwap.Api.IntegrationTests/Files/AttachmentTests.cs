@@ -383,7 +383,7 @@ public class AttachmentTests
         var url = link.GetProperty("url").GetString()!;
 
         Assert.Contains("X-Amz-Signature=", url);
-        Assert.True(System.Text.RegularExpressions.Regex.IsMatch(url, "X-Amz-Expires=(29[5-9]|300)"), url);   // пять минут
+        SignedLinks.AssertLifetime(url, TimeSpan.FromMinutes(5));   // пять минут
         var expires = link.GetProperty("expiresAt").GetDateTime();
         Assert.InRange((expires - DateTime.UtcNow).TotalSeconds, 240, 305);
         Assert.Equal("Договор №1.pdf", link.GetProperty("fileName").GetString());

@@ -98,7 +98,7 @@ public class DataExportTests
         Assert.Equal(accepted.GetProperty("id").GetGuid(), status.GetProperty("id").GetGuid());
 
         var link = LinkFromMail(a.User.Email!, "your data is ready");
-        Assert.Matches("X-Amz-Expires=(8639[0-9]|86400)", link);   // сутки
+        SignedLinks.AssertLifetime(link, TimeSpan.FromHours(24));   // сутки
         var file = await _storageClient.GetAsync(link);
         Assert.Equal(HttpStatusCode.OK, file.StatusCode);
         Assert.Equal("attachment", file.Content.Headers.ContentDisposition!.DispositionType);
