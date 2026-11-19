@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { logoutRequest, refreshSession } from '../api/auth'
 import { setAccessToken, setAuthFailureHandler } from '../api/client'
+import { setMyId } from '../api/identity'
 import type { AuthSession, CurrentUser } from '../api/types'
 
 export interface AuthContextValue {
@@ -20,11 +21,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setSession = useCallback((session: AuthSession) => {
     setAccessToken(session.accessToken)
+    setMyId(session.user.id)
     setUser(session.user)
   }, [])
 
   const clearSession = useCallback(() => {
     setAccessToken(null)
+    setMyId('')
     setUser(null)
   }, [])
 

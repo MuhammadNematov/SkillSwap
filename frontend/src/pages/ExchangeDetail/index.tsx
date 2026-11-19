@@ -47,7 +47,7 @@ export default function ExchangeDetail() {
   const percent = Math.min(100, Math.max(0, ((Date.now() - start) / (end - start)) * 100))
   const total = exchange.myLessons + exchange.partnerLessons
   const myShare = total === 0 ? 50 : (exchange.myLessons / total) * 100
-  const imbalance = Math.abs(exchange.myLessons - exchange.partnerLessons) > 3 // ТЗ 6.1: мягкое напоминание
+  const imbalance = exchange.showBalanceReminder ?? Math.abs(exchange.myLessons - exchange.partnerLessons) > 3 // ТЗ 6.1: мягкое напоминание
 
   return (
     <div className="space-y-5">
@@ -122,6 +122,15 @@ export default function ExchangeDetail() {
             )}
           </section>
 
+          {exchange.status === 'Aborted' && (
+            <section className="card text-sm text-slate-600">
+              <div className="font-semibold text-slate-800">{t(`exchange.abortedBy_${exchange.abortedBy ?? 'system'}`)}</div>
+              {exchange.abortReason && (
+                <p className="mt-1">{t([`exchange.abortReason_${exchange.abortReason}`, 'exchange.abortReasonText'], { text: exchange.abortReason })}</p>
+              )}
+            </section>
+          )}
+
           {active && (
             <section className="card space-y-3">
               {actionError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage(t, actionError)}</p>}
@@ -132,7 +141,11 @@ export default function ExchangeDetail() {
                   {t('exchange.complete')}
                 </button>
               )}
-              {!exchange.isExtended && (
+              {exchange.myExtensionAccepted && !exchange.isExtended && <p className="text-sm text-slate-500">{t('exchange.extendWaiting')}</p>}
+              {exchange.partnerExtensionAccepted && !exchange.myExtensionAccepted && !exchange.isExtended && (
+                <p className="text-sm text-brand-700">{t('exchange.extendProposed')}</p>
+              )}
+              {!exchange.isExtended && !exchange.myExtensionAccepted && (
                 <button className="btn-secondary w-full" disabled={extend.isPending} onClick={() => extend.mutate(exchange.id)}>
                   {t('exchange.extend')}
                 </button>
@@ -149,7 +162,7 @@ export default function ExchangeDetail() {
         </div>
       </div>
 
-      {proposing && <SessionProposalModal exchangeId={exchange.id} partnerName={exchange.partner.name} onClose={() => setProposing(false)} />}
+      {proposing && <SessionProposalModal exchangeId={exchange.id} partnerId={exchange.partner.id} partnerName={exchange.partner.name} onClose={() => setProposing(false)} />}
       {cancelling && <CancelSessionModal session={cancelling} onClose={() => setCancelling(null)} />}
       {aborting && <AbortModal exchangeId={exchange.id} onClose={() => setAborting(false)} />}
     </div>

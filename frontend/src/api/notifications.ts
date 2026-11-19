@@ -21,13 +21,35 @@ async function http<T>(run: () => Promise<{ data: T }>): Promise<T> {
   }
 }
 
-// GET /notifications?unreadOnly=
+interface NotificationDto {
+  id: string
+  type: string
+  payload: Record<string, string | number | undefined> | null
+  isRead: boolean
+  createdAt: string
+}
+
+// Бэкенд кладёт имя собеседника в userName, а экраны ждут partnerName
+export function toNotification(n: NotificationDto): AppNotification {
+  const payload = { ...(n.payload ?? {}) }
+  if (payload.userName !== undefined && payload.partnerName === undefined) payload.partnerName = payload.userName
+  return { id: n.id, type: n.type, payload, isRead: n.isRead, createdAt: n.createdAt }
+}
+
+// GET /notifications?unreadOnly=&page=&pageSize= (новые сверху, до 50 на страницу)
 export async function getNotifications(unreadOnly = false): Promise<AppNotification[]> {
   if (USE_MOCKS) {
     await sleep()
     return mock.filter((n) => !unreadOnly || !n.isRead)
   }
-  return http(() => api.get<AppNotification[]>('/notifications', { params: { unreadOnly } }))
+  const data = await http(() => api.get<{ items: NotificationDto[] }>('/notifications', { params: { unreadOnly, page: 1, pageSize: 50 } }))
+  return data.items.map(toNotification)
+}
+
+// GET /notifications/unread-count — для значка
+export async function getUnreadCount(): Promise<number> {
+  if (USE_MOCKS) return mock.filter((n) => !n.isRead).length
+  return (await http(() => api.get<{ unreadCount: number }>('/notifications/unread-count'))).unreadCount
 }
 
 // POST /notifications/{id}/read

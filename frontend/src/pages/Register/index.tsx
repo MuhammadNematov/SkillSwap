@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { register as registerRequest, resendConfirmation } from '../../api/auth'
 import { ApiError, errorMessage } from '../../api/errors'
 import type { UiLanguage } from '../../api/types'
@@ -31,6 +31,8 @@ export default function Register() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const captcha = useRef<TurnstileHandle>(null)
+  const navigate = useNavigate()
+  const [pasted, setPasted] = useState('')
   const [resent, setResent] = useState(false)
   const [doneEmail, setDoneEmail] = useState<string | null>(null)
 
@@ -81,6 +83,25 @@ export default function Register() {
             </Link>
           </p>
         )}
+        <form
+          className="mt-4 space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            // Принимаем всю ссылку из письма или только её часть после «?»
+            const q = pasted.includes('?') ? pasted.slice(pasted.indexOf('?')) : ''
+            if (q.includes('token=')) navigate(`/confirm-email${q}`)
+            else setServerError(t('registerPage.badLink'))
+          }}
+        >
+          <label className="block text-sm font-medium text-slate-700">{t('registerPage.pasteLink')}</label>
+          <div className="flex gap-2">
+            <input className="input" placeholder="http://.../confirm-email?userId=...&token=..." value={pasted} onChange={(e) => setPasted(e.target.value)} />
+            <button className="btn-secondary shrink-0" disabled={!pasted.trim()}>
+              OK
+            </button>
+          </div>
+          {serverError && <p className="text-sm text-red-700">{serverError}</p>}
+        </form>
         {resent ? (
           <p className="mt-3 text-sm text-emerald-700">{t('registerPage.resent')}</p>
         ) : (

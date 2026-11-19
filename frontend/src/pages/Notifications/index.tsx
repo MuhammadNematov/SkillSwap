@@ -13,14 +13,21 @@ function targetOf(n: AppNotification): string | null {
   const ex = n.payload.exchangeId
   switch (n.type) {
     case 'RequestReceived':
+      return '/app/exchanges?tab=incoming'
     case 'RequestDeclined':
-      return '/app/exchanges'
+    case 'RequestExpired':
+      return '/app/exchanges?tab=outgoing'
     case 'ReviewAvailable':
     case 'ReviewPublished':
       return '/app/reviews'
     default:
       return ex ? `/app/exchanges/${ex}` : null
   }
+}
+
+// Один тип с разным смыслом: выход партнёра по своей причине или потому что он стал недоступен
+function typeKey(n: AppNotification): string {
+  return n.type === 'ExchangeAborted' && n.payload.reason === 'partner_unavailable' ? 'ExchangeAbortedUnavailable' : n.type
 }
 
 export default function Notifications() {
@@ -71,7 +78,7 @@ export default function Notifications() {
                 <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${n.isRead ? 'bg-transparent' : 'bg-brand-600'}`} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-slate-800">
-                    {t([`notifications.types.${n.type}`, 'notifications.types.default'], {
+                    {t([`notifications.types.${typeKey(n)}`, 'notifications.types.default'], {
                       ...n.payload,
                       time: n.payload.startAt ? formatDateTime(String(n.payload.startAt), lang) : '',
                     })}
