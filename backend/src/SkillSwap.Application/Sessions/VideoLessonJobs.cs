@@ -163,7 +163,7 @@ public sealed class VideoLessonJobs
     private async Task<Context?> LoadAsync(Guid sessionId, long startAtTicks)
     {
         var peek = (await _sessions.GetManyAsync([sessionId], CancellationToken.None)).GetValueOrDefault(sessionId);
-        if (peek is null || peek.StartAt.Ticks != startAtTicks)
+        if (peek is null || !peek.StartsAt(startAtTicks))
         {
             return null;   // урока нет или он перенесён: задача на прежнее время ничего не делает
         }
@@ -190,7 +190,7 @@ public sealed class VideoLessonJobs
         {
             await _uow.LockUsersAsync([exchange.UserA.Id, exchange.UserB.Id], ct);
             var session = await _sessions.FindAsync(sessionId, ct);
-            if (session is null || session.StartAt.Ticks != startAtTicks)
+            if (session is null || !session.StartsAt(startAtTicks))
             {
                 return 0;
             }

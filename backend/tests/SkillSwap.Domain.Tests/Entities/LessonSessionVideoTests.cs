@@ -41,6 +41,45 @@ public class LessonSessionVideoTests
         return d;
     }
 
+    // ---------- время начала и фоновые задачи ----------
+
+    [Fact]
+    public void The_start_is_kept_to_the_millisecond_so_it_survives_the_database_and_the_jobs_find_the_lesson()
+    {
+        var precise = Start.AddTicks(1234567);   // 7 знаков после запятой: больше, чем различает база (микросекунды) и браузер (миллисекунды)
+        var s = LessonSession.Propose(Guid.NewGuid(), A, A, precise, null, Now, Now.AddDays(30));
+
+        Assert.Equal(Start.AddTicks(1230000), s.StartAt);          // обрезано до миллисекунды
+        Assert.Equal(0, s.StartAt.Ticks % TimeSpan.TicksPerMillisecond);
+        Assert.Equal(s.StartAt.AddMinutes(45), s.EndAt);
+        Assert.True(s.StartsAt(s.StartAt.Ticks));                  // задача поставлена на это значение
+    }
+
+    [Fact]
+    public void The_one_hour_rule_is_checked_on_the_exact_value_before_the_cut()
+    {
+        var now = Now.AddTicks(5000);
+        var exactlyAnHour = now + LessonSession.MinLeadTime;
+
+        var s = LessonSession.Propose(Guid.NewGuid(), A, A, exactlyAnHour, null, now, now.AddDays(30));   // граница допустима, хотя после обрезки она чуть раньше
+
+        Assert.True(s.StartAt <= exactlyAnHour);
+        Assert.Equal("slot_too_soon", Assert.Throws<SkillSwap.Domain.Exceptions.DomainValidationException>(
+            () => LessonSession.Propose(Guid.NewGuid(), A, A, exactlyAnHour.AddTicks(-1), null, now, now.AddDays(30))).Code);
+    }
+
+    [Fact]
+    public void A_job_matches_the_lesson_by_its_start_with_a_tolerance_of_one_microsecond_and_a_moved_lesson_does_not_match()
+    {
+        var s = Scheduled();
+
+        Assert.True(s.StartsAt(s.StartAt.Ticks));
+        Assert.True(s.StartsAt(s.StartAt.Ticks + 9));     // потеря точности при записи в базу (до микросекунды)
+        Assert.True(s.StartsAt(s.StartAt.Ticks - 9));
+        Assert.False(s.StartsAt(s.StartAt.Ticks + 10));
+        Assert.False(s.StartsAt(s.StartAt.AddMinutes(1).Ticks));   // урок перенесли: задача на прежнее время не подходит
+    }
+
     // ---------- окно комнаты ----------
 
     [Fact]

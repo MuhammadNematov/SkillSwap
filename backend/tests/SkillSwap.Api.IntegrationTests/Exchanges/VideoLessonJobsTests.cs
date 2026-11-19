@@ -189,12 +189,22 @@ public class VideoLessonJobsTests
         Assert.Equal(SessionStatus.InProgress, (await LoadAsync(early.SessionId)).Status);
 
         var lesson = await LessonAsync(16, SessionStatus.Scheduled);
-        await RunAsync(j => j.FirstCheckAsync(lesson.SessionId, lesson.Ticks - 1));   // задача на прежнее время (урок перенесли)
+        await RunAsync(j => j.FirstCheckAsync(lesson.SessionId, lesson.Ticks - TimeSpan.FromMinutes(1).Ticks));   // задача на прежнее время (урок перенесли)
         Assert.Equal(SessionStatus.Scheduled, (await LoadAsync(lesson.SessionId)).Status);
 
         await RunAsync(j => j.FirstCheckAsync(lesson.SessionId, lesson.Ticks));
         await RunAsync(j => j.FirstCheckAsync(lesson.SessionId, lesson.Ticks));
         Assert.Single(await NotificationsOf(lesson.A, "SessionMissed"));
+    }
+
+    [Fact]
+    public async Task A_job_finds_the_lesson_even_if_the_start_lost_a_fraction_of_a_microsecond_on_the_way_through_the_database()
+    {
+        var lesson = await LessonAsync(startedMinutesAgo: 16, SessionStatus.Scheduled);
+
+        await RunAsync(j => j.FirstCheckAsync(lesson.SessionId, lesson.Ticks + 7));   // задачу поставили со значением, которое база округлила
+
+        Assert.Equal(SessionStatus.Missed, (await LoadAsync(lesson.SessionId)).Status);
     }
 
     // ---------- закрытие комнаты ----------
@@ -433,7 +443,7 @@ public class VideoLessonJobsTests
         var moved = await LessonAsync(80);
 
         await RunAsync(j => j.CloseRoomAsync(early.SessionId, early.Ticks));
-        await RunAsync(j => j.CloseRoomAsync(moved.SessionId, moved.Ticks - 1));
+        await RunAsync(j => j.CloseRoomAsync(moved.SessionId, moved.Ticks - TimeSpan.FromMinutes(1).Ticks));
 
         Assert.Equal(SessionStatus.InProgress, (await LoadAsync(early.SessionId)).Status);
         Assert.Equal(SessionStatus.InProgress, (await LoadAsync(moved.SessionId)).Status);

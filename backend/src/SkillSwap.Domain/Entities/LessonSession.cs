@@ -95,6 +95,9 @@ public class LessonSession : BaseEntity
 
     public DateTime ConfirmDeadline => (UnconfirmedAt ?? EndAt) + ManualConfirmWindow;
 
+    /// <summary>Урок начинается в этот момент (по значению <c>StartAt.Ticks</c>, с которым ставились фоновые задачи). Допуск в одну микросекунду: столько база не различает.</summary>
+    public bool StartsAt(long startAtTicks) => Math.Abs(StartAt.Ticks - startAtTicks) < 10;
+
     /// <summary>Вход в комнату открывается (старт − 10 минут).</summary>
     public DateTime JoinOpensAt => StartAt - JoinOpensBefore;
 
@@ -376,6 +379,9 @@ public class LessonSession : BaseEntity
             throw new DomainValidationException("slot_after_exchange_end", "Время урока не может быть позже окончания обмена.");
         }
 
+        // Время хранится с точностью до миллисекунды: так оно без потерь проходит через базу (микросекунды) и через клиентов (JS даёт миллисекунды),
+        // а задачи, поставленные на это время (проверка на 15-й минуте, закрытие комнаты), находят урок по тому же значению. Проверки выше идут по исходному.
+        startAt = new DateTime(startAt.Ticks - startAt.Ticks % TimeSpan.TicksPerMillisecond, DateTimeKind.Utc);
         StartAt = startAt;
         EndAt = startAt.AddMinutes(DurationMin);
     }

@@ -121,6 +121,25 @@ public class LessonTests
     // ---------- предложить время ----------
 
     [Fact]
+    public async Task A_start_with_more_than_millisecond_precision_is_stored_exactly_so_the_jobs_scheduled_for_it_find_the_lesson()
+    {
+        var (_, a, b, exchangeId) = await ExchangeAsync();
+        var start = Now.AddHours(5);
+        var requested = new DateTime(start.Ticks - start.Ticks % TimeSpan.TicksPerMillisecond + 1234567, DateTimeKind.Utc);   // 7 знаков после запятой
+
+        var response = await SendAsync(a, HttpMethod.Post, $"/exchanges/{exchangeId}/sessions", new { startAt = requested.ToString("O"), teacherId = a.Id });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var id = (await JsonAsync(response)).GetProperty("id").GetGuid();
+        await SendAsync(b, HttpMethod.Post, $"/sessions/{id}/confirm");
+
+        var stored = await LoadAsync(id);
+        Assert.Equal(0, stored.StartAt.Ticks % TimeSpan.TicksPerMillisecond);   // без «хвоста»: то, что в памяти, равно тому, что в базе
+        Assert.Equal(new DateTime(requested.Ticks - requested.Ticks % TimeSpan.TicksPerMillisecond, DateTimeKind.Utc), stored.StartAt);
+        Assert.Equal(stored.StartAt.AddMinutes(45), stored.EndAt);
+    }
+
+
+    [Fact]
     public async Task A_proposal_creates_a_pending_session_and_a_card_in_the_chat()
     {
         var (_, a, b, exchangeId) = await ExchangeAsync();

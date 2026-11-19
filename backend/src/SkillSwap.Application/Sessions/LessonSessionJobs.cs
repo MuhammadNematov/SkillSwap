@@ -116,7 +116,7 @@ public sealed class LessonSessionJobs
     private async Task RunAsync(Guid sessionId, long? startAtTicks, Func<LessonSession, ExchangeRow, bool> apply)
     {
         var peek = (await _sessions.GetManyAsync([sessionId], CancellationToken.None)).GetValueOrDefault(sessionId);
-        if (peek is null || (startAtTicks is { } t && peek.StartAt.Ticks != t))
+        if (peek is null || (startAtTicks is { } t && !peek.StartsAt(t)))
         {
             return;   // урока нет или он перенесён: задача, поставленная на старое время, ничего не делает
         }
@@ -132,7 +132,7 @@ public sealed class LessonSessionJobs
         {
             await _uow.LockUsersAsync([exchange.UserA.Id, exchange.UserB.Id], ct);
             var session = await _sessions.FindAsync(sessionId, ct);
-            if (session is not null && (startAtTicks is null || session.StartAt.Ticks == startAtTicks) && apply(session, exchange))
+            if (session is not null && (startAtTicks is null || session.StartsAt(startAtTicks.Value)) && apply(session, exchange))
             {
                 await _sessions.SaveAsync(ct);
                 changed = LessonSessionService.ToDto(session, exchange.UserA.Id, exchange.UserB.Id);
