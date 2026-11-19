@@ -2,6 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ───────── Тема: цвета лежат в переменных (RGB-тройки), тёмная включается классом .dark на <html> ───────── */
+:root {
+  --navy: 11 34 87;
+  --brand-50: 248 247 255;
+  --brand-100: 238 233 255;
+  --brand-200: 221 216 240;
+  --brand-300: 185 168 245;
+  --brand-400: 139 108 246;
+  --brand-500: 122 85 240;
+  --brand-600: 104 65 232;
+  --brand-700: 90 51 218;
+  --brand-800: 74 42 154;
+  --ink: 23 20 61;
+  --ink-soft: 119 116 147;
+  --ink-faint: 163 160 188;
+  --ink-line: 236 233 247;
+  --surface: 255 255 255;
+}
+.dark {
+  color-scheme: dark;
+  --navy: 226 230 255;
+  --brand-50: 15 13 30;
+  --brand-100: 39 34 78;
+  --brand-200: 58 52 102;
+  --brand-300: 110 92 196;
+  --brand-400: 150 126 250;
+  --brand-500: 140 108 250;
+  --brand-600: 124 92 245;
+  --brand-700: 140 112 250;
+  --brand-800: 200 188 255;
+  --ink: 238 236 255;
+  --ink-soft: 164 160 196;
+  --ink-faint: 120 116 156;
+  --ink-line: 44 39 82;
+  --surface: 24 21 46;
+}
+
+/* Цвета, которые заданы в разметке обычными классами Tailwind, переопределяем для тёмной темы */
+.dark [class*="bg-white/"] { background-color: rgb(var(--surface) / 0.7); }
+.dark .text-slate-900 { color: rgb(238 236 255); }
+.dark .text-slate-800 { color: rgb(226 223 245); }
+.dark .text-slate-700 { color: rgb(208 204 235); }
+.dark .text-slate-600 { color: rgb(176 172 208); }
+.dark .text-slate-500 { color: rgb(150 146 185); }
+.dark .text-slate-400 { color: rgb(120 116 156); }
+.dark .text-slate-300 { color: rgb(90 86 130); }
+.dark .bg-slate-100\/80, .dark .bg-slate-200\/70, .dark .bg-slate-100 { background-color: rgb(255 255 255 / 0.08); }
+.dark .bg-red-50 { background-color: rgb(127 29 29 / 0.35); }
+.dark .text-red-700, .dark .text-red-600 { color: rgb(252 165 165); }
+.dark .bg-amber-50, .dark .bg-amber-50\/80, .dark .bg-amber-100, .dark .bg-amber-100\/80 { background-color: rgb(146 96 10 / 0.3); }
+.dark .text-amber-800, .dark .text-amber-700, .dark .text-amber-600 { color: rgb(252 211 77); }
+.dark .border-amber-200 { border-color: rgb(146 96 10 / 0.6); }
+.dark .bg-emerald-100\/80, .dark .bg-\[\#E5F7EC\] { background-color: rgb(16 120 80 / 0.3); }
+.dark .text-emerald-700, .dark .text-emerald-800 { color: rgb(110 231 183); }
+.dark img[src*="/characters/"] { filter: brightness(.92); }
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -14,28 +70,25 @@
 @layer components {
   /* Светлая карточка из дизайна: белая, тонкая рамка, крупное скругление */
   .glass {
-    @apply border border-ink-line bg-white shadow-glass;
+    @apply border border-ink-line bg-surface shadow-glass;
   }
   .card {
     @apply glass rounded-xl2 p-5;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-brand-300 hover:text-brand-600 disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-brand-200 bg-surface px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-brand-300 hover:text-brand-600 disabled:opacity-50;
   }
   .input {
-    @apply w-full rounded-xl border border-brand-200 bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10;
+    @apply w-full rounded-lg border border-brand-200 bg-surface px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20;
   }
   .chip {
-    @apply inline-flex h-9 items-center rounded-full border border-brand-200 bg-white px-3.5 text-[13px] font-semibold text-ink transition hover:border-brand-300 hover:text-brand-600;
+    @apply inline-flex h-9 items-center rounded-lg border border-brand-200 bg-surface px-3.5 text-[13px] font-semibold text-ink transition hover:border-brand-300 hover:text-brand-600;
   }
   .chip-on {
-    @apply border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-600/30 hover:text-white;
-  }
-  .eyebrow {
-    @apply text-xs font-bold uppercase tracking-[0.12em] text-brand-600;
+    @apply border-brand-600 bg-brand-600 text-white hover:text-white;
   }
 }
 
