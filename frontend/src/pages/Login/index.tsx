@@ -214,7 +214,7 @@ export default function Login() {
         {USE_MOCKS && (
           <button
             type="button"
-            className="h-11 w-full rounded-2xl border border-dashed border-brand-300 bg-[#F6F3FF] text-[13px] font-semibold text-brand-600 hover:bg-brand-100"
+            className="h-11 w-full rounded-2xl border border-dashed border-brand-300 bg-brand-50 text-[13px] font-semibold text-brand-600 hover:bg-brand-100"
             onClick={() => {
               credentialsForm.setValue('email', 'user@test.com')
               credentialsForm.setValue('password', 'Test1234')

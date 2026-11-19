@@ -87,7 +87,7 @@ export default function Profile() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <section className="card overflow-hidden p-0">
-        <div className="h-32 bg-gradient-to-r from-brand-600 via-brand-500 to-brand-300 sm:h-40" />
+        <div className="h-32 bg-brand-600 sm:h-40" />
         <div className="px-5 pb-5 sm:px-8">
           <div className="-mt-12 flex flex-wrap items-end justify-between gap-4">
             <Avatar name={user.name} src={user.avatarUrl} className="h-24 w-24 text-3xl ring-4 ring-white/80" />
@@ -130,8 +130,8 @@ export default function Profile() {
             onClick={() => setTab(tb.key)}
             className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
               tab === tb.key
-                ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25'
-                : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
+                ? 'border-brand-600 bg-brand-600 text-white'
+                : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
             }`}
           >
             {tb.label}

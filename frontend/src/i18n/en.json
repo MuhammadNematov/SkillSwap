@@ -5,7 +5,9 @@
     "language": "Language",
     "logout": "Log out",
     "backHome": "Back to home",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "themeLight": "Light theme",
+    "themeDark": "Dark theme"
   },
   "landing": {
     "title1": "Exchange knowledge.",
@@ -674,7 +676,16 @@
       "file_too_large": "The file is too large",
       "storage_unavailable": "File storage is unavailable, try again later",
       "storage_not_configured": "File storage is not configured",
-      "attachment_not_found": "File not found"
+      "attachment_not_found": "File not found",
+      "join_window_not_open": "The room is not open yet: you can join 10 minutes before the lesson starts",
+      "join_window_closed": "The lesson time is over and the room is closed",
+      "session_not_joinable": "You cannot join this lesson right now: it is not confirmed or already closed",
+      "exchange_frozen": "The exchange is frozen, the video room is unavailable",
+      "livekit_not_configured": "The video server is unavailable right now, please try later",
+      "export_rate_limited": "You can request an export once a day",
+      "export_not_found": "No export has been requested",
+      "two_factor_code_required": "Enter the two-factor code",
+      "staff_cannot_delete_account": "A staff account cannot be deleted this way"
     },
     "validation": {
       "required": "Fill in this field",
@@ -709,7 +720,8 @@
     "fiveMinutes": "5 minutes left until the lesson ends",
     "closesIn": "The room closes in {{time}}",
     "closed": "The lesson room is closed",
-    "mockNote": "Mock mode: the real video room ({{room}}) will connect with LiveKit."
+    "mockNote": "Mock mode: the real video room ({{room}}) will connect with LiveKit.",
+    "opensAt": "The room opens: {{time}}"
   },
   "exchanges": {
     "title": "My exchanges",
@@ -784,7 +796,15 @@
     "voice": "Voice message",
     "deleted": "Message deleted",
     "paymentWarning": "Money payments between members are prohibited by the platform rules.",
-    "read": "read"
+    "read": "read",
+    "record": "Record voice message",
+    "cancelRecord": "Cancel",
+    "micDenied": "No microphone access: allow it in your browser",
+    "voiceTooShort": "The message is too short",
+    "voiceTooLarge": "The recording is over 4 MB",
+    "play": "Play",
+    "pause": "Pause",
+    "typing": "typing…"
   },
   "session": {
     "accept": "Accept",
@@ -972,7 +992,30 @@
     "lastActive": "active {{date}}",
     "avatarChange": "Upload photo",
     "avatarRemove": "Remove",
-    "avatarHint": "JPG, PNG or WebP"
+    "avatarHint": "JPG, PNG or WebP up to 2 MB",
+    "account": {
+      "title": "Data and account",
+      "exportTitle": "Export my data",
+      "exportHint": "We will collect a file with your data and email you a link. The link works for 24 hours. You can request it once a day.",
+      "exportButton": "Request export",
+      "status": {
+        "Pending": "Export is queued…",
+        "Processing": "Export is being prepared…",
+        "Ready": "Ready: the link was sent to your email and is valid until {{date}}",
+        "Failed": "Could not prepare the export, please try again",
+        "Expired": "The link has expired, request a new export"
+      },
+      "deleteTitle": "Delete account",
+      "deleteHint": "Your personal data will be erased and active exchanges aborted. This cannot be undone.",
+      "deleteButton": "Delete account",
+      "deleteConfirm": "Confirm deletion with your password. Active exchanges will be aborted and your data erased permanently.",
+      "password": "Password",
+      "code": "Authenticator code",
+      "recoveryCode": "Recovery code",
+      "useRecovery": "Use a recovery code"
+    },
+    "avatarBadType": "Use a JPG, PNG or WebP file",
+    "avatarTooBig": "The file is larger than 2 MB"
   },
   "block": {
     "action": "Block",

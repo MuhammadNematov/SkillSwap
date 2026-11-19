@@ -124,7 +124,7 @@ export default function Onboarding() {
                 ariaLabel={t('onboarding.level')}
                 onChange={(v) => setTeach((l) => l.map((x) => (x.skillId === e.skillId ? { ...x, level: v as SkillLevel } : x)))}
               />
-              <button className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-red-600" aria-label={t('onboarding.remove')} onClick={() => remove('teach', e.skillId)}>
+              <button className="rounded-lg p-1.5 text-slate-400 hover:bg-surface hover:text-red-600" aria-label={t('onboarding.remove')} onClick={() => remove('teach', e.skillId)}>
                 <Icon name="x" className="h-4 w-4" />
               </button>
             </div>
@@ -161,7 +161,7 @@ export default function Onboarding() {
               ariaLabel={t('onboarding.currentLevel')}
               onChange={(v) => setLearn((l) => l.map((x) => (x.skillId === e.skillId ? { ...x, level: v as SkillLevel } : x)))}
             />
-            <button className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-red-600" aria-label={t('onboarding.remove')} onClick={() => remove('learn', e.skillId)}>
+            <button className="rounded-lg p-1.5 text-slate-400 hover:bg-surface hover:text-red-600" aria-label={t('onboarding.remove')} onClick={() => remove('learn', e.skillId)}>
               <Icon name="x" className="h-4 w-4" />
             </button>
           </div>
@@ -178,7 +178,7 @@ export default function Onboarding() {
                 key={l.code}
                 onClick={() => setLanguages((cur) => (on ? cur.filter((c) => c !== l.code) : [...cur, l.code]))}
                 className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
+                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
                 }`}
               >
                 {pickName(l.names, lang)}

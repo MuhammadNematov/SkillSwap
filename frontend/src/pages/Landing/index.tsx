@@ -55,8 +55,8 @@ export default function Landing() {
   const year = new Date().getFullYear()
 
   return (
-    <div id="top" className="bg-white">
-      <header className="sticky top-0 z-40 border-b border-ink-line bg-white/80 backdrop-blur">
+    <div id="top" className="bg-surface">
+      <header className="sticky top-0 z-40 border-b border-ink-line bg-surface">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <a href="#top">
             <Logo />
@@ -131,7 +131,7 @@ export default function Landing() {
         <p className="mx-auto mt-3 max-w-2xl text-center text-ink-soft">{t('landing.subjects.subtitle')}</p>
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {SUBJECTS.map((s) => (
-            <div key={s.key} className={`rounded-3xl border border-ink-line bg-white p-5 transition hover:-translate-y-1 hover:shadow-card`}>
+            <div key={s.key} className={`rounded-3xl border border-ink-line bg-surface p-5 transition hover:border-brand-300`}>
               <div className="text-lg font-bold text-ink">{t(`landing.subjects.${s.key}.title`)}</div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {(t(`landing.subjects.${s.key}.items`, { returnObjects: true }) as string[]).map((item) => (
@@ -151,7 +151,7 @@ export default function Landing() {
         <h2 className="text-center text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{t('landing.audience.title')}</h2>
         <div className="mt-12 grid gap-6 md:grid-cols-2">
           {(['teacher', 'learner'] as const).map((k) => (
-            <div key={k} className="rounded-3xl border border-ink-line bg-white p-8 shadow-card">
+            <div key={k} className="rounded-3xl border border-ink-line bg-surface p-8">
               <h3 className="text-2xl font-extrabold text-ink">{t(`landing.audience.${k}.title`)}</h3>
               <p className="mt-2 text-ink-soft">{t(`landing.audience.${k}.text`)}</p>
               <ul className="mt-5 space-y-2.5">
@@ -176,7 +176,7 @@ export default function Landing() {
           <p className="mx-auto mt-3 max-w-2xl text-center text-ink-soft">{t('landing.journey.subtitle')}</p>
           <ol className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {JOURNEY.map((k, i) => (
-              <li key={k} className="relative rounded-3xl border border-ink-line bg-white p-7">
+              <li key={k} className="relative rounded-3xl border border-ink-line bg-surface p-7">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-600 text-lg font-extrabold text-white">{i + 1}</span>
                 <div className="mt-4 text-xl font-bold text-ink">{t(`landing.journey.${k}.title`)}</div>
                 <p className="mt-2 text-sm leading-relaxed text-ink-soft">{t(`landing.journey.${k}.text`)}</p>
@@ -212,7 +212,7 @@ export default function Landing() {
         <p className="mx-auto mt-3 max-w-2xl text-center text-ink-soft">{t('landing.safety.subtitle')}</p>
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {SAFETY.map((k) => (
-            <div key={k} className="rounded-3xl border border-ink-line bg-white p-6">
+            <div key={k} className="rounded-3xl border border-ink-line bg-surface p-6">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E5F7EC] text-[#12A150]">
                 <Icon name="check" className="h-6 w-6" />
               </span>
@@ -225,7 +225,7 @@ export default function Landing() {
 
       {/* Что будет после регистрации */}
       <section className="mx-auto max-w-5xl px-4 py-20 sm:px-6">
-        <div className="rounded-[2rem] bg-[#17143d] p-8 text-white sm:p-12">
+        <div className="rounded-2xl bg-[#17143d] p-8 text-white sm:p-12">
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{t('landing.after.title')}</h2>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2">
             {AFTER.map((a, i) => (
@@ -263,7 +263,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-ink-line bg-white py-8 text-center text-sm text-ink-soft">
+      <footer className="border-t border-ink-line bg-surface py-8 text-center text-sm text-ink-soft">
         © {year} {t('common.appName')}
       </footer>
     </div>

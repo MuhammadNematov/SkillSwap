@@ -73,7 +73,7 @@ export default function Notifications() {
             <li key={n.id}>
               <button
                 onClick={() => open(n)}
-                className={`card flex w-full items-start gap-3 text-left transition hover:bg-white ${n.isRead ? 'opacity-70' : ''}`}
+                className={`card flex w-full items-start gap-3 text-left transition hover:bg-surface ${n.isRead ? 'opacity-70' : ''}`}
               >
                 <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${n.isRead ? 'bg-transparent' : 'bg-brand-600'}`} />
                 <div className="min-w-0 flex-1">

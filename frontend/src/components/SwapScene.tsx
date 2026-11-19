@@ -39,7 +39,6 @@ function Infinity() {
           <feGaussianBlur stdDeviation="8" />
         </filter>
       </defs>
-      <path d={d} fill="none" stroke="#6841E8" strokeOpacity=".22" strokeWidth="14" filter="url(#inf-glow)" />
       <path d={d} fill="none" stroke="url(#inf-g)" strokeWidth="4" strokeLinecap="round" strokeDasharray="2 14" style={{ animation: 'swap-dash 2.2s linear infinite' }} />
       <path id="inf-path" d={d} fill="none" stroke="none" />
       {!still &&
@@ -48,7 +47,7 @@ function Infinity() {
             <animateMotion dur="14s" begin={`${-i * (14 / TOKENS.length)}s`} repeatCount="indefinite" rotate="0">
               <mpath href="#inf-path" />
             </animateMotion>
-            <rect x="-38" y="-15" width="76" height="30" rx="15" fill="#fff" stroke="#DDD8F0" />
+            <rect x="-38" y="-15" width="76" height="30" rx="15" style={{ fill: 'rgb(var(--surface))', stroke: 'rgb(var(--brand-200))' }} />
             <text y="5" textAnchor="middle" fontSize="15" fontWeight="700" fill={i % 2 ? '#12A150' : '#5A33DA'} fontFamily="Inter, system-ui, sans-serif">
               {tk}
             </text>

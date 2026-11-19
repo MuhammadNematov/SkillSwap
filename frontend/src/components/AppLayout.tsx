@@ -90,10 +90,10 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen lg:flex">
-      {menuOpen && <div className="fixed inset-0 z-30 bg-ink/40 lg:hidden" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink-line bg-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink-line bg-surface transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
           menuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -171,7 +171,7 @@ export default function AppLayout() {
             <Link
               to="/app/messages"
               aria-label={t('nav.messages')}
-              className="relative grid h-11 w-11 place-items-center rounded-xl border border-ink-line bg-white text-ink hover:border-brand-300"
+              className="relative grid h-11 w-11 place-items-center rounded-xl border border-ink-line bg-surface text-ink hover:border-brand-300"
             >
               <Icon name="message" />
               {unreadMessages > 0 && (
@@ -183,7 +183,7 @@ export default function AppLayout() {
             <Link
               to="/app/notifications"
               aria-label={t('nav.notifications')}
-              className="relative grid h-11 w-11 place-items-center rounded-xl border border-ink-line bg-white text-ink hover:border-brand-300"
+              className="relative grid h-11 w-11 place-items-center rounded-xl border border-ink-line bg-surface text-ink hover:border-brand-300"
             >
               <Icon name="bell" />
               {unread > 0 && (

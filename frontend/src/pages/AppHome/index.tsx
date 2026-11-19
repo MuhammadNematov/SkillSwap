@@ -41,7 +41,7 @@ export default function AppHome() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[1.75rem] border border-ink-line bg-white">
+      <section className="overflow-hidden rounded-2xl border border-ink-line bg-surface">
         <SwapStage centerWidth={560} links={false} compact className="min-h-[340px]">
           <div className="w-full px-4 py-10 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">{t('dashboard.heroEyebrow', { name: user?.name?.split(' ')[0] })}</p>

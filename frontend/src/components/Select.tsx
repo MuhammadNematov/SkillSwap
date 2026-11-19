@@ -72,7 +72,7 @@ export default function Select({ value, options, onChange, ariaLabel, className 
         aria-label={ariaLabel}
         onClick={toggle}
         onKeyDown={onKeyDown}
-        className="flex w-full items-center justify-between gap-2 rounded-xl border border-ink-line bg-brand-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
+        className="flex w-full items-center justify-between gap-2 rounded-xl border border-ink-line bg-brand-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-200"
       >
         <span className="truncate">{current?.label}</span>
         <Icon name="chevronDown" className={`h-4 w-4 shrink-0 text-brand-600 transition ${open ? 'rotate-180' : ''}`} />
@@ -82,7 +82,7 @@ export default function Select({ value, options, onChange, ariaLabel, className 
         <ul
           id={listId}
           role="listbox"
-          className={`absolute z-50 mt-2 min-w-full overflow-hidden rounded-xl border border-ink-line bg-white p-1 shadow-glass ${
+          className={`absolute z-50 mt-2 min-w-full overflow-hidden rounded-xl border border-ink-line bg-surface p-1 shadow-glass ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >

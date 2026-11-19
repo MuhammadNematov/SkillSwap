@@ -53,7 +53,7 @@ export default function Admin() {
               key={k}
               onClick={() => setTab(k)}
               className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                tab === k ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
+                tab === k ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
               }`}
             >
               {t(`admin.tab_${k}`)}

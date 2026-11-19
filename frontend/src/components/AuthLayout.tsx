@@ -17,7 +17,7 @@ export default function AuthLayout({ title, subtitle, children }: Props) {
   const { t } = useTranslation()
   return (
     <div className="flex h-screen gap-5 overflow-hidden bg-brand-50 p-5">
-      <section className="relative flex min-h-0 flex-1 basis-[480px] flex-col overflow-hidden rounded-[2rem] border border-ink-line bg-white px-6 py-6 sm:px-12">
+      <section className="relative flex min-h-0 flex-1 basis-[480px] flex-col overflow-hidden rounded-2xl border border-ink-line bg-surface px-6 py-6 sm:px-12">
         <div className="flex items-center justify-between">
           <Link to="/">
             <Logo />
@@ -38,20 +38,19 @@ export default function AuthLayout({ title, subtitle, children }: Props) {
           src="/characters/boy.webp"
           alt=""
           draggable={false}
-          className="pointer-events-none absolute bottom-12 left-[3%] hidden w-[clamp(80px,11vw,150px)] drop-shadow-[0_12px_14px_rgba(23,20,61,.25)] md:block"
+          className="pointer-events-none absolute bottom-14 left-[2%] hidden w-[clamp(110px,calc(50vw-250px),230px)] xl:w-[clamp(90px,calc(25vw-230px),240px)] drop-shadow-[0_12px_14px_rgba(23,20,61,.25)] md:block"
         />
         <img
           src="/characters/girl.webp"
           alt=""
           draggable={false}
-          className="pointer-events-none absolute bottom-12 right-[3%] hidden w-[clamp(90px,12vw,165px)] drop-shadow-[0_12px_14px_rgba(23,20,61,.25)] md:block"
+          className="pointer-events-none absolute bottom-14 right-[2%] hidden w-[clamp(120px,calc(53vw-260px),250px)] xl:w-[clamp(100px,calc(26vw-235px),260px)] drop-shadow-[0_12px_14px_rgba(23,20,61,.25)] md:block"
         />
       </section>
 
-      <section className="hidden min-h-0 flex-1 basis-[480px] flex-col justify-between overflow-hidden rounded-[2rem] border border-ink-line bg-[radial-gradient(120%_140%_at_100%_0%,#E7DFFF_0%,rgba(231,223,255,0)_55%),radial-gradient(90%_120%_at_0%_100%,#F1ECFF_0%,rgba(241,236,255,0)_60%),#fff] p-10 lg:flex">
+      <section className="hidden min-h-0 flex-1 basis-[480px] flex-col justify-between overflow-hidden rounded-2xl border border-ink-line bg-brand-100/60 p-10 xl:flex">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">{t('authPromo.eyebrow')}</p>
-          <h2 className="mt-3 max-w-[440px] text-[38px] font-extrabold leading-[1.1] tracking-tight text-ink">{t('authPromo.title')}</h2>
+          <h2 className="max-w-[440px] text-[38px] font-extrabold leading-[1.1] tracking-tight text-ink">{t('authPromo.title')}</h2>
           <p className="mt-4 max-w-[380px] text-[15px] leading-relaxed text-ink-soft">{t('authPromo.text')}</p>
         </div>
         <PhoneSwapScene />

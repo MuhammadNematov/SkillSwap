@@ -81,7 +81,7 @@ export default function Matches() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{t('matches.title')}</h1>
+      <h1 className="text-2xl font-bold text-ink sm:text-3xl">{t('matches.title')}</h1>
       {q && <p className="text-sm text-slate-500">{t('matches.searchResults', { q })}</p>}
 
       {justSent && (
@@ -144,8 +144,8 @@ export default function Matches() {
                 onClick={() => setTab(tb.key)}
                 className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
                   tab === tb.key
-                    ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25'
-                    : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
+                    ? 'border-brand-600 bg-brand-600 text-white'
+                    : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
                 }`}
               >
                 {tb.label}
@@ -156,46 +156,43 @@ export default function Matches() {
           {visible.length === 0 ? (
             <div className="card text-center text-sm text-slate-500">{isFetching ? t('common.loading') : t('matches.empty')}</div>
           ) : (
-            <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 ${isFetching ? 'opacity-70' : ''}`}>
+            <div className={`space-y-4 ${isFetching ? 'opacity-70' : ''}`}>
               {visible.map((m) => {
                 const done = requested.has(m.user.id)
+                const full = m.matchType === 'full'
                 return (
-                  <article key={m.user.id} className="card flex flex-col">
-                    <div className="flex items-start gap-3">
-                      <Avatar name={m.user.name} src={m.user.avatarUrl} className="h-14 w-14" />
+                  <article key={m.user.id} className="card flex flex-wrap items-center gap-5 p-5">
+                    <div className="flex min-w-0 flex-1 basis-[300px] items-start gap-4">
+                      <Avatar name={m.user.name} src={m.user.avatarUrl} className="h-16 w-16" />
                       <div className="min-w-0 flex-1">
-                        <Link to={`/app/users/${m.user.id}`} className="block truncate font-bold text-slate-900 hover:text-brand-700">
-                          {m.user.name}
-                        </Link>
-                        <RatingBadge ratingAvg={m.user.ratingAvg} ratingCount={m.user.ratingCount} />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link to={`/app/users/${m.user.id}`} className="truncate text-lg font-bold text-ink hover:text-brand-700">
+                            {m.user.name}
+                          </Link>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${full ? 'bg-[#E5F7EC] text-[#12A150]' : 'bg-amber-100 text-amber-700'}`}>
+                            {full ? t('matches.fullMatch') : t('matches.partialMatch')}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-ink-soft">
+                          <RatingBadge ratingAvg={m.user.ratingAvg} ratingCount={m.user.ratingCount} />
+                          <span>
+                            {m.user.languages.map((l) => l.toUpperCase()).join(' · ')} · {utcOffsetLabel(m.user.timeZone)}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {m.teaches.map((s) => (
+                            <SkillChip key={s.skillId} name={s.name} />
+                          ))}
+                        </div>
                       </div>
                     </div>
-
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {m.teaches.map((s) => (
-                        <SkillChip key={s.skillId} name={s.name} />
-                      ))}
-                    </div>
-
-                    <div className="mt-2 text-xs text-slate-500">
-                      {m.user.languages.map((l) => l.toUpperCase()).join(' · ')} · {utcOffsetLabel(m.user.timeZone)}
-                    </div>
-
-                    <span
-                      className={`mt-3 w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        m.matchType === 'full' ? 'bg-emerald-100/80 text-emerald-700' : 'bg-amber-100/80 text-amber-700'
-                      }`}
-                    >
-                      {m.matchType === 'full' ? t('matches.fullMatch') : t('matches.partialMatch')}
-                    </span>
-
-                    <div className="mt-auto flex gap-2 pt-4">
-                      <Link to={`/app/users/${m.user.id}`} className="btn-secondary flex-1 px-3">
-                        {t('matches.profile')}
-                      </Link>
-                      <button className="btn-primary flex-1 px-3" disabled={done} onClick={() => setRequestFor(m)}>
+                    <div className="flex w-full gap-2 sm:w-auto sm:flex-col">
+                      <button className="btn-primary flex-1 px-5" disabled={done} onClick={() => setRequestFor(m)}>
                         {done ? t('matches.requested') : t('matches.request')}
                       </button>
+                      <Link to={`/app/users/${m.user.id}`} className="btn-secondary flex-1 px-5">
+                        {t('matches.profile')}
+                      </Link>
                     </div>
                   </article>
                 )
