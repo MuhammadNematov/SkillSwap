@@ -48,6 +48,15 @@ public class User : IdentityUser<Guid>, ITimestamped
     /// Данные стираются, когда оно закрыто.
     /// </summary>
     public bool ErasurePending { get; private set; }
+
+    /// <summary>
+    /// Хеш шестизначного кода подтверждения email (вместе со ссылкой из письма), срок его действия и сколько раз его уже пробовали ввести.
+    /// Меняются только атомарными запросами хранилища кодов (<c>IEmailCodeStore</c>): число попыток не должно теряться при параллельных запросах.
+    /// </summary>
+    public string? EmailCodeHash { get; private set; }
+
+    public DateTime? EmailCodeExpiresAt { get; private set; }
+    public int EmailCodeAttempts { get; private set; }
     public UserStatus Status { get; private set; } = UserStatus.Active;
     public Guid? LinkedUserId { get; private set; }
     public decimal RatingAvg { get; private set; }

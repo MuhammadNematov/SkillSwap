@@ -82,3 +82,14 @@ public sealed class ResendConfirmationRequestValidator : AbstractValidator<Resen
             .EmailAddress().WithErrorCode("invalid_email");
     }
 }
+
+public sealed class ConfirmEmailCodeRequestValidator : AbstractValidator<ConfirmEmailCodeRequest>
+{
+    public ConfirmEmailCodeRequestValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().WithErrorCode("required").MaximumLength(256).WithErrorCode("too_long");
+        RuleFor(x => x.Code).NotEmpty().WithErrorCode("required")
+            .Must(c => EmailConfirmationCodes.Normalize(c) is not null).WithErrorCode("invalid_format")
+            .When(x => !string.IsNullOrEmpty(x.Code), ApplyConditionTo.CurrentValidator);
+    }
+}

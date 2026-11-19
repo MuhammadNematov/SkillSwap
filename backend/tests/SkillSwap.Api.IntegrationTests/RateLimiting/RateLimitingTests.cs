@@ -154,6 +154,22 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
             knownStatuses);
     }
 
+    // ---------- подтверждение email кодом: 20 в час на IP (как по ссылке) ----------
+
+    [Fact]
+    public async Task Confirming_by_code_allows_twenty_attempts_per_ip_per_hour_then_429()
+    {
+        var api = NewClient();
+
+        var statuses = await StatusesAsync(20, _ => api.PostAsync("/auth/confirm-email/code", new { email = AuthApi.NewEmail(), code = "123456" }));
+        var twenty1 = await api.PostAsync("/auth/confirm-email/code", new { email = AuthApi.NewEmail(), code = "123456" });
+
+        Assert.All(statuses, s => Assert.Equal(HttpStatusCode.BadRequest, s));   // неверный код, но не лимит
+        await RateLimitAssert.RateLimitedAsync(twenty1, Hour);
+        // ссылка и код делят один счётчик на IP: попытки по ссылке тоже упираются в тот же лимит
+        await RateLimitAssert.RateLimitedAsync(await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x"), Hour);
+    }
+
     // ---------- forgot-password и resend-confirmation: 10 в час на IP ----------
 
     [Fact]

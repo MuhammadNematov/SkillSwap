@@ -338,6 +338,7 @@ internal sealed class AuthFixture
     public FakeRecoveryCodeStore RecoveryCodes { get; } = new();
     public FakeTwoFactorStepStore Steps { get; } = new();
     public FakeUserActivityStore Activity { get; } = new();
+    public FakeEmailCodeStore EmailCodes { get; } = new();
     public FakeAccessTokenGenerator AccessTokens { get; } = new();
     public PasswordResetService PasswordReset { get; }
     public SessionService Sessions { get; }
@@ -363,6 +364,8 @@ internal sealed class AuthFixture
             new RegisterRequestValidator(Clock),
             new ConfirmEmailRequestValidator(),
             new ResendConfirmationRequestValidator(),
+            new ConfirmEmailCodeRequestValidator(),
+            EmailCodes,
             new LoginRequestValidator(),
             tokens,
             Activity,
@@ -395,5 +398,41 @@ internal sealed class AuthFixture
             new TwoFactorVerifyRequestValidator(),
             new TwoFactorDisableRequestValidator(),
             Clock);
+    }
+}
+
+/// <summary>Хранилище кодов подтверждения email в памяти: те же правила, что у настоящего (попытка списывается до сравнения).</summary>
+internal sealed class FakeEmailCodeStore : SkillSwap.Application.Abstractions.IEmailCodeStore
+{
+    public sealed class Entry
+    {
+        public string Hash { get; set; } = string.Empty;
+        public DateTime ExpiresAt { get; set; }
+        public int Attempts { get; set; }
+    }
+
+    public Dictionary<Guid, Entry> Codes { get; } = [];
+
+    public Task SetAsync(Guid userId, string codeHash, DateTime expiresAt, CancellationToken ct = default)
+    {
+        Codes[userId] = new Entry { Hash = codeHash, ExpiresAt = expiresAt };
+        return Task.CompletedTask;
+    }
+
+    public Task<string?> TakeAttemptAsync(Guid userId, DateTime now, int maxAttempts, CancellationToken ct = default)
+    {
+        if (!Codes.TryGetValue(userId, out var e) || e.ExpiresAt <= now || e.Attempts >= maxAttempts)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        e.Attempts++;
+        return Task.FromResult<string?>(e.Hash);
+    }
+
+    public Task ClearAsync(Guid userId, CancellationToken ct = default)
+    {
+        Codes.Remove(userId);
+        return Task.CompletedTask;
     }
 }
