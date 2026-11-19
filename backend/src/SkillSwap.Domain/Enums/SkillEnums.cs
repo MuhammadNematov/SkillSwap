@@ -117,6 +117,12 @@ public enum NotificationType
 
     /// <summary>О вас опубликован отзыв (слепая публикация: написали оба или прошло 7 дней). В данных: exchangeId, reviewId, userId и userName автора.</summary>
     ReviewPublished,
+
+    /// <summary>Обмен заморожен: по нему подана жалоба из видеозвонка. В данных: exchangeId.</summary>
+    ExchangeFrozen,
+
+    /// <summary>Обмен разморожен (обращение отозвано или решено в пользу продолжения). В данных: exchangeId.</summary>
+    ExchangeUnfrozen,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

@@ -35,6 +35,9 @@ public interface ILessonSessionStore
     /// <summary>Открытые уроки обмена (Proposed и Scheduled) с отслеживанием: их отменяют при прерывании, заморозке и завершении обмена.</summary>
     Task<IReadOnlyList<LessonSession>> FindOpenForExchangeAsync(Guid exchangeId, CancellationToken ct);
 
+    /// <summary>Идущий урок (InProgress) обмена, в комнате которого пользователь находится прямо сейчас (интервал присутствия без выхода); null, если такого нет.</summary>
+    Task<Guid?> FindInCallSessionAsync(Guid exchangeId, Guid userId, CancellationToken ct);
+
     /// <summary>Сколько засчитанных (Completed) уроков провёл каждый преподаватель в каждом из обменов (баланс, раздел 6.1 ТЗ).</summary>
     Task<IReadOnlyDictionary<(Guid ExchangeId, Guid TeacherId), int>> CountCompletedAsync(IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct);
 

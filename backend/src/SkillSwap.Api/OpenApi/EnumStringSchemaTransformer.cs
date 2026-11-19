@@ -16,6 +16,12 @@ internal sealed class EnumStringSchemaTransformer : IOpenApiSchemaTransformer
         {
             schema.Type = JsonSchemaType.String;
             schema.Format = null;
+
+            // Для свойства `CaseDecision?` генератор добавляет в список значений общей схемы null: значение «нет» выражается в самом свойстве (oneOf с null), а не в перечислении.
+            if (schema.Enum is { } values && values.Any(v => v is null))
+            {
+                schema.Enum = values.Where(v => v is not null).ToList();
+            }
         }
 
         return Task.CompletedTask;

@@ -13,6 +13,9 @@ public interface IMessageStore
 
     Task SaveAsync(CancellationToken ct);
 
+    /// <summary>Какие из перечисленных сообщений есть в чате этого обмена (удалённые тоже: на них можно сослаться в обращении).</summary>
+    Task<IReadOnlySet<Guid>> ListIdsInExchangeAsync(Guid exchangeId, IReadOnlyCollection<Guid> ids, CancellationToken ct);
+
     /// <summary>
     /// Страница истории: сообщения старше курсора (<paramref name="before"/>) от новых к старым, не больше <paramref name="limit"/>.
     /// Курсор — пара (время, id): сообщения с одинаковым временем не теряются и не повторяются.

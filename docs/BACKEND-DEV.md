@@ -674,6 +674,41 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 
 **Для бэкенда.** Право на отзыв считается заново на каждый запрос (`ReviewRules`), запись идёт в транзакции под блокировкой обоих участников (два одновременных отзыва партнёров публикуются вместе, повторный отзыв автора невозможен, `UNIQUE (ExchangeId, AuthorId)`). Публикацию через 7 дней делает задача `ReviewJobs.PublishDueAsync` (срок хранится в `Reviews.PublishDueAt`), приглашение и напоминание — `InviteAsync` и `RemindAsync` (ставятся при закрытии обмена через `ReviewScheduler`: завершение, выход, блокировка; отметки `ReviewInvitesSentAt` и `ReviewReminderSentAt` не дают разослать дважды). Выгрузка данных содержит `reviewsWritten` (все свои, в том числе ещё не опубликованные) и `reviewsReceived` (только опубликованные).
 
+## Обращения (этап 6, шаг 2): подача и отзыв, контракт для фронтенда
+
+Тег **Cases**. Раздел 8.2 ТЗ. Только обычные аккаунты (служебному 403 `regular_account_required`), чужой обмен 404 `exchange_not_found`, партнёр удалил аккаунт 409 `partner_deleted`.
+
+| Метод | Что делает |
+| --- | --- |
+| `POST /cases` | Подать обращение. 201 и обращение |
+| `GET /me/cases?role=&page=&pageSize=` | Мои обращения, новые сверху. `role`: `All` (по умолчанию), `Opened` (подал я), `Against` (поданы на меня) |
+| `GET /cases/{id}` | Обращение |
+| `POST /cases/{id}/withdraw` | Отозвать, пока не взято в работу |
+
+**Тело `POST /cases`:** `type`, `category`, `exchangeId`, `reviewId` (только для спора), `description` (20–2000 символов), `messageIds` (до 20 сообщений этого обмена), `fromCall` (по умолчанию `false`).
+
+| `type` | `category` | Срок подачи | Приоритет |
+| --- | --- | --- | --- |
+| `ReviewDispute` (спор по отзыву) | `ReviewUnfair`, `ReviewAbusive`, `ReviewFalse` | 14 дней после публикации отзыва | обычный |
+| `Conduct` (поведение) | `Insults`, `Threats`, `Harassment`, `Spam`, `Extortion` | 90 дней после закрытия обмена (пока идёт обмен — всегда) | высокий |
+| `NoShowAbuse` (неявки и срыв) | `SystematicEvasion`, `BadFaithLessons` | 30 дней после закрытия обмена | обычный |
+
+Приоритет высокий также при `fromCall` и если один из двоих младше 18. Срок реакции: 24 часа (высокий) или 72 часа (обычный), хранится в `Cases.DueAt`.
+
+**Спор по отзыву.** Подаёт адресат отзыва; отзыв должен быть опубликован (скрытый слепой публикацией или скрытый модератором выглядит как несуществующий: 404 `review_not_found`). Отзыв сразу замораживается (`Frozen`) и перестаёт влиять на рейтинг, адресат и автор видят его как опубликованный. Один отзыв: один спор (409 `review_already_disputed`, пока идёт; 409 `case_already_exists`, если спор уже решён). Отзыв обращения возвращает отзыв в рейтинг.
+
+**Жалоба из звонка** (`fromCall: true`, только `Conduct`). Заявитель должен находиться в комнате идущего урока этого обмена (иначе 409 `not_in_call`). Обмен замораживается сразу, открытые уроки отменяются, комната закрывается, обоим приходит уведомление **`ExchangeFrozen`** (`exchangeId`). Отзыв обращения размораживает обмен (уведомление **`ExchangeUnfrozen`**), если нет другого активного обращения из звонка.
+
+**Что видит второй участник.** Тот, на кого подано обращение, ничего не знает о нём, пока модератор не взял его в работу: ни уведомления, ни строки в `GET /me/cases?role=Against`, `GET /cases/{id}` до этого отвечает 404 `case_not_found`.
+
+**Ограничения:** не больше 3 обращений в работе одновременно (409 `too_many_open_cases`), не больше 5 за сутки, считая отозванные (429 `case_rate_limited`), не больше одного активного обращения того же типа по тому же обмену (409 `case_already_open`).
+
+**Ошибки 400:** `case_description_too_short` / `case_description_too_long`, `case_category_mismatch`, `case_review_required`, `case_review_not_allowed`, `case_from_call_conduct_only`, `too_many_evidence`, `evidence_not_in_exchange`. **409:** `filing_window_closed`, а также перечисленные выше.
+
+**Обращение (`CaseDto`):** `id`, `type`, `category`, `status` (`Open`, `InProgress`, `WaitingResponse`, `Resolved`, `Appealed`, `AppealReview`, `Closed`, `Withdrawn`), `priority`, `exchangeId`, `reviewId`, `openedBy` и `against` (`id`, `name`, `avatarUrl`, `isDeleted`), `myRole` (`Opener` или `Against`), `description`, `fromCall`, `createdAt`, `evidenceMessageIds`, `decision`, `alsoWarned`, `decisionReason`, `resolvedAt` (решение показывается обеим сторонам, когда оно вынесено), `responseDeadlineAt` (пока ждём пояснений), `canWithdraw` (заявитель, статус `Open`).
+
+**Для бэкенда.** Всё в одной транзакции под блокировкой обоих участников (`CaseService`); в журнал аудита пишутся `CaseOpened`, `CaseWithdrawn`, `ExchangeFrozen`, `ExchangeUnfrozen`. Доказательства сохраняются в `CaseEvidence` (внешний ключ на сообщение не даёт очистке чата их удалить). Закрытие комнаты звонка после коммита, при недоступном LiveKit комната закроется по расписанию. Форма запроса (тип, категория, `reviewId`, `fromCall`) проверяется до обращения к базе.
+
 ## Отзывы и обращения: основа (этап 6, шаг 0): для бэкенда
 
 Фронтенду здесь ничего вызывать не нужно: API отзывов и обращений появится в следующих шагах. Что заложено.

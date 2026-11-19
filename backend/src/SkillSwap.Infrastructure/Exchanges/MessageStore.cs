@@ -22,6 +22,9 @@ public sealed class MessageStore : IMessageStore
 
     public Task SaveAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
 
+    public async Task<IReadOnlySet<Guid>> ListIdsInExchangeAsync(Guid exchangeId, IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        (await _db.Messages.AsNoTracking().Where(m => m.ExchangeId == exchangeId && ids.Contains(m.Id)).Select(m => m.Id).ToListAsync(ct)).ToHashSet();
+
     public async Task<IReadOnlyDictionary<Guid, Message>> GetLastMessagesAsync(IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct)
     {
         if (exchangeIds.Count == 0)

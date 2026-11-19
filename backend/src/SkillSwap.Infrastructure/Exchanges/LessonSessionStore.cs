@@ -24,6 +24,12 @@ public sealed class LessonSessionStore : ILessonSessionStore
 
     public Task SaveAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
 
+    public async Task<Guid?> FindInCallSessionAsync(Guid exchangeId, Guid userId, CancellationToken ct) =>
+        await _db.Sessions.AsNoTracking()
+            .Where(s => s.ExchangeId == exchangeId && s.Status == SessionStatus.InProgress
+                && _db.SessionAttendances.Any(a => a.SessionId == s.Id && a.UserId == userId && a.LeftAt == null))
+            .Select(s => (Guid?)s.Id).FirstOrDefaultAsync(ct);
+
     public async Task<IReadOnlyDictionary<Guid, LessonSession>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
         ids.Count == 0
             ? new Dictionary<Guid, LessonSession>()

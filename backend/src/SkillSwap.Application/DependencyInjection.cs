@@ -47,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<LessonSessionService>();
         services.AddScoped<VideoRoomService>();
         services.AddScoped<Moderation.ChatAccessPolicy>();
+        services.AddScoped<Moderation.CaseService>();
         services.AddScoped<Reviews.ReviewService>();
         services.AddScoped<Reviews.ReviewJobs>();
         services.AddScoped<Reviews.ReviewScheduler>();
