@@ -5,7 +5,7 @@ namespace SkillSwap.Domain.Entities;
 /// <summary>
 /// Событие, присланное медиасервером LiveKit (webhook), раздел 11.1 ТЗ.
 /// Каждое событие записывается один раз: <see cref="EventId"/> уникален, повторная доставка игнорируется.
-/// Из этих событий на этапе 5 будут собираться интервалы присутствия и итог урока; здесь пока только приём и хранение.
+/// Из этих событий собираются интервалы присутствия и итог урока (этап 5).
 /// </summary>
 public class LiveKitWebhookEvent : BaseEntity
 {
@@ -27,8 +27,11 @@ public class LiveKitWebhookEvent : BaseEntity
     /// <summary>Когда событие произошло по часам LiveKit (UTC).</summary>
     public DateTime OccurredAt { get; private set; }
 
-    /// <summary>Когда событие обработано (учтено в посещаемости). Пусто, пока обработка не реализована (этап 5).</summary>
+    /// <summary>Когда событие обработано (учтено в посещаемости). Пусто, пока событие не обработано.</summary>
     public DateTime? ProcessedAt { get; private set; }
+
+    /// <summary>Событие учтено в посещаемости (или не требует учёта). Повторный вызов безвреден.</summary>
+    public void MarkProcessed(DateTime now) => ProcessedAt ??= now;
 
     public static LiveKitWebhookEvent Create(
         string eventId, string type, string? roomName, string? participantIdentity, DateTime occurredAt)

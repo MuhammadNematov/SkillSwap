@@ -19,6 +19,17 @@ public class SessionAttendance : BaseEntity
     public DateTime JoinedAt { get; private set; }
     public DateTime? LeftAt { get; private set; }
 
+    /// <summary>Приводит интервал к восстановленному из журнала событий (см. <see cref="AttendanceTimeline"/>): время выхода может появиться, измениться или исчезнуть.</summary>
+    public void Resync(DateTime? leftAt) => LeftAt = leftAt is { } l && l < JoinedAt ? JoinedAt : leftAt;
+
+    /// <summary>Интервал, восстановленный из журнала событий: сразу с временем выхода или открытый.</summary>
+    public static SessionAttendance Restore(Guid sessionId, Guid userId, DateTime joinedAt, DateTime? leftAt)
+    {
+        var a = Open(sessionId, userId, joinedAt);
+        a.Resync(leftAt);
+        return a;
+    }
+
     public static SessionAttendance Open(Guid sessionId, Guid userId, DateTime joinedAt) =>
         new() { SessionId = sessionId, UserId = userId, JoinedAt = joinedAt };
 

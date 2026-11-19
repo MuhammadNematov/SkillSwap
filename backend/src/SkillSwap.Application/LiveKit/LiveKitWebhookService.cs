@@ -23,7 +23,7 @@ public enum WebhookResult
 /// <summary>
 /// Приём событий от медиасервера (раздел 7.2 и 11.1 ТЗ). Порядок строгий: сначала подпись, и только потом
 /// хоть что-то читается из тела: непроверенным данным не доверяем.
-/// Здесь события только записываются; сборка посещаемости и итог урока — этап 5.
+/// Событие записывается один раз, затем учитывается в посещаемости урока (<see cref="Sessions.VideoAttendanceService"/>).
 /// </summary>
 public sealed class LiveKitWebhookService
 {
@@ -36,12 +36,15 @@ public sealed class LiveKitWebhookService
     private readonly ILiveKitWebhookVerifier _verifier;
     private readonly ILiveKitWebhookEventStore _store;
     private readonly TimeProvider _clock;
+    private readonly ILiveKitEventProcessor _attendance;
 
-    public LiveKitWebhookService(ILiveKitWebhookVerifier verifier, ILiveKitWebhookEventStore store, TimeProvider clock)
+    public LiveKitWebhookService(
+        ILiveKitWebhookVerifier verifier, ILiveKitWebhookEventStore store, TimeProvider clock, ILiveKitEventProcessor attendance)
     {
         _verifier = verifier;
         _store = store;
         _clock = clock;
+        _attendance = attendance;
     }
 
     public async Task<WebhookResult> ReceiveAsync(string? authorization, ReadOnlyMemory<byte> body, CancellationToken ct = default)
@@ -57,7 +60,12 @@ public sealed class LiveKitWebhookService
             return WebhookResult.Malformed;
         }
 
-        return await _store.TryAddAsync(parsed, ct) ? WebhookResult.Accepted : WebhookResult.Duplicate;
+        var isNew = await _store.TryAddAsync(parsed, ct);
+
+        // Учёт в посещаемости идёт и для повторной доставки: если прошлая попытка упала, событие записано, но не обработано (ProcessedAt пусто).
+        // Сбой обработки отвечает ошибкой, LiveKit повторит доставку. Уже обработанное пропускается.
+        await _attendance.ProcessAsync(parsed.EventId, ct);
+        return isNew ? WebhookResult.Accepted : WebhookResult.Duplicate;
     }
 
     /// <summary>

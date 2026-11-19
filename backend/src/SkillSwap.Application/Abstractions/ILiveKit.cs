@@ -36,4 +36,18 @@ public interface ILiveKitWebhookEventStore
     /// Запись и проверка уникальности — одна атомарная операция, поэтому параллельные доставки одного события не дублируются.
     /// </summary>
     Task<bool> TryAddAsync(LiveKitWebhookEvent webhookEvent, CancellationToken ct = default);
+
+    /// <summary>Событие по его EventId, с отслеживанием (чтобы отметить обработанным).</summary>
+    Task<LiveKitWebhookEvent?> FindAsync(string eventId, CancellationToken ct = default);
+
+    /// <summary>Все события комнаты без отслеживания: из них собирается присутствие.</summary>
+    Task<IReadOnlyList<LiveKitWebhookEvent>> ListByRoomAsync(string roomName, CancellationToken ct = default);
+
+    Task SaveAsync(CancellationToken ct = default);
+}
+
+/// <summary>Учёт записанного события LiveKit в посещаемости уроков (раздел 6.3 ТЗ). Повторный вызов для обработанного события безвреден.</summary>
+public interface ILiveKitEventProcessor
+{
+    Task ProcessAsync(string eventId, CancellationToken ct);
 }
