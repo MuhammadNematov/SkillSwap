@@ -3143,6 +3143,75 @@
         }
       }
     },
+    "/api/v1/me/dashboard": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/exchange-requests": {
       "post": {
         "tags": [
@@ -7267,6 +7336,49 @@
           }
         }
       },
+      "ActionNeededDto": {
+        "required": [
+          "type",
+          "sessionId",
+          "exchangeId",
+          "requestId",
+          "dueAt"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "exchangeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "requestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "dueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "AdminCategoryDto": {
         "required": [
           "id",
@@ -7639,6 +7751,168 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "DashboardCountersDto": {
+        "required": [
+          "activeExchanges",
+          "incomingRequests",
+          "outgoingRequests",
+          "unreadMessages",
+          "unreadNotifications"
+        ],
+        "type": "object",
+        "properties": {
+          "activeExchanges": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "incomingRequests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "outgoingRequests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unreadMessages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unreadNotifications": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "DashboardDto": {
+        "required": [
+          "nextSession",
+          "counters",
+          "stats",
+          "rating",
+          "actionsNeeded"
+        ],
+        "type": "object",
+        "properties": {
+          "nextSession": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NextSessionDto"
+              }
+            ]
+          },
+          "counters": {
+            "$ref": "#/components/schemas/DashboardCountersDto"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/DashboardStatsDto"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/DashboardRatingDto"
+          },
+          "actionsNeeded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionNeededDto"
+            }
+          }
+        }
+      },
+      "DashboardRatingDto": {
+        "required": [
+          "average",
+          "count",
+          "isNewcomer"
+        ],
+        "type": "object",
+        "properties": {
+          "average": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isNewcomer": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DashboardStatsDto": {
+        "required": [
+          "completedSessions",
+          "taughtMinutes",
+          "learnedMinutes",
+          "completedExchanges"
+        ],
+        "type": "object",
+        "properties": {
+          "completedSessions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "taughtMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "learnedMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "completedExchanges": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -8603,6 +8877,71 @@
           },
           "isSearchable": {
             "type": "boolean"
+          }
+        }
+      },
+      "NextSessionDto": {
+        "required": [
+          "id",
+          "exchangeId",
+          "startAt",
+          "endAt",
+          "durationMin",
+          "topic",
+          "status",
+          "iAmTeacher",
+          "partner",
+          "canJoinFrom",
+          "canJoinUntil"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "exchangeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "durationMin": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "topic": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/SessionStatus"
+          },
+          "iAmTeacher": {
+            "type": "boolean"
+          },
+          "partner": {
+            "$ref": "#/components/schemas/RequestUserDto"
+          },
+          "canJoinFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "canJoinUntil": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

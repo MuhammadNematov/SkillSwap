@@ -474,6 +474,16 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 
 **Не чаще одного раза в сутки:** повторный `POST` — 429 `export_rate_limited`. Неудавшаяся выгрузка (`Failed`) не мешает повторить сразу. `GET /me/export` — состояние последней: `Pending`, `Processing`, `Ready` (с `expiresAt`), `Failed`, `Expired`; не запрашивали — 404 `export_not_found`. Служебным аккаунтам 403 `regular_account_required`.
 
+## Главная страница: `GET /me/dashboard` (этап 4, шаг 9)
+
+Тег **Profile**, нужен вход, только обычный аккаунт. Один запрос вместо пяти; все даты в UTC.
+
+- **`nextSession`** — ближайший подтверждённый урок (`Scheduled` или идущий `InProgress`, которому ещё не вышло время окончания) по всем обменам, иначе `null`. Поля: `id`, `exchangeId`, `startAt`, `endAt`, `durationMin`, `topic`, `status`, `iAmTeacher`, `partner` (`id`, `name`, `avatarUrl` с теми же правилами видимости, что везде, `isDeleted`), `canJoinFrom` (за 10 минут до начала) и `canJoinUntil` (через 30 минут после планового окончания). Видеокомната появится на этапе 5.
+- **`counters`**: `activeExchanges` (активные и замороженные), `incomingRequests` и `outgoingRequests` (ожидающие, срок не вышел), `unreadMessages` (чужие, не удалённые, в доступных для чтения чатах: активные, замороженные и закрытые не больше 30 дней назад), `unreadNotifications`.
+- **`stats`**: `completedSessions` (`Completed` во всех обменах), `taughtMinutes` (уроки, где преподавал я), `learnedMinutes` (где преподавал партнёр), `completedExchanges` (только `Completed`, прерванные не считаются). `NotCounted` и отменённые не учитываются.
+- **`rating`**: `average` (у «Новичка» `null`, как в профиле), `count`, `isNewcomer`.
+- **`actionsNeeded`** — что ждёт ответа, **самое срочное сверху** (по сроку `dueAt`), каждого вида не больше 20. Типы: `AnswerRequest` (`requestId`, `dueAt` — срок ответа), `AnswerSession` (партнёр предложил время: `sessionId`, `exchangeId`, `dueAt` — начало урока), `ConfirmSession` (урок закончился, я не нажал «Урок состоялся»: `sessionId`, `exchangeId`, `dueAt` — до какого времени можно), `FinishExchange` (партнёр нажал «Завершить», а я нет: `exchangeId`), `AnswerExtension` (партнёр согласился продлить: `exchangeId`). Уже сделанное, истёкшее и своё предложение (ответ ждёт партнёр) в списке не показываются. `WriteReview` появится вместе с отзывами.
+
 ## Тесты
 
 ```

@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<NewMessagesNotifier>();
         services.AddScoped<LessonSessionService>();
         services.AddScoped<LessonSessionJobs>();
+        services.AddScoped<Dashboard.DashboardService>();
         services.AddScoped<Account.AccountDeletionService>();
         services.AddScoped<Account.DataExportService>();
         services.AddScoped<Account.DataExportJobs>();

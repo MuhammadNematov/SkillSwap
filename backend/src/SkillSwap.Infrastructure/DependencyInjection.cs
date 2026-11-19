@@ -10,6 +10,7 @@ using SkillSwap.Application.Blocks;
 using SkillSwap.Application.ExchangeRequests;
 using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Chat;
+using SkillSwap.Application.Dashboard;
 using SkillSwap.Application.Account;
 using SkillSwap.Application.Sessions;
 using SkillSwap.Application.Notifications;
@@ -147,6 +148,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationStore, NotificationStore>();
         services.AddScoped<IMessageStore, MessageStore>();
         services.AddScoped<ILessonSessionStore, LessonSessionStore>();
+        services.AddScoped<IDashboardStore, DashboardStore>();
         services.AddScoped<IAccountStore, SkillSwap.Infrastructure.Account.AccountStore>();
         services.AddScoped<IDataExportStore, SkillSwap.Infrastructure.Account.DataExportStore>();
         services.AddScoped<IErasureHold, SkillSwap.Infrastructure.Account.NoOpenCases>();
