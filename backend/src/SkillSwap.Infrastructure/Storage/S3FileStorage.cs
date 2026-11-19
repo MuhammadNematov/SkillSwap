@@ -40,8 +40,8 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
             // Контрольные суммы только там, где без них нельзя: самохостные хранилища (Garage) не всегда их понимают.
             RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
             ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
-            Timeout = TimeSpan.FromSeconds(30),
-            MaxErrorRetry = 2,
+            Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds),
+            MaxErrorRetry = options.MaxRetries,
         });
 
     public async Task PutAsync(string key, Stream content, string contentType, CancellationToken ct)
@@ -67,7 +67,7 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
         {
             return null;
         }
-        catch (Exception ex) when (ex is AmazonServiceException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is AmazonServiceException or AmazonClientException or HttpRequestException or TaskCanceledException or TimeoutException && !ct.IsCancellationRequested)
         {
             throw Unavailable(ex);
         }
@@ -124,7 +124,7 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
         {
             await action();
         }
-        catch (Exception ex) when (ex is AmazonServiceException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is AmazonServiceException or AmazonClientException or HttpRequestException or TaskCanceledException or TimeoutException)
         {
             throw Unavailable(ex);
         }

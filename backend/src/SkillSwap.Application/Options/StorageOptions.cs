@@ -28,5 +28,11 @@ public sealed class StorageOptions
     /// <summary>Адрес вида endpoint/bucket/key (нужен Garage и большинству самохостных решений); у облачного S3 можно выключить.</summary>
     public bool ForcePathStyle { get; set; } = true;
 
+    /// <summary>Сколько секунд ждать ответа хранилища (по умолчанию 30). В тестах «хранилище недоступно» ставится короче.</summary>
+    public int TimeoutSeconds { get; set; } = 30;
+
+    /// <summary>Сколько раз повторять запрос к хранилищу при сбое сети или 5xx (по умолчанию 2). 0 — без повторов.</summary>
+    public int MaxRetries { get; set; } = 2;
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Endpoint);
 }

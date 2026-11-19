@@ -59,6 +59,11 @@ public sealed class StorageStartupCheck : IHostedService
             throw new InvalidOperationException("Не заданы Storage:AccessKey и Storage:SecretKey (только в переменных окружения или user-secrets).");
         }
 
+        if (options.TimeoutSeconds < 1 || options.MaxRetries < 0)
+        {
+            throw new InvalidOperationException("Storage:TimeoutSeconds должен быть положительным, Storage:MaxRetries не отрицательным.");
+        }
+
         if (string.IsNullOrWhiteSpace(options.Bucket))
         {
             throw new InvalidOperationException("Не задан Storage:Bucket.");

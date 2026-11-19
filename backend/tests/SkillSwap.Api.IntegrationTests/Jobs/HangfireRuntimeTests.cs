@@ -90,9 +90,9 @@ public class HangfireRuntimeTests
         var jobs = app.Services.GetRequiredService<IBackgroundJobs>();
         var signals = app.Services.GetRequiredService<JobSignals>();
 
-        jobs.Schedule<RuntimeProbe>(p => p.RunAsync("позже"), DateTimeOffset.UtcNow.AddSeconds(4));
+        jobs.Schedule<RuntimeProbe>(p => p.RunAsync("позже"), DateTimeOffset.UtcNow.AddSeconds(3));
 
-        await Task.Delay(1500);
+        await Task.Delay(800);
         Assert.Empty(signals.Snapshot());                         // рано
         Assert.Equal(["run:позже"], await signals.WaitForAsync(1));
     }

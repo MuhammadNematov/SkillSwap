@@ -560,7 +560,7 @@ public class AttachmentTests
     {
         var (_, a, _, exchangeId) = await ExchangeAsync();
 
-        using (var down = _factory.WithSettings("Testing", ("Storage:Endpoint", "http://127.0.0.1:1")))
+        using (var down = _factory.WithSettings("Testing", ("Storage:Endpoint", "http://127.0.0.1:1"), ("Storage:TimeoutSeconds", "2"), ("Storage:MaxRetries", "0")))
         {
             var response = await Upload(down.CreateClient(), a, exchangeId);
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);

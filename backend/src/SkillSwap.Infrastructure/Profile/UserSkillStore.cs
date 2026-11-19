@@ -38,7 +38,7 @@ public sealed class UserSkillStore : IUserSkillStore
 
     /// <summary>
     /// Анкета полная: включённый навык и в «Умею», и в «Хочу изучать», и хотя бы один язык занятий.
-    /// Без языка подбор пуст (общий язык обязателен), поэтому такая анкета полной не считается.
+    /// Без языка подбор пуст (общий язык обязателен), поэтому такая анкета не считается полной.
     /// </summary>
     internal static async Task<bool> IsCompleteAsync(AppDbContext db, Guid userId, CancellationToken ct)
     {
