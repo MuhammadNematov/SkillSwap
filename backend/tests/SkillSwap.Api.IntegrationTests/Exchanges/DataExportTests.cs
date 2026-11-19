@@ -298,7 +298,7 @@ public class DataExportTests
     public async Task When_the_storage_fails_the_export_is_marked_failed_and_can_be_requested_again()
     {
         var (_, a, _) = await PairAsync();
-        using var down = _factory.WithSettings("Testing", ("Storage:Endpoint", "http://127.0.0.1:1"));
+        using var down = _factory.WithSettings("Testing", ("Storage:Endpoint", "http://127.0.0.1:1"), ("Storage:TimeoutSeconds", "2"), ("Storage:MaxRetries", "0"));
 
         var first = await SendAsync(a, HttpMethod.Post, "/me/export", client: down.CreateClient());
 

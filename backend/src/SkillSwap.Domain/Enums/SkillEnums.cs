@@ -122,7 +122,7 @@ public enum AttachmentKind
     Image,
 }
 
-/// <summary>Статус урока (раздел 9.3 ТЗ). InProgress, Missed и NoShow заполняются событиями LiveKit на этапе 5; пока видео нет, урок после планового окончания становится Unconfirmed.</summary>
+/// <summary>Статус урока (раздел 9.3 ТЗ). InProgress, Missed и NoShow заполняются событиями LiveKit (этап 5, раздел 6.3 ТЗ).</summary>
 public enum SessionStatus
 {
     Proposed,

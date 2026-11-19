@@ -76,7 +76,7 @@ public class LiveKitWebhookFlowTests
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1794940518).UtcDateTime, row.OccurredAt);
         Assert.Null(row.ProcessedAt);   // обработка в посещаемость — этап 5
         Assert.NotEqual(Guid.Empty, row.Id);
-        Assert.True(row.CreatedAt > DateTime.UtcNow.AddMinutes(-5));
+        Assert.True(row.CreatedAt > _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-5));
         Assert.Equal(row.CreatedAt, row.UpdatedAt);
     }
 

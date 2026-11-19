@@ -38,3 +38,14 @@ public sealed record CalendarSessionDto(LessonSessionDto Session, RequestUserDto
 
 /// <summary>Урок из хранилища вместе с участниками его обмена.</summary>
 public sealed record SessionRow(Domain.Entities.LessonSession Session, Guid UserAId, Guid UserBId);
+
+/// <summary>Токен входа в видеокомнату урока (POST /sessions/{id}/join-token).</summary>
+/// <param name="Token">Короткий токен LiveKit; передайте его клиенту LiveKit вместе с <paramref name="Url"/>.</param>
+/// <param name="Url">Адрес медиасервера (WebSocket).</param>
+/// <param name="RoomName">Имя комнаты: <c>session-{id урока}</c>.</param>
+/// <param name="ExpiresAt">До какого времени токен годится для входа (после входа сеанс от него не зависит).</param>
+/// <param name="StartAt">Плановое начало урока.</param>
+/// <param name="PlannedEndAt">Плановое окончание (начало + 45 минут): по нему фронтенд сам показывает «осталось 5 минут» на 40-й минуте.</param>
+/// <param name="RoomClosesAt">Когда комната закрывается и удаляется (начало + 75 минут).</param>
+public sealed record JoinTokenDto(
+    string Token, string Url, string RoomName, DateTime ExpiresAt, DateTime StartAt, DateTime PlannedEndAt, DateTime RoomClosesAt);

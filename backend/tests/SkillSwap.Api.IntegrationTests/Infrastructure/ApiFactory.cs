@@ -154,6 +154,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         });
         builder.ConfigureServices(services =>
         {
+            // Хеширование паролей в тестах дешёвое (по умолчанию 100 000 итераций PBKDF2): проверяется логика, а не стойкость хеша. Только тестовая среда.
+            services.Configure<Microsoft.AspNetCore.Identity.PasswordHasherOptions>(o => o.IterationCount = 1000);
             services.RemoveAll<IMailSender>();
             services.AddSingleton<IMailSender>(Mail);
 
