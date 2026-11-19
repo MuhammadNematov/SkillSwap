@@ -28,11 +28,12 @@ public sealed class ExchangeService
     private readonly Files.AvatarUrls _avatars;
     private readonly Sessions.LessonSessionService _lessons;
     private readonly Sessions.ILessonSessionStore _sessions;
+    private readonly Reviews.ReviewScheduler _reviewScheduler;
     private readonly IMessageCipher _cipher;
 
     public ExchangeService(
         IExchangeStore exchanges, IMessageStore messages, IProfileStore profiles, IUnitOfWork uow, IBackgroundJobs jobs,
-        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock, Files.AvatarUrls avatars, Sessions.LessonSessionService lessons, Sessions.ILessonSessionStore sessions, IMessageCipher cipher)
+        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock, Files.AvatarUrls avatars, Sessions.LessonSessionService lessons, Sessions.ILessonSessionStore sessions, IMessageCipher cipher, Reviews.ReviewScheduler reviewScheduler)
     {
         _exchanges = exchanges;
         _messages = messages;
@@ -46,6 +47,7 @@ public sealed class ExchangeService
         _lessons = lessons;
         _sessions = sessions;
         _cipher = cipher;
+        _reviewScheduler = reviewScheduler;
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -196,6 +198,7 @@ public sealed class ExchangeService
         }
 
         var cancelled = new List<Sessions.LessonSessionDto>();
+        DateTime? closedAt = null;
         await _uow.ExecuteAsync(async token =>
         {
             await _uow.LockUsersAsync([peek.UserA.Id, peek.UserB.Id], token);
@@ -207,10 +210,15 @@ public sealed class ExchangeService
                 cancelled = [.. await _lessons.CancelOpenAsync(exchangeId, exchange.UserAId, exchange.UserBId, token)];
             }
 
+            closedAt = exchange.Status is ExchangeStatus.Completed or ExchangeStatus.Aborted ? exchange.ClosedAt : null;
             await _exchanges.SaveAsync(token);
             return 0;
         }, ct);
-        await _lessons.PublishUpdatesAsync(cancelled);   // после фиксации: карточки уроков в чате обновляются
+        await _lessons.PublishUpdatesAsync(cancelled);
+        if (closedAt is { } closed)
+        {
+            _reviewScheduler.OnExchangeClosed(exchangeId, closed);   // после фиксации: приглашение написать отзыв и напоминание (раздел 8.1 ТЗ)
+        }   // после фиксации: карточки уроков в чате обновляются
     }
 
     private async Task<User> RequireActiveRegularAsync(Guid userId, CancellationToken ct)

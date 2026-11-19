@@ -59,6 +59,35 @@ public class Exchange : BaseEntity
     /// <summary>Обмен прерван пострадавшим после трёх неявок партнёра (<see cref="AbortForPartnerNoShow"/>). Основание для одностороннего отзыва на этапе 6.</summary>
     public bool AbortedForNoShow { get; private set; }
 
+    /// <summary>Когда участникам разослали «можно оставить отзыв» (раздел 8.1 ТЗ): один раз на обмен, повторный запуск задачи ничего не шлёт.</summary>
+    public DateTime? ReviewInvitesSentAt { get; private set; }
+
+    /// <summary>Когда разослали напоминание «срок отзыва заканчивается» (за 2 дня).</summary>
+    public DateTime? ReviewReminderSentAt { get; private set; }
+
+    /// <returns>true, если отметка поставлена этим вызовом (рассылать можно); false — уже рассылали.</returns>
+    public bool MarkReviewInvitesSent(DateTime now)
+    {
+        if (ReviewInvitesSentAt is not null)
+        {
+            return false;
+        }
+
+        ReviewInvitesSentAt = now;
+        return true;
+    }
+
+    public bool MarkReviewReminderSent(DateTime now)
+    {
+        if (ReviewReminderSentAt is not null)
+        {
+            return false;
+        }
+
+        ReviewReminderSentAt = now;
+        return true;
+    }
+
     /// <summary>Кто заблокировал партнёра, из-за чего обмен прерван. В базе причина хранится настоящей (для модератора), участникам она показывается по-разному.</summary>
     public Guid? BlockedById { get; private set; }
     public DateTime? ClosedAt { get; private set; }

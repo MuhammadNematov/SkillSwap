@@ -25,8 +25,11 @@ public sealed class DashboardService
     private readonly AvatarUrls _avatars;
     private readonly TimeProvider _clock;
 
-    public DashboardService(IDashboardStore store, IProfileStore profiles, IExchangeStore exchanges, AvatarUrls avatars, TimeProvider clock)
+    private readonly Reviews.ReviewService _reviews;
+
+    public DashboardService(IDashboardStore store, IProfileStore profiles, IExchangeStore exchanges, AvatarUrls avatars, TimeProvider clock, Reviews.ReviewService reviews)
     {
+        _reviews = reviews;
         _store = store;
         _profiles = profiles;
         _exchanges = exchanges;
@@ -64,6 +67,12 @@ public sealed class DashboardService
 
         // Как в публичном профиле: у «Новичка» средней оценки нет, два отзыва ничего не говорят о человеке.
         var rating = new DashboardRatingDto(user.IsNewcomer ? null : user.RatingAvg, user.RatingCount, user.IsNewcomer);
-        return new DashboardDto(next, data.Counters, data.Stats, rating, data.Actions);
+        // «Оставьте отзыв»: обмены, по которым есть право на отзыв и отзыва ещё нет. Срочные (с ближайшим сроком) идут выше остальных действий.
+        var invitations = await _reviews.PendingInvitationsAsync(userId, ct);
+        var actions = data.Actions
+            .Concat(invitations.Select(i => new ActionNeededDto(ActionTypes.WriteReview, null, i.ExchangeId, null, i.DeadlineAt)))
+            .OrderBy(a => a.DueAt)
+            .ToList();
+        return new DashboardDto(next, data.Counters, data.Stats, rating, actions);
     }
 }

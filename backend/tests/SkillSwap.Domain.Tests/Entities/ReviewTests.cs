@@ -14,7 +14,7 @@ public class ReviewTests
     private static readonly string GoodText = "Хороший преподаватель, всё объяснил понятно.";
 
     private static Review New(int k = 5, int e = 4, int p = 3, int po = 4, string? text = null, bool full = false) =>
-        Review.Create(Exchange, A, B, k, e, p, po, text ?? GoodText, full);
+        Review.Create(Exchange, A, B, k, e, p, po, text ?? GoodText, full, Now);
 
     // ---------- создание ----------
 
@@ -63,7 +63,7 @@ public class ReviewTests
     {
         Assert.Equal("review_text_too_short", Assert.Throws<DomainValidationException>(() => New(text: new string('а', 19))).Code);
         Assert.Equal("review_text_too_short", Assert.Throws<DomainValidationException>(() => New(text: "  " + new string('а', 19) + "  ")).Code);   // пробелы не считаются
-        Assert.Equal("review_text_too_short", Assert.Throws<DomainValidationException>(() => Review.Create(Exchange, A, B, 5, 5, 5, 5, null, false)).Code);
+        Assert.Equal("review_text_too_short", Assert.Throws<DomainValidationException>(() => Review.Create(Exchange, A, B, 5, 5, 5, 5, null, false, Now)).Code);
         Assert.Equal("review_text_too_long", Assert.Throws<DomainValidationException>(() => New(text: new string('а', 1001))).Code);
 
         Assert.Equal(new string('а', 20), New(text: "  " + new string('а', 20) + "\n").Text);
@@ -73,7 +73,7 @@ public class ReviewTests
     [Fact]
     public void Nobody_reviews_themselves()
     {
-        Assert.Equal("review_self", Assert.Throws<DomainValidationException>(() => Review.Create(Exchange, A, A, 5, 5, 5, 5, GoodText, false)).Code);
+        Assert.Equal("review_self", Assert.Throws<DomainValidationException>(() => Review.Create(Exchange, A, A, 5, 5, 5, 5, GoodText, false, Now)).Code);
     }
 
     [Fact]
@@ -81,6 +81,38 @@ public class ReviewTests
     {
         Assert.Equal(TimeSpan.FromDays(14), Review.WriteWindow);
         Assert.Equal(TimeSpan.FromDays(7), Review.BlindWindow);
+    }
+
+    // ---------- срок публикации ----------
+
+    [Fact]
+    public void A_review_is_due_for_publication_seven_days_after_it_was_written_and_not_earlier()
+    {
+        var r = New();
+
+        Assert.Equal(Now.AddDays(7), r.PublishDueAt);
+        Assert.False(r.IsDueForPublication(Now.AddDays(7).AddTicks(-1)));
+        Assert.True(r.IsDueForPublication(Now.AddDays(7)));
+        Assert.True(r.IsDueForPublication(Now.AddDays(30)));
+    }
+
+    [Fact]
+    public void Editing_does_not_move_the_publication_time()
+    {
+        var r = New();
+
+        r.Edit(2, 2, 2, 2, "Переписал отзыв, теперь он честнее и подробнее.");
+
+        Assert.Equal(Now.AddDays(7), r.PublishDueAt);
+    }
+
+    [Fact]
+    public void A_published_review_is_never_due_again()
+    {
+        var r = New();
+        r.Publish(Now.AddDays(1));
+
+        Assert.False(r.IsDueForPublication(Now.AddDays(30)));
     }
 
     // ---------- правка и публикация ----------

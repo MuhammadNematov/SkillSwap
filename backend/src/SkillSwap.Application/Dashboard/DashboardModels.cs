@@ -57,6 +57,7 @@ public static class ActionTypes
     public const string ConfirmSession = "ConfirmSession";
     public const string FinishExchange = "FinishExchange";
     public const string AnswerExtension = "AnswerExtension";
+    public const string WriteReview = "WriteReview";
 }
 
 /// <summary>Сырые данные для главной: считаются несколькими небольшими запросами в хранилище.</summary>

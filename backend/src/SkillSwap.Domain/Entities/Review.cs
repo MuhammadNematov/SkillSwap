@@ -42,6 +42,9 @@ public class Review : BaseEntity
     public ReviewStatus Status { get; private set; } = ReviewStatus.Pending;
     public DateTime? PublishedAt { get; private set; }
 
+    /// <summary>Когда отзыв опубликуется сам, если партнёр так и не напишет (написан + 7 дней, раздел 8.1 ТЗ). Хранится явно: задача публикации сверяется с ним, а не с временем записи в БД.</summary>
+    public DateTime PublishDueAt { get; private set; }
+
     /// <summary>Средняя из четырёх оценок: столько этот отзыв весит в рейтинге адресата.</summary>
     public decimal Average => (ScoreKnowledge + ScoreExplaining + ScorePunctuality + ScorePoliteness) / 4m;
 
@@ -52,14 +55,14 @@ public class Review : BaseEntity
     public bool IsVisible => Status is ReviewStatus.Published or ReviewStatus.Frozen;
 
     public static Review Create(
-        Guid exchangeId, Guid authorId, Guid targetId, int knowledge, int explaining, int punctuality, int politeness, string? text, bool isFullExchange)
+        Guid exchangeId, Guid authorId, Guid targetId, int knowledge, int explaining, int punctuality, int politeness, string? text, bool isFullExchange, DateTime now)
     {
         if (authorId == targetId)
         {
             throw new DomainValidationException("review_self", "Отзыв о самом себе невозможен.");
         }
 
-        var review = new Review { ExchangeId = exchangeId, AuthorId = authorId, TargetId = targetId, IsFullExchange = isFullExchange };
+        var review = new Review { ExchangeId = exchangeId, AuthorId = authorId, TargetId = targetId, IsFullExchange = isFullExchange, PublishDueAt = now + BlindWindow };
         review.Fill(knowledge, explaining, punctuality, politeness, text);
         return review;
     }
@@ -74,6 +77,9 @@ public class Review : BaseEntity
 
         Fill(knowledge, explaining, punctuality, politeness, text);
     }
+
+    /// <summary>Пора ли опубликовать отзыв по сроку (прошло 7 дней после написания, партнёр так и не написал).</summary>
+    public bool IsDueForPublication(DateTime now) => Status == ReviewStatus.Pending && now >= PublishDueAt;
 
     /// <summary>Слепая публикация: Pending → Published. Повторный вызов для уже опубликованного ничего не меняет.</summary>
     /// <returns>true, если отзыв стал опубликованным этим вызовом.</returns>

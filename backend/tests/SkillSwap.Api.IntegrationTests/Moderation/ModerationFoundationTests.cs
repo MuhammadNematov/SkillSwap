@@ -346,8 +346,8 @@ public class ModerationFoundationTests
         return 0;
     });
 
-    private static Review NewReview(Guid exchangeId, Guid author, Guid target) =>
-        Review.Create(exchangeId, author, target, 5, 4, 3, 4, "Хороший преподаватель, всё объяснил понятно.", false);
+    private Review NewReview(Guid exchangeId, Guid author, Guid target) =>
+        Review.Create(exchangeId, author, target, 5, 4, 3, 4, "Хороший преподаватель, всё объяснил понятно.", false, Now);
 
     [Fact]
     public async Task An_author_writes_one_review_per_exchange_and_the_partner_may_write_theirs()

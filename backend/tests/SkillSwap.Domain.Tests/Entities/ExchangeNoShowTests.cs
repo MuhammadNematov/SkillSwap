@@ -77,4 +77,18 @@ public class ExchangeNoShowTests
         Assert.False(e.AbortedForNoShow);
         Assert.Equal(A, e.AbortedById);   // обычный выход: виновный — вышедший
     }
+
+    [Fact]
+    public void Review_invitations_and_the_reminder_are_marked_once_each()
+    {
+        var e = New();
+
+        Assert.True(e.MarkReviewInvitesSent(Now));
+        Assert.False(e.MarkReviewInvitesSent(Now.AddDays(1)));
+        Assert.Equal(Now, e.ReviewInvitesSentAt);
+
+        Assert.True(e.MarkReviewReminderSent(Now.AddDays(12)));
+        Assert.False(e.MarkReviewReminderSent(Now.AddDays(13)));
+        Assert.Equal(Now.AddDays(12), e.ReviewReminderSentAt);
+    }
 }

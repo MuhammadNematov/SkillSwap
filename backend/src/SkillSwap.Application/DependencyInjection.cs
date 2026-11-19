@@ -47,6 +47,9 @@ public static class DependencyInjection
         services.AddScoped<LessonSessionService>();
         services.AddScoped<VideoRoomService>();
         services.AddScoped<Moderation.ChatAccessPolicy>();
+        services.AddScoped<Reviews.ReviewService>();
+        services.AddScoped<Reviews.ReviewJobs>();
+        services.AddScoped<Reviews.ReviewScheduler>();
         services.AddScoped<VideoAttendanceService>();
         services.AddScoped<Abstractions.ILiveKitEventProcessor>(sp => sp.GetRequiredService<VideoAttendanceService>());
         services.AddScoped<LessonSessionJobs>();

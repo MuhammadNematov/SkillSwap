@@ -65,6 +65,12 @@ public sealed class ExchangeStore : IExchangeStore
         return (await ToRowsAsync(pageOf, ct), total);
     }
 
+    public async Task<IReadOnlyList<ExchangeRow>> ListClosedSinceAsync(Guid userId, DateTime closedSince, CancellationToken ct) =>
+        await ToRowsAsync(_db.Exchanges.AsNoTracking().Where(e =>
+            (e.UserAId == userId || e.UserBId == userId)
+            && (e.Status == ExchangeStatus.Completed || e.Status == ExchangeStatus.Aborted)
+            && e.ClosedAt >= closedSince), ct);
+
     private async Task<List<ExchangeRow>> ToRowsAsync(IQueryable<Exchange> exchanges, CancellationToken ct)
     {
         var list = await exchanges.ToListAsync(ct);

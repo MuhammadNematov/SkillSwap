@@ -7,6 +7,9 @@ public interface IProfileStore
     /// <summary>Пользователь для чтения (без отслеживания изменений).</summary>
     Task<User?> FindUserAsync(Guid id, CancellationToken ct);
 
+    /// <summary>Несколько пользователей сразу (авторы отзывов); неизвестные в словаре отсутствуют.</summary>
+    Task<IReadOnlyDictionary<Guid, User>> FindUsersAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
+
     /// <summary>Пользователь для изменения (с отслеживанием).</summary>
     Task<User?> FindUserForUpdateAsync(Guid id, CancellationToken ct);
 

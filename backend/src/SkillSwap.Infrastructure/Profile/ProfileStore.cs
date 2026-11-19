@@ -19,6 +19,9 @@ public sealed class ProfileStore : IProfileStore
     public Task<User?> FindUserAsync(Guid id, CancellationToken ct) =>
         _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
 
+    public async Task<IReadOnlyDictionary<Guid, User>> FindUsersAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        ids.Count == 0 ? new Dictionary<Guid, User>() : await _db.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, ct);
+
     public async Task<IReadOnlyDictionary<Guid, DateOnly>> GetBirthDatesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
         await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id) && u.DateOfBirth != null)
             .ToDictionaryAsync(u => u.Id, u => u.DateOfBirth!.Value, ct);

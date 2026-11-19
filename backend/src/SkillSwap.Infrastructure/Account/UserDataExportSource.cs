@@ -69,14 +69,66 @@ public sealed class UserDataExportSource : IUserDataExportSource
 
         json.WriteEndArray();
 
-        // Отзывы появятся на следующем этапе (раздел 8.1): пока таблицы нет, секции пустые, формат выгрузки их уже предусматривает.
-        json.WriteStartArray("reviewsWritten");
-        json.WriteEndArray();
-        json.WriteStartArray("reviewsReceived");
-        json.WriteEndArray();
+        await WriteReviewsAsync(json, userId, names, ct);
 
         json.WriteEndObject();
         await json.FlushAsync(ct);
+    }
+
+    /// <summary>
+    /// Отзывы (раздел 8.1 ТЗ). Написанные пользователем выгружаются все, в том числе ещё не опубликованные и скрытые (это его собственный текст). Полученные
+    /// только опубликованные: отзыв обо мне, который ещё скрыт слепой публикацией, я увидеть не должен и в выгрузке тоже.
+    /// </summary>
+    private async Task WriteReviewsAsync(Utf8JsonWriter json, Guid userId, IReadOnlyDictionary<Guid, string> names, CancellationToken ct)
+    {
+        var written = await _db.Reviews.AsNoTracking().Where(r => r.AuthorId == userId).OrderBy(r => r.CreatedAt).ToListAsync(ct);
+        var received = await _db.Reviews.AsNoTracking()
+            .Where(r => r.TargetId == userId && (r.Status == ReviewStatus.Published || r.Status == ReviewStatus.Frozen))
+            .OrderBy(r => r.PublishedAt).ToListAsync(ct);
+
+        var peopleIds = written.Select(r => r.TargetId).Concat(received.Select(r => r.AuthorId)).Where(id => !names.ContainsKey(id)).Distinct().ToList();
+        var more = await _db.Users.AsNoTracking().Where(u => peopleIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.Status == UserStatus.Deleted ? User.DeletedDisplayName : u.Name, ct);
+        string NameOf(Guid id) => names.TryGetValue(id, out var n) ? n : more.GetValueOrDefault(id, User.DeletedDisplayName);
+
+        void Write(string name, IEnumerable<Review> reviews, Func<Review, Guid> otherSide, string otherKey, bool withStatus)
+        {
+            json.WriteStartArray(name);
+            foreach (var r in reviews)
+            {
+                json.WriteStartObject();
+                json.WriteString("id", r.Id);
+                json.WriteString("exchangeId", r.ExchangeId);
+                json.WriteString(otherKey, NameOf(otherSide(r)));
+                json.WriteNumber("scoreKnowledge", r.ScoreKnowledge);
+                json.WriteNumber("scoreExplaining", r.ScoreExplaining);
+                json.WriteNumber("scorePunctuality", r.ScorePunctuality);
+                json.WriteNumber("scorePoliteness", r.ScorePoliteness);
+                json.WriteString("text", r.Text);
+                json.WriteBoolean("isFullExchange", r.IsFullExchange);
+                if (withStatus)
+                {
+                    json.WriteString("status", r.Status.ToString());
+                }
+
+                json.WriteString("createdAt", r.CreatedAt);
+                if (r.PublishedAt is { } publishedAt)
+                {
+                    json.WriteString("publishedAt", publishedAt);
+                }
+                else
+                {
+                    json.WriteNull("publishedAt");
+                }
+
+                json.WriteEndObject();
+            }
+
+            json.WriteEndArray();
+        }
+
+        Write("reviewsWritten", written, r => r.TargetId, "about", withStatus: true);
+        Write("reviewsReceived", received, r => r.AuthorId, "from", withStatus: false);
     }
 
     private static void WriteAccount(Utf8JsonWriter json, User user)

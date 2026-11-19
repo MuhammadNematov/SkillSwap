@@ -18,12 +18,14 @@ public sealed class UserBlockService
     private readonly IExchangeRequestStore _requests;
     private readonly IExchangeStore _exchanges;
     private readonly Sessions.LessonSessionService _lessons;
+    private readonly Reviews.ReviewScheduler _reviewScheduler;
     private readonly INotificationPublisher _notify;
     private readonly TimeProvider _clock;
 
     public UserBlockService(
-        IProfileStore profiles, IUserBlockStore blocks, IUnitOfWork uow, IExchangeRequestStore requests, IExchangeStore exchanges, INotificationPublisher notify, TimeProvider clock, Sessions.LessonSessionService lessons)
+        IProfileStore profiles, IUserBlockStore blocks, IUnitOfWork uow, IExchangeRequestStore requests, IExchangeStore exchanges, INotificationPublisher notify, TimeProvider clock, Sessions.LessonSessionService lessons, Reviews.ReviewScheduler reviewScheduler)
     {
+        _reviewScheduler = reviewScheduler;
         _profiles = profiles;
         _blocks = blocks;
         _uow = uow;
@@ -53,6 +55,7 @@ public sealed class UserBlockService
         // Одна транзакция под блокировкой обоих: блокировка, закрытие ожидающих заявок между ними (Expired) и прерывание активного обмена
         // (Aborted с причиной «блокировка», без виновного). Либо всё, либо ничего.
         var cancelledSessions = new List<Sessions.LessonSessionDto>();
+        var closedExchanges = new List<(Guid Id, DateTime ClosedAt)>();
         var outcome = await _uow.ExecuteAsync(async token =>
         {
             await _uow.LockUsersAsync([blockerId, targetId], token);
@@ -72,7 +75,8 @@ public sealed class UserBlockService
             {
                 if (exchange.Status == ExchangeStatus.Active)
                 {
-                    exchange.AbortByBlock(blockerId, now);   // замороженный остаётся у модератора: разбирательство не прерывается блокировкой
+                    exchange.AbortByBlock(blockerId, now);
+                    closedExchanges.Add((exchange.Id, now));   // замороженный остаётся у модератора: разбирательство не прерывается блокировкой
                     _notify.Add(targetId, NotificationType.ExchangeAborted, new { exchangeId = exchange.Id, reason = ExchangeService.PartnerUnavailable });   // заблокированному — нейтральная причина; блокировавшего не уведомляем
                     cancelledSessions.AddRange(await _lessons.CancelOpenAsync(exchange.Id, exchange.UserAId, exchange.UserBId, token));
                 }
@@ -84,6 +88,10 @@ public sealed class UserBlockService
 
         _notify.Dispatch();
         await _lessons.PublishUpdatesAsync(cancelledSessions);
+        foreach (var (id, closedAt) in closedExchanges)
+        {
+            _reviewScheduler.OnExchangeClosed(id, closedAt);   // блокировка не отнимает право на отзыв (раздел 8.1 ТЗ): приглашение уходит обоим, у кого оно есть
+        }
 
         switch (outcome)
         {

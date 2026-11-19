@@ -75,11 +75,10 @@ public sealed class ProfileService
     }
 
     /// <summary>
-    /// Профиль другого пользователя. Нельзя увидеть: служебные аккаунты, заблокированных и удалённых, а также скрытых
-    /// из подбора (кроме самого себя). Во всех этих случаях ответ одинаков: 404, чтобы по нему нельзя было узнать,
-    /// почему профиля нет. Так же скрыт профиль при блокировке в любую сторону. Возрастные группы добавятся на шаге 6.
+    /// Можно ли зрителю видеть профиль этого пользователя (служебные, заблокированные, удалённые, скрытые, блокировки в обе стороны, возрастные группы).
+    /// Любая причина отказа даёт один и тот же 404, служебному аккаунту 403. Тот же набор правил у списка отзывов человека.
     /// </summary>
-    public async Task<PublicProfileDto> GetPublicAsync(Guid viewerId, bool viewerIsRegular, Guid targetId, CancellationToken ct)
+    public async Task<User> RequireVisibleAsync(Guid viewerId, bool viewerIsRegular, Guid targetId, CancellationToken ct)
     {
         if (!viewerIsRegular)
         {
@@ -109,6 +108,13 @@ public sealed class ProfileService
                 throw new NotFoundException("user_not_found", "Пользователь не найден.");
             }
         }
+
+        return user;
+    }
+
+    public async Task<PublicProfileDto> GetPublicAsync(Guid viewerId, bool viewerIsRegular, Guid targetId, CancellationToken ct)
+    {
+        var user = await RequireVisibleAsync(viewerId, viewerIsRegular, targetId, ct);
 
         var languages = await _store.GetLanguagesAsync(targetId, ct);
         var skills = await _skills.ListActiveAsync(targetId, ct);

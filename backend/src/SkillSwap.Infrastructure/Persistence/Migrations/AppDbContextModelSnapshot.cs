@@ -641,6 +641,12 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("RequestId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ReviewInvitesSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ReviewReminderSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("SkillAId")
                         .HasColumnType("uuid");
 
@@ -1114,6 +1120,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsFullExchange")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime>("PublishDueAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("timestamp with time zone");

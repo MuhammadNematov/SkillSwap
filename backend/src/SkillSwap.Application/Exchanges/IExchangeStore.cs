@@ -32,6 +32,9 @@ public interface IExchangeStore
     /// <summary>Обмены, чат которых виден пользователю: активные, замороженные и закрытые не раньше <paramref name="closedAfter"/>.</summary>
     Task<IReadOnlyList<Guid>> ListChatExchangeIdsAsync(Guid userId, DateTime closedAfter, CancellationToken ct);
 
+    /// <summary>Закрытые (завершённые и прерванные) обмены пользователя, закрытые не раньше <paramref name="closedSince"/>: по ним решается право на отзыв.</summary>
+    Task<IReadOnlyList<ExchangeRow>> ListClosedSinceAsync(Guid userId, DateTime closedSince, CancellationToken ct);
+
     /// <summary>Обмены, в которых участвует пользователь: новые сверху.</summary>
     Task<(IReadOnlyList<ExchangeRow> Items, int Total)> ListAsync(Guid userId, ExchangeStatus? status, int page, int pageSize, CancellationToken ct);
 }

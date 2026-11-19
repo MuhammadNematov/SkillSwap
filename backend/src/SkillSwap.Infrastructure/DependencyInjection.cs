@@ -157,6 +157,7 @@ public static class DependencyInjection
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddScoped<SkillSwap.Application.Moderation.IRequestInfo, Moderation.NullRequestInfo>(services);
         services.AddScoped<SkillSwap.Application.Moderation.IAuditLog, Moderation.AuditLogWriter>();
         services.AddScoped<SkillSwap.Application.Moderation.IChatAccessGrantStore, Moderation.ChatAccessGrantStore>();
+        services.AddScoped<SkillSwap.Application.Reviews.IReviewStore, Moderation.ReviewStore>();
         services.AddScoped<IDashboardStore, DashboardStore>();
         services.AddScoped<IAccountStore, SkillSwap.Infrastructure.Account.AccountStore>();
         services.AddScoped<IDataExportStore, SkillSwap.Infrastructure.Account.DataExportStore>();

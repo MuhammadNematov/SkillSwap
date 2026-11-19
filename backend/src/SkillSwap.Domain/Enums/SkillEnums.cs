@@ -108,6 +108,15 @@ public enum NotificationType
 
     /// <summary>На урок не пришёл никто (проверка на 15-й минуте).</summary>
     SessionMissed,
+
+    /// <summary>Обмен закрыт, можно оставить отзыв (14 дней). В данных: exchangeId, userId и userName партнёра, deadlineAt.</summary>
+    ReviewAvailable,
+
+    /// <summary>Срок отзыва заканчивается (за 2 дня), вы ещё не написали.</summary>
+    ReviewReminder,
+
+    /// <summary>О вас опубликован отзыв (слепая публикация: написали оба или прошло 7 дней). В данных: exchangeId, reviewId, userId и userName автора.</summary>
+    ReviewPublished,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

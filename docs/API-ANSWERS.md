@@ -26,7 +26,7 @@
 }
 ```
 
-Отличия от прикидочной формы: статус урока `Scheduled` (а не `Confirmed`), добавлены `endAt` и `canJoinUntil`, у `partner` есть `isDeleted`; в `actionsNeeded` пока нет `WriteReview` (появится вместе с отзывами), зато есть `AnswerRequest`, `AnswerSession`, `ConfirmSession`, `FinishExchange`, `AnswerExtension`. Вход в видеокомнату (`canJoinFrom`) заработает на этапе 5.
+Отличия от прикидочной формы: статус урока `Scheduled` (а не `Confirmed`), добавлены `endAt` и `canJoinUntil`, у `partner` есть `isDeleted`; в `actionsNeeded` есть `WriteReview` (отзыв по закрытому обмену, `dueAt` — срок отзыва), а также `AnswerRequest`, `AnswerSession`, `ConfirmSession`, `FinishExchange`, `AnswerExtension`. Вход в видеокомнату (`canJoinFrom`) заработает на этапе 5.
 
 ## Вопросы этапа 5 (видеокомната, чат, список чатов)
 
