@@ -148,6 +148,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationStore, NotificationStore>();
         services.AddScoped<IMessageStore, MessageStore>();
         services.AddScoped<ILessonSessionStore, LessonSessionStore>();
+        services.AddScoped<ISessionAttendanceStore, SessionAttendanceStore>();
         services.AddScoped<IDashboardStore, DashboardStore>();
         services.AddScoped<IAccountStore, SkillSwap.Infrastructure.Account.AccountStore>();
         services.AddScoped<IDataExportStore, SkillSwap.Infrastructure.Account.DataExportStore>();

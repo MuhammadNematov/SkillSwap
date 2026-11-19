@@ -35,4 +35,12 @@ public sealed class LiveKitWebhookEventStore : ILiveKitWebhookEventStore
 
         return inserted == 1;
     }
+
+    public Task<LiveKitWebhookEvent?> FindAsync(string eventId, CancellationToken ct = default) =>
+        _db.Set<LiveKitWebhookEvent>().FirstOrDefaultAsync(e => e.EventId == eventId, ct);
+
+    public async Task<IReadOnlyList<LiveKitWebhookEvent>> ListByRoomAsync(string roomName, CancellationToken ct = default) =>
+        await _db.Set<LiveKitWebhookEvent>().AsNoTracking().Where(e => e.RoomName == roomName).ToListAsync(ct);
+
+    public Task SaveAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
 }

@@ -74,10 +74,10 @@ public class LiveKitWebhookFlowTests
         Assert.Equal(room, row.RoomName);
         Assert.Equal("alice-1", row.ParticipantIdentity);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1794940518).UtcDateTime, row.OccurredAt);
-        Assert.Null(row.ProcessedAt);   // обработка в посещаемость — этап 5
+        Assert.NotNull(row.ProcessedAt);   // событие не про урок: учтено как «нечего менять»
         Assert.NotEqual(Guid.Empty, row.Id);
         Assert.True(row.CreatedAt > _factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(-5));
-        Assert.Equal(row.CreatedAt, row.UpdatedAt);
+        Assert.True(row.UpdatedAt >= row.CreatedAt);   // UpdatedAt сдвигается отметкой «обработано»
     }
 
     [Fact]

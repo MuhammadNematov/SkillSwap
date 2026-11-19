@@ -329,6 +329,17 @@ public class LiveKitWebhookServiceTests
         }
     }
 
+    private sealed class FakeProcessor : ILiveKitEventProcessor
+    {
+        public List<string> Processed { get; } = [];
+
+        public Task ProcessAsync(string eventId, CancellationToken ct)
+        {
+            Processed.Add(eventId);
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakeStore(bool isNew) : ILiveKitWebhookEventStore
     {
         public List<LiveKitWebhookEvent> Added { get; } = [];
@@ -338,6 +349,13 @@ public class LiveKitWebhookServiceTests
             Added.Add(webhookEvent);
             return Task.FromResult(isNew);
         }
+
+        public Task<LiveKitWebhookEvent?> FindAsync(string eventId, CancellationToken ct = default) => Task.FromResult<LiveKitWebhookEvent?>(null);
+
+        public Task<IReadOnlyList<LiveKitWebhookEvent>> ListByRoomAsync(string roomName, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<LiveKitWebhookEvent>>([]);
+
+        public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private static readonly FakeTimeProvider Clock = new(new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero));
@@ -347,7 +365,7 @@ public class LiveKitWebhookServiceTests
     public async Task A_bad_signature_is_unauthorized_and_nothing_is_read_or_stored()
     {
         var store = new FakeStore(true);
-        var service = new LiveKitWebhookService(new FakeVerifier(false), store, Clock);
+        var service = new LiveKitWebhookService(new FakeVerifier(false), store, Clock, new FakeProcessor());
 
         // Тело заведомо мусорное: при плохой подписи важно, что ответ «нет доступа», а не «плохое тело».
         var result = await service.ReceiveAsync("token", Body("not json at all"));
@@ -360,7 +378,7 @@ public class LiveKitWebhookServiceTests
     public async Task The_verifier_gets_exactly_the_header_and_the_raw_bytes()
     {
         var verifier = new FakeVerifier(true);
-        var service = new LiveKitWebhookService(verifier, new FakeStore(true), Clock);
+        var service = new LiveKitWebhookService(verifier, new FakeStore(true), Clock, new FakeProcessor());
         var body = Body(LiveKitBodies.RoomStarted("EV_1", "dev-room"));
 
         await service.ReceiveAsync("the-header", body);
@@ -374,7 +392,7 @@ public class LiveKitWebhookServiceTests
     public async Task A_good_signature_and_a_bad_body_is_malformed_and_stores_nothing()
     {
         var store = new FakeStore(true);
-        var service = new LiveKitWebhookService(new FakeVerifier(true), store, Clock);
+        var service = new LiveKitWebhookService(new FakeVerifier(true), store, Clock, new FakeProcessor());
 
         Assert.Equal(WebhookResult.Malformed, await service.ReceiveAsync("t", Body("{}")));
         Assert.Empty(store.Added);
@@ -384,7 +402,7 @@ public class LiveKitWebhookServiceTests
     public async Task A_new_event_is_accepted_and_stored_with_its_fields()
     {
         var store = new FakeStore(true);
-        var service = new LiveKitWebhookService(new FakeVerifier(true), store, Clock);
+        var service = new LiveKitWebhookService(new FakeVerifier(true), store, Clock, new FakeProcessor());
 
         var result = await service.ReceiveAsync("t", Body(LiveKitBodies.ParticipantJoined("EV_9", "dev-room", "alice-1")));
 
@@ -397,7 +415,7 @@ public class LiveKitWebhookServiceTests
     [Fact]
     public async Task A_repeated_event_is_reported_as_a_duplicate()
     {
-        var service = new LiveKitWebhookService(new FakeVerifier(true), new FakeStore(isNew: false), Clock);
+        var service = new LiveKitWebhookService(new FakeVerifier(true), new FakeStore(isNew: false), Clock, new FakeProcessor());
 
         var result = await service.ReceiveAsync("t", Body(LiveKitBodies.RoomStarted("EV_1", "dev-room")));
 

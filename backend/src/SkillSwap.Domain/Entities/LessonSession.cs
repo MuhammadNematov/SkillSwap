@@ -96,9 +96,12 @@ public class LessonSession : BaseEntity
     /// <summary>Момент предварительной проверки (старт + 15 минут).</summary>
     public DateTime FirstCheckAt => StartAt + FirstCheckAfterStart;
 
+    /// <summary>Урок в таком статусе, что присутствие в комнате ещё учитывается (подтверждён и не закрыт).</summary>
+    public bool AcceptsPresence => Status is SessionStatus.Scheduled or SessionStatus.InProgress or SessionStatus.NoShow or SessionStatus.Missed;
+
     /// <summary>Можно ли сейчас получить токен: урок подтверждён и идёт (или ещё может идти) и время в окне комнаты. Статус Missed и NoShow входят: опоздавший может зайти.</summary>
     public bool IsJoinableAt(DateTime now) =>
-        Status is SessionStatus.Scheduled or SessionStatus.InProgress or SessionStatus.NoShow or SessionStatus.Missed
+        AcceptsPresence
         && now >= JoinOpensAt && now < RoomClosesAt;
 
     /// <summary>Первый участник вошёл в комнату: Scheduled → InProgress. В любом другом статусе ничего не меняет (повторный вход, опоздавший).</summary>
