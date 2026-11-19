@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddSingleton<ChatThrottle>();
         services.AddScoped<NewMessagesNotifier>();
         services.AddScoped<LessonSessionService>();
+        services.AddScoped<VideoRoomService>();
         services.AddScoped<LessonSessionJobs>();
         services.AddScoped<Dashboard.DashboardService>();
         services.AddScoped<Account.AccountDeletionService>();

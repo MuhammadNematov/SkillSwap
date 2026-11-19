@@ -18,10 +18,12 @@ namespace SkillSwap.Api.Controllers;
 public class LessonsController : ControllerBase
 {
     private readonly LessonSessionService _lessons;
+    private readonly VideoRoomService _video;
 
-    public LessonsController(LessonSessionService lessons)
+    public LessonsController(LessonSessionService lessons, VideoRoomService video)
     {
         _lessons = lessons;
+        _video = video;
     }
 
     /// <summary>
@@ -135,5 +137,26 @@ public class LessonsController : ControllerBase
     public async Task<IActionResult> ConfirmManual(Guid id, CancellationToken ct) =>
         Ok(await _lessons.ConfirmManualAsync(UserId(), id, ct));
 
+
+    /// <summary>
+    /// Токен входа в видеокомнату урока (раздел 7.2 ТЗ). Только участникам обмена (чужой урок — 404 <c>session_not_found</c>), только для подтверждённого
+    /// урока и только в окне: за 10 минут до начала и до начала + 75 минут. Ответ: <c>token</c>, <c>url</c> (WebSocket медиасервера), <c>roomName</c>
+    /// (<c>session-{id}</c>), <c>expiresAt</c>, <c>startAt</c>, <c>plannedEndAt</c> (начало + 45 минут: на 40-й минуте фронтенд сам показывает
+    /// «осталось 5 минут»), <c>roomClosesAt</c>. Не кэшируется. Ошибки 409: <c>join_window_not_open</c> (<c>opensAt</c>), <c>join_window_closed</c> (<c>closedAt</c>),
+    /// <c>session_not_joinable</c> (<c>sessionStatus</c>: урок не подтверждён или уже закрыт), <c>exchange_frozen</c> (обмен заморожен), <c>exchange_not_active</c>
+    /// (обмен завершён или прерван); 503 <c>livekit_not_configured</c>.
+    /// </summary>
+    [HttpPost("sessions/{id:guid}/join-token")]
+    [ProducesResponseType<JoinTokenDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> JoinToken(Guid id, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        return Ok(await _video.CreateJoinTokenAsync(UserId(), id, ct));
+    }
     private Guid UserId() => Guid.Parse(User.FindFirstValue("sub")!);
 }
