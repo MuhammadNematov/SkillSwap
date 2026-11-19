@@ -35,6 +35,9 @@ public sealed class ExchangeStore : IExchangeStore
         await _db.Exchanges.Where(e => Occupying.Contains(e.Status) &&
             ((e.UserAId == userA && e.UserBId == userB) || (e.UserAId == userB && e.UserBId == userA))).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Exchange>> FindOpenForUserForUpdateAsync(Guid userId, CancellationToken ct) =>
+        await _db.Exchanges.Where(e => (e.UserAId == userId || e.UserBId == userId) && Occupying.Contains(e.Status)).ToListAsync(ct);
+
     public async Task<ExchangeRow?> GetViewAsync(Guid id, CancellationToken ct) =>
         (await ToRowsAsync(_db.Exchanges.AsNoTracking().Where(e => e.Id == id), ct)).FirstOrDefault();
 
@@ -73,7 +76,7 @@ public sealed class ExchangeStore : IExchangeStore
         var userIds = list.SelectMany(e => new[] { e.UserAId, e.UserBId }).Distinct().ToList();
         var skillIds = list.SelectMany(e => new[] { e.SkillAId, e.SkillBId }).Distinct().ToList();
         var users = await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
-            .Select(u => new RequestUserDto(u.Id, u.Name, u.AvatarKey)).ToDictionaryAsync(u => u.Id, ct);
+            .Select(u => new RequestUserDto(u.Id, u.Status == UserStatus.Deleted ? User.DeletedDisplayName : u.Name, u.Status == UserStatus.Deleted ? null : u.AvatarKey, u.Status == UserStatus.Deleted)).ToDictionaryAsync(u => u.Id, ct);
         var skills = await _db.Skills.AsNoTracking().Where(s => skillIds.Contains(s.Id))
             .Select(s => new RequestSkillDto(s.Id, s.NameTg, s.NameRu, s.NameEn)).ToDictionaryAsync(s => s.Id, ct);
 

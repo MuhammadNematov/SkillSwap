@@ -46,6 +46,9 @@ public static class DependencyInjection
         services.AddScoped<NewMessagesNotifier>();
         services.AddScoped<LessonSessionService>();
         services.AddScoped<LessonSessionJobs>();
+        services.AddScoped<Account.AccountDeletionService>();
+        services.AddScoped<Account.DataExportService>();
+        services.AddScoped<Account.DataExportJobs>();
         services.AddScoped<AttachmentService>();
         services.AddScoped<AvatarService>();
         services.AddScoped<AvatarUrls>();

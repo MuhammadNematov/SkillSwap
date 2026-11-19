@@ -57,6 +57,9 @@ public sealed class UserBlockStore : IUserBlockStore
                select new BlockedUserDto(u.Id, u.Name, u.AvatarKey, b.CreatedAt))
             .ToListAsync(ct);
 
+    public async Task RemoveAllForUserAsync(Guid userId, CancellationToken ct) =>
+        await _db.UserBlocks.Where(b => b.UserId == userId || b.BlockedUserId == userId).ExecuteDeleteAsync(ct);
+
     public async Task<IReadOnlySet<Guid>> BlockedEitherWayAmongAsync(Guid userId, IReadOnlyCollection<Guid> otherIds, CancellationToken ct)
     {
         var asBlocker = _db.UserBlocks.AsNoTracking().Where(b => b.UserId == userId && otherIds.Contains(b.BlockedUserId)).Select(b => b.BlockedUserId);

@@ -259,6 +259,15 @@ public sealed class TwoFactorService
         return step is { } s && await _steps.TryUseStepAsync(user.Id, s, ct);
     }
 
+    /// <summary>
+    /// Проверка второго фактора для опасных действий (удаление аккаунта): код приложения или резервный код. Использованный код сгорает.
+    /// Счёт неудачных попыток ведёт вызывающий.
+    /// </summary>
+    public async Task<bool> VerifySecondFactorAsync(User user, string code, bool isRecoveryCode, CancellationToken ct = default) =>
+        isRecoveryCode
+            ? await _recoveryCodes.TryRedeemAsync(user.Id, RecoveryCodes.Hash(code), ct)
+            : await VerifyTotpAsync(user, code, ct);
+
     /// <summary>Код из приложения вводят с пробелом или дефисом («123 456», «123-456»).</summary>
     private static string NormalizeCode(string code) => code.Replace(" ", string.Empty).Replace("-", string.Empty);
 

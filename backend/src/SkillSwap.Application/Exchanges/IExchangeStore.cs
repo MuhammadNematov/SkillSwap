@@ -23,6 +23,9 @@ public interface IExchangeStore
 
     Task<ExchangeRow?> GetViewAsync(Guid id, CancellationToken ct);
 
+    /// <summary>Активные и замороженные обмены пользователя (для изменения, с отслеживанием): при удалении аккаунта они прерываются.</summary>
+    Task<IReadOnlyList<Exchange>> FindOpenForUserForUpdateAsync(Guid userId, CancellationToken ct);
+
     /// <summary>Несколько обменов сразу (для календаря и истории чата).</summary>
     Task<IReadOnlyDictionary<Guid, ExchangeRow>> GetViewsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 

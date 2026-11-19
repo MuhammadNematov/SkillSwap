@@ -36,6 +36,11 @@ public sealed class ProfileService
     public async Task<MyProfileDto> GetMineAsync(Guid userId, CancellationToken ct)
     {
         var user = await _store.FindUserAsync(userId, ct) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
+        if (user.Status == UserStatus.Deleted)
+        {
+            throw new ForbiddenException("account_not_active", "Аккаунт удалён.");   // access-токен удалённого аккаунта живёт ещё до 15 минут
+        }
+
         return ToMine(user, await _store.GetLanguagesAsync(userId, ct), await _skills.IsSkillsCompleteAsync(userId, ct));
     }
 

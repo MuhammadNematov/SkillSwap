@@ -33,6 +33,9 @@ public sealed class ExchangeRequestStore : IExchangeRequestStore
             r.Status == ExchangeRequestStatus.Pending && r.ExpiresAt > now &&
             ((r.FromUserId == userA && r.ToUserId == userB) || (r.FromUserId == userB && r.ToUserId == userA)), ct);
 
+    public async Task<IReadOnlyList<ExchangeRequest>> FindPendingForUserForUpdateAsync(Guid userId, CancellationToken ct) =>
+        await _db.ExchangeRequests.Where(r => r.Status == ExchangeRequestStatus.Pending && (r.FromUserId == userId || r.ToUserId == userId)).ToListAsync(ct);
+
     public async Task<IReadOnlyList<ExchangeRequest>> FindPendingBetweenForUpdateAsync(Guid userA, Guid userB, CancellationToken ct) =>
         await _db.ExchangeRequests.Where(r => r.Status == ExchangeRequestStatus.Pending &&
             ((r.FromUserId == userA && r.ToUserId == userB) || (r.FromUserId == userB && r.ToUserId == userA))).ToListAsync(ct);
@@ -79,7 +82,7 @@ public sealed class ExchangeRequestStore : IExchangeRequestStore
         var userIds = list.SelectMany(r => new[] { r.FromUserId, r.ToUserId }).Distinct().ToList();
         var skillIds = list.SelectMany(r => new Guid?[] { r.FromTeachesSkillId, r.ToTeachesSkillId }).OfType<Guid>().Distinct().ToList();
         var users = await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
-            .Select(u => new RequestUserDto(u.Id, u.Name, u.AvatarKey)).ToDictionaryAsync(u => u.Id, ct);
+            .Select(u => new RequestUserDto(u.Id, u.Status == UserStatus.Deleted ? User.DeletedDisplayName : u.Name, u.Status == UserStatus.Deleted ? null : u.AvatarKey, u.Status == UserStatus.Deleted)).ToDictionaryAsync(u => u.Id, ct);
         var skills = await _db.Skills.AsNoTracking().Where(s => skillIds.Contains(s.Id))
             .Select(s => new RequestSkillDto(s.Id, s.NameTg, s.NameRu, s.NameEn)).ToDictionaryAsync(s => s.Id, ct);
 

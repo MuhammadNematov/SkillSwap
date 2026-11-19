@@ -19,5 +19,8 @@ public interface IUserBlockStore
     Task<bool> IsBlockedEitherWayAsync(Guid userA, Guid userB, CancellationToken ct);
 
     /// <summary>Кто из перечисленных заблокирован мной или заблокировал меня (одним запросом).</summary>
+    /// <summary>Убирает все блокировки, в которых участвует пользователь (в обе стороны): аккаунт удалён.</summary>
+    Task RemoveAllForUserAsync(Guid userId, CancellationToken ct);
+
     Task<IReadOnlySet<Guid>> BlockedEitherWayAmongAsync(Guid userId, IReadOnlyCollection<Guid> otherIds, CancellationToken ct);
 }

@@ -16,6 +16,9 @@ public class Exchange : BaseEntity
     /// <summary>Причина прерывания при блокировке одного из участников (виновного нет).</summary>
     public const string AbortReasonBlocked = "blocked";
 
+    /// <summary>Причина прерывания при удалении аккаунта одного из участников (виновного нет). Партнёр видит нейтральную <c>partner_unavailable</c>.</summary>
+    public const string AbortReasonAccountDeleted = "account_deleted";
+
     private Exchange()
     {
     }
@@ -135,6 +138,14 @@ public class Exchange : BaseEntity
         RequireStatus(ExchangeStatus.Aborted, ExchangeStatus.Active);
         BlockedById = blockerId;   // кто заблокировал: нужен, чтобы показать заблокированному нейтральную причину
         AbortReason = AbortReasonBlocked;
+        Close(ExchangeStatus.Aborted, now);
+    }
+
+    /// <summary>Один из участников удалил аккаунт: активный или замороженный обмен прерывается без виновного.</summary>
+    public void AbortByDeletion(DateTime now)
+    {
+        RequireStatus(ExchangeStatus.Aborted, ExchangeStatus.Active, ExchangeStatus.Frozen);
+        AbortReason = AbortReasonAccountDeleted;
         Close(ExchangeStatus.Aborted, now);
     }
 
