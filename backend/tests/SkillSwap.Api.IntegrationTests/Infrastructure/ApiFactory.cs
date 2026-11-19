@@ -87,6 +87,17 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         settings["LiveKit:ApiSecret"] = LiveKitApiSecret;
         settings["LiveKit:Url"] = LiveKitUrl;
 
+        // Сроки урока — значения ТЗ в любом окружении, в том числе в Development: appsettings.Development.json сокращает их для ручной проверки,
+        // а в тестах это недопустимо (сроки общие на процесс, и другой хост подменил бы их у остальных тестов).
+        settings["Lessons:MinLeadMinutes"] = "60";
+        settings["Lessons:FreeChangeMinutes"] = "120";
+        settings["Lessons:JoinOpensBeforeMinutes"] = "10";
+        settings["Lessons:FirstCheckMinutes"] = "15";
+        settings["Lessons:JoinClosesAfterEndMinutes"] = "30";
+        settings["Lessons:MinJointMinutes"] = "30";
+        settings["Lessons:DurationMinutes"] = "45";
+        settings["Lessons:ManualConfirmMinutes"] = "1440";
+
         // Фоновые задачи в тестах выполняются сразу, в процессе (без Hangfire и его таблиц): письма видны сразу после запроса.
         settings["Hangfire:Enabled"] = "false";
 

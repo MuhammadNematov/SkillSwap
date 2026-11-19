@@ -7721,7 +7721,12 @@
         }
       },
       "AttachmentKind": {
-        "type": "integer"
+        "enum": [
+          "File",
+          "Voice",
+          "Image"
+        ],
+        "type": "string"
       },
       "AttachmentUrlDto": {
         "required": [
@@ -7881,7 +7886,12 @@
         }
       },
       "ChatMode": {
-        "type": "integer"
+        "enum": [
+          "ReadWrite",
+          "ReadOnly",
+          "Archived"
+        ],
+        "type": "string"
       },
       "ChatStateDto": {
         "required": [
@@ -8181,7 +8191,14 @@
         }
       },
       "DataExportStatus": {
-        "type": "integer"
+        "enum": [
+          "Pending",
+          "Processing",
+          "Ready",
+          "Failed",
+          "Expired"
+        ],
+        "type": "string"
       },
       "DeleteAccountRequest": {
         "required": [
@@ -8366,6 +8383,16 @@
           "abortedForNoShow": {
             "type": "boolean",
             "default": false
+          },
+          "lastMessage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LastMessageDto"
+              }
+            ]
           }
         }
       },
@@ -8455,10 +8482,23 @@
         }
       },
       "ExchangeRequestStatus": {
-        "type": "integer"
+        "enum": [
+          "Pending",
+          "Accepted",
+          "Declined",
+          "Withdrawn",
+          "Expired"
+        ],
+        "type": "string"
       },
       "ExchangeStatus": {
-        "type": "integer"
+        "enum": [
+          "Active",
+          "Completed",
+          "Aborted",
+          "Frozen"
+        ],
+        "type": "string"
       },
       "ForgotPasswordRequest": {
         "required": [
@@ -8521,6 +8561,46 @@
         }
       },
       "JsonElement": {},
+      "LastMessageDto": {
+        "required": [
+          "id",
+          "type",
+          "preview",
+          "createdAt",
+          "senderId",
+          "isDeleted"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/MessageType"
+          },
+          "preview": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "senderId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "isDeleted": {
+            "type": "boolean"
+          }
+        }
+      },
       "LessonLanguage": {
         "required": [
           "code",
@@ -8659,6 +8739,13 @@
               "string"
             ],
             "format": "int32"
+          },
+          "participantsInRoom": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -8914,7 +9001,11 @@
         }
       },
       "MatchType": {
-        "type": "integer"
+        "enum": [
+          "Full",
+          "Partial"
+        ],
+        "type": "string"
       },
       "MessageDto": {
         "required": [
@@ -9043,7 +9134,14 @@
         }
       },
       "MessageType": {
-        "type": "integer"
+        "enum": [
+          "Text",
+          "Voice",
+          "File",
+          "SessionCard",
+          "System"
+        ],
+        "type": "string"
       },
       "MyProfileDto": {
         "required": [
@@ -9332,7 +9430,30 @@
         }
       },
       "NotificationType": {
-        "type": "integer"
+        "enum": [
+          "RequestReceived",
+          "RequestAccepted",
+          "RequestDeclined",
+          "RequestExpired",
+          "ExchangeFinishRequested",
+          "ExchangeCompleted",
+          "ExchangeAborted",
+          "ExtensionProposed",
+          "ExchangeExtended",
+          "NewMessages",
+          "SessionProposed",
+          "SessionConfirmed",
+          "SessionDeclined",
+          "SessionCancelled",
+          "SessionExpired",
+          "SessionReminder",
+          "SessionNeedsConfirmation",
+          "SessionCompleted",
+          "SessionNotCounted",
+          "SessionNoShow",
+          "SessionMissed"
+        ],
+        "type": "string"
       },
       "PagedResultOfAdminSkillDto": {
         "required": [
@@ -10004,7 +10125,21 @@
         }
       },
       "SessionStatus": {
-        "type": "integer"
+        "enum": [
+          "Proposed",
+          "Scheduled",
+          "Declined",
+          "Expired",
+          "Cancelled",
+          "LateCancelled",
+          "InProgress",
+          "Missed",
+          "NoShow",
+          "Completed",
+          "Unconfirmed",
+          "NotCounted"
+        ],
+        "type": "string"
       },
       "SkillCategoryDto": {
         "required": [
@@ -10133,7 +10268,12 @@
         }
       },
       "SkillLevel": {
-        "type": "integer"
+        "enum": [
+          "Beginner",
+          "Intermediate",
+          "Advanced"
+        ],
+        "type": "string"
       },
       "SkillSuggestionDto": {
         "required": [
@@ -10207,7 +10347,13 @@
         }
       },
       "SuggestionStatus": {
-        "type": "integer"
+        "enum": [
+          "Pending",
+          "Approved",
+          "Merged",
+          "Rejected"
+        ],
+        "type": "string"
       },
       "SuggestSkillRequest": {
         "required": [
@@ -10372,7 +10518,13 @@
         }
       },
       "UserRole": {
-        "type": "integer"
+        "enum": [
+          "User",
+          "Moderator",
+          "Admin",
+          "SuperAdmin"
+        ],
+        "type": "string"
       },
       "UserSkillDto": {
         "required": [

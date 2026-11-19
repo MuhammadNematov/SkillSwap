@@ -63,6 +63,58 @@ public class OpenApiSnapshotTests
         }
     }
 
+    [Fact]
+    public async Task Every_enum_in_the_schema_is_a_string_with_a_list_of_values_and_none_is_an_integer()
+    {
+        using var app = _factory.WithSettings("Development");
+        using var document = JsonDocument.Parse(await app.CreateClient().GetStringAsync("/openapi/v1.json"));
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+
+        // 1. Любой узел с перечнем значений — строка со строковыми значениями.
+        var badNodes = new List<string>();
+        void Walk(JsonElement element, string path)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    if (element.TryGetProperty("enum", out var values))
+                    {
+                        var isString = element.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String && type.GetString() == "string";
+                        if (!isString || values.EnumerateArray().Any(v => v.ValueKind != JsonValueKind.String))
+                        {
+                            badNodes.Add(path);
+                        }
+                    }
+
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        Walk(property.Value, path + "/" + property.Name);
+                    }
+
+                    break;
+                case JsonValueKind.Array:
+                    var i = 0;
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        Walk(item, $"{path}[{i++}]");
+                    }
+
+                    break;
+            }
+        }
+
+        Walk(document.RootElement, string.Empty);
+        Assert.True(badNodes.Count == 0, "Перечисления не строками: " + string.Join(", ", badNodes));
+
+        // 2. Каждое перечисление домена, попавшее в схему отдельным именем, описано списком значений (а не «просто integer»).
+        var enumTypes = typeof(SkillSwap.Domain.Enums.SessionStatus).Assembly.GetTypes().Where(t => t.IsEnum && t.Namespace == "SkillSwap.Domain.Enums");
+        var withoutValues = enumTypes
+            .Where(t => schemas.TryGetProperty(t.Name, out var s) && (!s.TryGetProperty("enum", out var e) || e.GetArrayLength() != Enum.GetNames(t).Length))
+            .Select(t => t.Name).ToList();
+        Assert.True(withoutValues.Count == 0, "Нет полного списка значений: " + string.Join(", ", withoutValues));
+        Assert.True(schemas.TryGetProperty("AttachmentKind", out _) && schemas.TryGetProperty("DataExportStatus", out _), "ожидаемые схемы пропали: тест ничего не проверял");
+    }
+
     /// <summary>Одинаковая запись при любом окружении: отступы, переводы строк, кириллица без экранирования.</summary>
     private static string Normalize(string json)
     {

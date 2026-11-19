@@ -29,6 +29,7 @@ public sealed class LessonSessionService
     public const int MaxCalendarDays = 100;
 
     private readonly ILessonSessionStore _sessions;
+    private readonly ISessionAttendanceStore _attendance;
     private readonly IExchangeStore _exchanges;
     private readonly IProfileStore _profiles;
     private readonly IMessageStore _messages;
@@ -44,12 +45,13 @@ public sealed class LessonSessionService
     private readonly ILogger<LessonSessionService> _logger;
 
     public LessonSessionService(
-        ILessonSessionStore sessions, IExchangeStore exchanges, IProfileStore profiles, IMessageStore messages, ChatService chat,
+        ILessonSessionStore sessions, ISessionAttendanceStore attendance, IExchangeStore exchanges, IProfileStore profiles, IMessageStore messages, ChatService chat,
         IChatBroadcaster broadcaster, IUnitOfWork uow, IBackgroundJobs jobs, INotificationPublisher notify, AvatarUrls avatars,
         IValidator<ProposeSessionRequest> proposeValidator, IValidator<RescheduleSessionRequest> rescheduleValidator,
         TimeProvider clock, ILogger<LessonSessionService> logger)
     {
         _sessions = sessions;
+        _attendance = attendance;
         _exchanges = exchanges;
         _profiles = profiles;
         _messages = messages;
@@ -278,7 +280,8 @@ public sealed class LessonSessionService
     {
         await RequireActiveRegularAsync(userId, ct);
         var (session, exchange) = await LoadAsync(userId, sessionId, ct);
-        return ToDto(session, exchange.UserA.Id, exchange.UserB.Id);
+        var inRoom = await _attendance.ListInRoomAsync([sessionId], ct);
+        return ToDto(session, exchange.UserA.Id, exchange.UserB.Id) with { ParticipantsInRoom = inRoom.GetValueOrDefault(sessionId) ?? [] };
     }
 
     /// <summary>Уроки обмена (все статусы): новые по началу сверху.</summary>
@@ -291,7 +294,9 @@ public sealed class LessonSessionService
             throw new NotFoundException("exchange_not_found", "Обмен не найден.");
         }
 
-        return (await _sessions.ListByExchangeAsync(exchangeId, ct)).Select(s => ToDto(s, exchange.UserA.Id, exchange.UserB.Id)).ToList();
+        var list = await _sessions.ListByExchangeAsync(exchangeId, ct);
+        var inRoom = await _attendance.ListInRoomAsync(list.Select(s => s.Id).ToList(), ct);
+        return list.Select(s => ToDto(s, exchange.UserA.Id, exchange.UserB.Id) with { ParticipantsInRoom = inRoom.GetValueOrDefault(s.Id) ?? [] }).ToList();
     }
 
     /// <summary>

@@ -58,13 +58,13 @@ public sealed class VideoAttendanceService : ILiveKitEventProcessor
             : (await _sessions.GetManyAsync([sessionId.Value], ct)).GetValueOrDefault(sessionId!.Value);
         var exchange = session is null ? null : await _exchanges.GetViewAsync(session.ExchangeId, ct);
 
-        LessonSessionDto? started = null;
+        LessonSessionDto? changedSession = null;
         await _uow.ExecuteAsync(async token =>
         {
             if (session is not null && exchange is not null)
             {
                 await _uow.LockUsersAsync([exchange.UserA.Id, exchange.UserB.Id], token);
-                started = await ApplyAsync(session.Id, room!, exchange, token);
+                changedSession = await ApplyAsync(session.Id, room!, exchange, token);
             }
             else
             {
@@ -77,15 +77,15 @@ public sealed class VideoAttendanceService : ILiveKitEventProcessor
             return 0;
         }, ct);
 
-        if (started is not null)
+        if (changedSession is not null)
         {
             try
             {
-                await _broadcaster.SessionUpdatedAsync(started, CancellationToken.None);
+                await _broadcaster.SessionUpdatedAsync(changedSession, CancellationToken.None);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogWarning(ex, "Не удалось разослать обновление урока {SessionId}", started.Id);   // состояние сохранено
+                _logger.LogWarning(ex, "Не удалось разослать обновление урока {SessionId}", changedSession.Id);   // состояние сохранено
             }
         }
     }
@@ -103,31 +103,35 @@ public sealed class VideoAttendanceService : ILiveKitEventProcessor
         var existing = await _attendance.ListForUpdateAsync(sessionId, ct);
 
         var anyone = false;
+        var changedPresence = false;
         foreach (var userId in new[] { exchange.UserA.Id, exchange.UserB.Id })
         {
             var derived = AttendanceTimeline.Build(journal, userId.ToString("D"));
             anyone |= derived.Count > 0;
-            await SyncAsync(sessionId, userId, existing.Where(a => a.UserId == userId).ToList(), derived, ct);
+            changedPresence |= await SyncAsync(sessionId, userId, existing.Where(a => a.UserId == userId).ToList(), derived, ct);
         }
 
-        if (!anyone || !session.MarkStarted())
+        var started = anyone && session.MarkStarted();
+        if (started)
         {
-            return null;
+            await _sessions.SaveAsync(ct);
         }
 
-        await _sessions.SaveAsync(ct);
-        return LessonSessionService.ToDto(session, exchange.UserA.Id, exchange.UserB.Id);
+        // Карточка обновляется и когда кто-то вошёл или вышел (participantsInRoom), и когда урок начался.
+        return started || changedPresence ? LessonSessionService.ToDto(session, exchange.UserA.Id, exchange.UserB.Id) : null;
     }
 
     /// <summary>Приводит строки таблицы к восстановленным интервалам: лишние убираются, новые добавляются, у остальных обновляется время выхода.</summary>
-    private async Task SyncAsync(
+    private async Task<bool> SyncAsync(
         Guid sessionId, Guid userId, List<SessionAttendance> rows, IReadOnlyList<AttendanceSpan> derived, CancellationToken ct)
     {
+        var changed = false;
         // Три прохода с сохранением между ними: у участника не больше одного открытого интервала (уникальный индекс),
         // поэтому сначала убираем лишнее и закрываем, и только потом добавляем новое.
         foreach (var row in rows.Where(r => derived.All(d => d.JoinedAt != r.JoinedAt)))
         {
             _attendance.Remove(row);
+            changed = true;
         }
 
         foreach (var row in rows)
@@ -136,6 +140,7 @@ public sealed class VideoAttendanceService : ILiveKitEventProcessor
             if (matching.Count == 1 && row.LeftAt != matching[0].LeftAt)
             {
                 row.Resync(matching[0].LeftAt);
+                changed = true;
             }
         }
 
@@ -144,8 +149,10 @@ public sealed class VideoAttendanceService : ILiveKitEventProcessor
         foreach (var span in derived.Where(d => rows.All(r => r.JoinedAt != d.JoinedAt)))
         {
             _attendance.Add(SessionAttendance.Restore(sessionId, userId, span.JoinedAt, span.LeftAt));
+            changed = true;
         }
 
         await _attendance.SaveAsync(ct);
+        return changed;
     }
 }

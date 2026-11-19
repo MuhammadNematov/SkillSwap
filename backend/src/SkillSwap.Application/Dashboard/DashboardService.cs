@@ -15,9 +15,9 @@ namespace SkillSwap.Application.Dashboard;
 public sealed class DashboardService
 {
     /// <summary>Вход в комнату открывается за 10 минут до начала и закрывается через 30 минут после планового окончания (раздел 7.2 ТЗ).</summary>
-    public static readonly TimeSpan JoinOpensBefore = TimeSpan.FromMinutes(10);
+    public static TimeSpan JoinOpensBefore => LessonSession.JoinOpensBefore;
 
-    public static readonly TimeSpan JoinClosesAfter = TimeSpan.FromMinutes(30);
+    public static TimeSpan JoinClosesAfter => LessonSession.JoinClosesAfterEnd;
 
     private readonly IDashboardStore _store;
     private readonly IProfileStore _profiles;

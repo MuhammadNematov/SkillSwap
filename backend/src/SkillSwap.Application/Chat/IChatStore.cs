@@ -37,6 +37,9 @@ public interface IMessageStore
 
     /// <summary>Сколько непрочитанных (чужих, не удалённых) сообщений в каждом из обменов.</summary>
     Task<IReadOnlyDictionary<Guid, int>> CountUnreadAsync(Guid userId, IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct);
+
+    /// <summary>Самое новое сообщение каждого из обменов (в том числе удалённое); обмены без сообщений в словаре нет.</summary>
+    Task<IReadOnlyDictionary<Guid, Message>> GetLastMessagesAsync(IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct);
 }
 
 /// <summary>События чата для открытых вкладок участников (хаб SignalR в Api). Одна группа на обмен.</summary>

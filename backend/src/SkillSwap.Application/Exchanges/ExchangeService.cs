@@ -28,10 +28,11 @@ public sealed class ExchangeService
     private readonly Files.AvatarUrls _avatars;
     private readonly Sessions.LessonSessionService _lessons;
     private readonly Sessions.ILessonSessionStore _sessions;
+    private readonly IMessageCipher _cipher;
 
     public ExchangeService(
         IExchangeStore exchanges, IMessageStore messages, IProfileStore profiles, IUnitOfWork uow, IBackgroundJobs jobs,
-        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock, Files.AvatarUrls avatars, Sessions.LessonSessionService lessons, Sessions.ILessonSessionStore sessions)
+        IValidator<AbortExchangeRequest> abortValidator, INotificationPublisher notify, TimeProvider clock, Files.AvatarUrls avatars, Sessions.LessonSessionService lessons, Sessions.ILessonSessionStore sessions, IMessageCipher cipher)
     {
         _exchanges = exchanges;
         _messages = messages;
@@ -44,6 +45,7 @@ public sealed class ExchangeService
         _avatars = avatars;
         _lessons = lessons;
         _sessions = sessions;
+        _cipher = cipher;
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -56,7 +58,8 @@ public sealed class ExchangeService
         var unread = await _messages.CountUnreadAsync(userId, items.Select(r => r.Id).ToList(), ct);
         var completed = await _sessions.CountCompletedAsync(items.Select(r => r.Id).ToList(), ct);
         var noShows = await _sessions.CountFinalNoShowsAsync(items.Select(r => r.Id).ToList(), ct);
-        var dtos = items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id), completed, noShows)).ToList();
+        var last = await _messages.GetLastMessagesAsync(items.Select(r => r.Id).ToList(), ct);
+        var dtos = items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id), completed, noShows, last)).ToList();
         var urls = await _avatars.ForViewerAsync(userId, dtos.Select(d => (d.Partner.Id, d.Partner.AvatarUrl)), ct);
         return new PagedResult<ExchangeDto>(dtos.Select(d => d with { Partner = d.Partner with { AvatarUrl = urls.GetValueOrDefault(d.Partner.Id) } }).ToList(), page, pageSize, total);
     }
@@ -180,7 +183,7 @@ public sealed class ExchangeService
         }
 
         var unread = await _messages.CountUnreadAsync(userId, [row.Id], ct);
-        var dto = Map(row, userId, unread.GetValueOrDefault(row.Id), await _sessions.CountCompletedAsync([row.Id], ct), await _sessions.CountFinalNoShowsAsync([row.Id], ct));
+        var dto = Map(row, userId, unread.GetValueOrDefault(row.Id), await _sessions.CountCompletedAsync([row.Id], ct), await _sessions.CountFinalNoShowsAsync([row.Id], ct), await _messages.GetLastMessagesAsync([row.Id], ct));
         return await WithAvatarAsync(userId, dto, ct);
     }
 
@@ -244,9 +247,16 @@ public sealed class ExchangeService
         return dto with { Partner = dto.Partner with { AvatarUrl = urls.GetValueOrDefault(dto.Partner.Id) } };
     }
 
+    /// <summary>Сообщение для списка чатов: превью только у текста и только пока он не удалён (текст хранится зашифрованным, расшифровывается здесь).</summary>
+    private LastMessageDto ToLastMessage(Message m) => new(
+        m.Id, m.Type,
+        m.Type == MessageType.Text && !m.IsDeleted && m.EncryptedContent is not null ? MessagePreview.Of(_cipher.Decrypt(m.EncryptedContent)) : null,
+        m.CreatedAt, m.SenderId, m.IsDeleted);
+
     private ExchangeDto Map(
         ExchangeRow r, Guid viewerId, int unread, IReadOnlyDictionary<(Guid ExchangeId, Guid TeacherId), int> completed,
-        IReadOnlyDictionary<(Guid ExchangeId, Guid UserId), int> noShows)
+        IReadOnlyDictionary<(Guid ExchangeId, Guid UserId), int> noShows,
+        IReadOnlyDictionary<Guid, Message> lastMessages)
     {
         var isA = r.UserA.Id == viewerId;
         var partnerId = isA ? r.UserB.Id : r.UserA.Id;
@@ -263,6 +273,7 @@ public sealed class ExchangeService
             r.FrozenAt, abortedBy, AbortReasonFor(r, viewerId), r.ClosedAt, ExchangeBalance.Calculate(
                 completed.GetValueOrDefault((r.Id, viewerId)), completed.GetValueOrDefault((r.Id, r.UserA.Id == viewerId ? r.UserB.Id : r.UserA.Id))), r.CreatedAt,
             ChatAccess.Evaluate(r.Status, r.ClosedAt, Now()), unread,
-            partnerNoShows, r.Status == ExchangeStatus.Active && partnerNoShows >= Exchange.NoShowAbortThreshold, r.AbortedForNoShow);
+            partnerNoShows, r.Status == ExchangeStatus.Active && partnerNoShows >= Exchange.NoShowAbortThreshold, r.AbortedForNoShow,
+            lastMessages.TryGetValue(r.Id, out var lastMessage) ? ToLastMessage(lastMessage) : null);
     }
 }

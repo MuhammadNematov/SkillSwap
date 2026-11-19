@@ -72,3 +72,33 @@ public static class ChatAccess
         }
     }
 }
+
+/// <summary>
+/// Последнее сообщение обмена для списка чатов (<c>lastMessage</c> в карточке обмена). <c>Preview</c> — начало текста, до 100 символов (длиннее — обрезается
+/// с «…», переводы строк заменяются пробелами); у голосового, файла, картинки, карточки урока и удалённого сообщения null: подпись по <c>Type</c> строит фронтенд.
+/// </summary>
+public sealed record LastMessageDto(Guid Id, MessageType Type, string? Preview, DateTime CreatedAt, Guid? SenderId, bool IsDeleted);
+
+/// <summary>Превью текста сообщения для списка чатов.</summary>
+public static class MessagePreview
+{
+    public const int MaxLength = 100;
+
+    public static string? Of(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var flat = System.Text.RegularExpressions.Regex.Replace(text.Trim(), @"\s+", " ");
+        if (flat.Length <= MaxLength)
+        {
+            return flat;
+        }
+
+        // Режем по 99 знакам и добавляем «…»; не разрываем суррогатную пару (эмодзи).
+        var cut = char.IsHighSurrogate(flat[MaxLength - 2]) ? MaxLength - 2 : MaxLength - 1;
+        return flat[..cut].TrimEnd() + "…";
+    }
+}

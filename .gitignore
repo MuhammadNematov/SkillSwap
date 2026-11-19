@@ -3,7 +3,7 @@ bin/
 obj/
 *.user
 .vs/
-appsettings.Development.json
+# appsettings.Development.json в репозитории (без секретов: логи, сроки урока для ручной проверки, адрес LiveKit). Личные настройки и секреты — user-secrets или appsettings.*.local.json.
 appsettings.*.local.json
 
 # Node

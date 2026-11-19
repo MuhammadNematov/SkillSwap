@@ -16,7 +16,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     // Enum в JSON — строками ("User", "Admin"), как и в БД (раздел 13 ТЗ), а не числами.
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+// Генератор OpenAPI читает настройки JSON «минимальных» эндпоинтов, а не MVC: без этой строки перечисления попадали в схему как integer без списка значений.
+builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
+builder.Services.Configure<SkillSwap.Application.Options.LessonTimingOptions>(builder.Configuration.GetSection(SkillSwap.Application.Options.LessonTimingOptions.SectionName));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
@@ -46,9 +49,12 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+    options.AddSchemaTransformer<EnumStringSchemaTransformer>();
 });
 
 var app = builder.Build();
+
+SkillSwap.Api.LessonTimingSetup.Apply(app.Services, app.Environment);
 
 app.UseExceptionHandler();
 
@@ -58,6 +64,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference();
     app.MapLiveKitDevTools();   // тестовая страница и выдача токена: только в Development
+    app.MapLessonSeedDevTools();   // данные для ручной проверки видеокомнаты: только в Development
 }
 
 // В Development LiveKit (в Docker) шлёт webhook по обычному http на localhost; редирект на https с самоподписанным

@@ -11,29 +11,31 @@ namespace SkillSwap.Domain.Entities;
 /// </summary>
 public class LessonSession : BaseEntity
 {
-    public const int DurationMinutes = 45;
+    /// <summary>Длительность урока, минут (по ТЗ 45; в разработке можно сократить: <see cref="LessonTiming"/>).</summary>
+    public static int DurationMinutes => LessonTiming.Current.DurationMinutes;
+
     public const int TopicMaxLength = 200;
 
     /// <summary>Слот нельзя предложить раньше чем за этот срок до начала (раздел 6.2 ТЗ).</summary>
-    public static readonly TimeSpan MinLeadTime = TimeSpan.FromHours(1);
+    public static TimeSpan MinLeadTime => LessonTiming.Current.MinLeadTime;
 
     /// <summary>Отмена и перенос без последствий — не позднее чем за этот срок до начала; позже отмена — <see cref="SessionStatus.LateCancelled"/>.</summary>
-    public static readonly TimeSpan FreeChangeWindow = TimeSpan.FromHours(2);
+    public static TimeSpan FreeChangeWindow => LessonTiming.Current.FreeChangeWindow;
 
     /// <summary>Сколько после планового окончания участники могут подтвердить урок вручную (раздел 6.3 ТЗ).</summary>
-    public static readonly TimeSpan ManualConfirmWindow = TimeSpan.FromHours(24);
+    public static TimeSpan ManualConfirmWindow => LessonTiming.Current.ManualConfirmWindow;
 
     /// <summary>Вход в комнату открывается за столько до начала (раздел 7.2 ТЗ).</summary>
-    public static readonly TimeSpan JoinOpensBefore = TimeSpan.FromMinutes(10);
+    public static TimeSpan JoinOpensBefore => LessonTiming.Current.JoinOpensBefore;
 
     /// <summary>Вход закрывается через столько после планового окончания (45 + 30 = старт + 75 минут); тогда же проверка итога и удаление комнаты.</summary>
-    public static readonly TimeSpan JoinClosesAfterEnd = TimeSpan.FromMinutes(30);
+    public static TimeSpan JoinClosesAfterEnd => LessonTiming.Current.JoinClosesAfterEnd;
 
     /// <summary>Предварительная проверка («пришли ли оба») — через столько после начала (раздел 6.3 ТЗ).</summary>
-    public static readonly TimeSpan FirstCheckAfterStart = TimeSpan.FromMinutes(15);
+    public static TimeSpan FirstCheckAfterStart => LessonTiming.Current.FirstCheckAfterStart;
 
     /// <summary>Сколько минут оба должны провести в комнате одновременно, чтобы урок засчитался.</summary>
-    public const int MinJointMinutes = 30;
+    public static int MinJointMinutes => LessonTiming.Current.MinJointMinutes;
 
     private LessonSession()
     {

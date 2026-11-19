@@ -22,6 +22,21 @@ public sealed class MessageStore : IMessageStore
 
     public Task SaveAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
 
+    public async Task<IReadOnlyDictionary<Guid, Message>> GetLastMessagesAsync(IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct)
+    {
+        if (exchangeIds.Count == 0)
+        {
+            return new Dictionary<Guid, Message>();
+        }
+
+        var latest = await _db.Messages.AsNoTracking()
+            .Where(m => exchangeIds.Contains(m.ExchangeId))
+            .GroupBy(m => m.ExchangeId)
+            .Select(g => g.OrderByDescending(m => m.CreatedAt).ThenByDescending(m => m.Id).First())
+            .ToListAsync(ct);
+        return latest.ToDictionary(m => m.ExchangeId);
+    }
+
     public async Task<IReadOnlyList<Message>> ListBeforeAsync(Guid exchangeId, (DateTime CreatedAt, Guid Id)? before, int limit, CancellationToken ct)
     {
         var query = _db.Messages.AsNoTracking().Where(m => m.ExchangeId == exchangeId);

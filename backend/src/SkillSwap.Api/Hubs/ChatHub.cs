@@ -129,10 +129,12 @@ public sealed class ChatHub : Hub
 public sealed class SignalRChatBroadcaster : IChatBroadcaster
 {
     private readonly IHubContext<ChatHub> _hub;
+    private readonly SkillSwap.Application.Sessions.ISessionAttendanceStore _attendance;
 
-    public SignalRChatBroadcaster(IHubContext<ChatHub> hub)
+    public SignalRChatBroadcaster(IHubContext<ChatHub> hub, SkillSwap.Application.Sessions.ISessionAttendanceStore attendance)
     {
         _hub = hub;
+        _attendance = attendance;
     }
 
     public Task MessageCreatedAsync(MessageDto message, CancellationToken ct) =>
@@ -144,8 +146,12 @@ public sealed class SignalRChatBroadcaster : IChatBroadcaster
     public Task MessageDeletedAsync(MessageDeletedDto deleted, CancellationToken ct) =>
         _hub.Clients.Group(ChatHub.GroupName(deleted.ExchangeId)).SendAsync(ChatHub.MessageDeletedEvent, deleted, ct);
 
-    public Task SessionUpdatedAsync(SkillSwap.Application.Sessions.LessonSessionDto session, CancellationToken ct) =>
-        _hub.Clients.Group(ChatHub.GroupName(session.ExchangeId)).SendAsync(ChatHub.SessionUpdatedEvent, session, ct);
+    /// <summary>Урок уходит вместе с тем, кто сейчас в комнате (<c>participantsInRoom</c>): так фронтенд показывает «партнёр в комнате».</summary>
+    public async Task SessionUpdatedAsync(SkillSwap.Application.Sessions.LessonSessionDto session, CancellationToken ct)
+    {
+        var inRoom = (await _attendance.ListInRoomAsync([session.Id], ct)).GetValueOrDefault(session.Id) ?? [];
+        await _hub.Clients.Group(ChatHub.GroupName(session.ExchangeId)).SendAsync(ChatHub.SessionUpdatedEvent, session with { ParticipantsInRoom = inRoom }, ct);
+    }
 
     public Task MessagesReadAsync(ReadReceiptDto receipt, CancellationToken ct) =>
         _hub.Clients.Group(ChatHub.GroupName(receipt.ExchangeId)).SendAsync(ChatHub.MessagesReadEvent, receipt, ct);

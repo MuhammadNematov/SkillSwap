@@ -105,9 +105,11 @@ public sealed class VideoLessonJobs
             }
 
             // Всё, что ещё открыто, заканчивается закрытием комнаты: события выхода после удаления комнаты уже не учитываются.
+            var closedAny = false;
             foreach (var open in rows.Where(r => r.LeftAt is null))
             {
                 open.Close(s.RoomClosesAt);
+                closedAny = true;
             }
 
             var a = exchange.UserA.Id;
@@ -130,7 +132,7 @@ public sealed class VideoLessonJobs
 
             if (!s.CloseRoom(now, firstJoins, joint, a, b))
             {
-                return before != s.Status;
+                return closedAny || before != s.Status;   // закрылись интервалы: у карточки меняется participantsInRoom
             }
 
             NotifyOutcome(s, before, exchange);

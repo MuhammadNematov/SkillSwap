@@ -19,6 +19,7 @@ public sealed record ExchangeBalanceDto(int MyLessons, int PartnerLessons, bool 
 /// <param name="PartnerNoShows">Сколько окончательных неявок у партнёра в этом обмене (урок закрыт, партнёр так и не пришёл).</param>
 /// <param name="CanAbortForNoShow">Можно выйти из обмена с причиной partner_no_show: обмен активен и неявок партнёра не меньше трёх.</param>
 /// <param name="AbortedForNoShow">Обмен прерван из-за неявок партнёра (при этом abortedBy у пострадавшего — partner).</param>
+/// <param name="LastMessage">Последнее сообщение чата для списка чатов; null, если в чате ещё ничего нет.</param>
 public sealed record ExchangeDto(
     Guid Id,
     ExchangeStatus Status,
@@ -43,7 +44,8 @@ public sealed record ExchangeDto(
     int UnreadMessages,
     int PartnerNoShows = 0,
     bool CanAbortForNoShow = false,
-    bool AbortedForNoShow = false);
+    bool AbortedForNoShow = false,
+    LastMessageDto? LastMessage = null);
 
 /// <summary>Обмен из хранилища с людьми и навыками обеих сторон.</summary>
 public sealed record ExchangeRow(
