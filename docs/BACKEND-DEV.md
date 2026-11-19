@@ -152,6 +152,20 @@ dotnet run --project src/SkillSwap.Api
 
 **Вне Development и Testing приложение не запустится без настоящего SMTP**: `Smtp:Host` обязателен, `Security: None` для удалённого сервера запрещён (пароль и токены ушли бы открытым текстом), адрес отправителя должен быть настоящим адресом. Панели Hangfire на боевом сервере нет, она появится для суперадмина на этапе 7.
 
+**Настоящая почта локально (Gmail).** Нужна двухэтапная проверка в аккаунте Google и «пароль приложения» (https://myaccount.google.com/apppasswords): обычный пароль Gmail не подходит. Всё задаётся в user-secrets, в репозиторий ничего не попадает:
+
+```
+cd backend
+dotnet user-secrets set "Smtp:Host" "smtp.gmail.com" --project src/SkillSwap.Api
+dotnet user-secrets set "Smtp:Port" "587" --project src/SkillSwap.Api
+dotnet user-secrets set "Smtp:Security" "StartTls" --project src/SkillSwap.Api
+dotnet user-secrets set "Smtp:User" "<ваш адрес>@gmail.com" --project src/SkillSwap.Api
+dotnet user-secrets set "Smtp:Password" "<пароль приложения, 16 символов без пробелов>" --project src/SkillSwap.Api
+dotnet user-secrets set "Smtp:FromAddress" "<ваш адрес>@gmail.com" --project src/SkillSwap.Api
+```
+
+`FromAddress` должен совпадать с адресом Gmail (иначе Gmail подменит отправителя). Если письма всё равно идут в Mailpit, проверьте переменные окружения `Smtp__Host` и т. п.: они сильнее user-secrets. После смены настроек перезапустите бэкенд. Ссылка в письме ведёт на `Frontend:BaseUrl` (локально `http://localhost:5173`), то есть открывается только на вашем компьютере.
+
 ### Как написать фоновую задачу
 ```csharp
 // Application: поставить в очередь (аргументы простые: id, строки; секреты открытым текстом нельзя, они лежат в БД)
