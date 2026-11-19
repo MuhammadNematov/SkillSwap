@@ -685,7 +685,9 @@
       "export_rate_limited": "Выгрузку можно запрашивать не чаще раза в сутки",
       "export_not_found": "Выгрузка не запрашивалась",
       "two_factor_code_required": "Введите код двухфакторной защиты",
-      "staff_cannot_delete_account": "Служебный аккаунт нельзя удалить самостоятельно"
+      "staff_cannot_delete_account": "Служебный аккаунт нельзя удалить самостоятельно",
+      "avatar_too_large": "Фото больше 2 МБ",
+      "unsupported_image": "Нужен целый файл JPG, PNG или WebP"
     },
     "validation": {
       "required": "Заполни поле",
@@ -860,7 +862,11 @@
     "reschedule": "Перенести",
     "rescheduleTitle": "Перенос урока",
     "rescheduleText": "Сейчас урок назначен на {{when}}. Выберите новое время: собеседник получит его как предложение.",
-    "rescheduleConfirm": "Предложить новое время"
+    "rescheduleConfirm": "Предложить новое время",
+    "noShowMe": "Вы не пришли на урок",
+    "noShowPartner": "{{name}} не пришёл(ла) на урок",
+    "missedNote": "На урок никто не пришёл",
+    "lateJoin": "Партнёр опоздал на {{min}} мин"
   },
   "calendar": {
     "title": "Календарь",
@@ -978,7 +984,10 @@
       "SessionNeedsConfirmation": "Подтвердите, что урок состоялся",
       "SessionCompleted": "Урок засчитан",
       "SessionNotCounted": "Урок не засчитан: не хватило подтверждений",
-      "NewMessages": "{{partnerName}}: новых сообщений {{count}}"
+      "NewMessages": "{{partnerName}}: новых сообщений {{count}}",
+      "SessionNoShow": "{{partnerName}} не пришёл(ла) на урок",
+      "SessionNoShowMe": "Вы не пришли на урок",
+      "SessionMissed": "Урок не состоялся: никто не пришёл"
     }
   },
   "settings": {

@@ -41,7 +41,8 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
   const [rescheduling, setRescheduling] = useState(false)
   const happened = useMutation({ mutationFn: confirmSessionManual, onSuccess: invalidateAll })
 
-  const canJoin = (session.status === 'Scheduled' || session.status === 'InProgress') && isJoinWindowOpen(session.startAt)
+  // Войти можно в окне комнаты; опоздавший тоже может зайти, пока оно открыто (NoShow и Missed ещё не окончательные)
+  const canJoin = ['Scheduled', 'InProgress', 'NoShow', 'Missed'].includes(session.status) && isJoinWindowOpen(session.startAt)
   const incomingProposal = session.status === 'Proposed' && !session.proposedByMe
   const error = confirm.error ?? decline.error ?? happened.error
 
@@ -61,6 +62,11 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
           {showPartner && `${session.partnerName} · `}
           {t('session.teacher', { name: session.teacherIsMe ? t('session.you') : session.partnerName })}
         </div>
+        {session.status === 'NoShow' && session.noShowIsMe !== null && session.noShowIsMe !== undefined && (
+          <div className="text-xs text-amber-700">{session.noShowIsMe ? t('session.noShowMe') : t('session.noShowPartner', { name: session.partnerName })}</div>
+        )}
+        {session.status === 'Missed' && <div className="text-xs text-amber-700">{t('session.missedNote')}</div>}
+        {session.status === 'Completed' && !!session.lateJoinMinutes && <div className="text-xs text-slate-400">{t('session.lateJoin', { min: session.lateJoinMinutes })}</div>}
         <div className="text-xs text-slate-400">
           {t('session.partnerLocal', {
             time: `${formatInZone(session.startAt, session.partnerTimeZone, lang)} (${utcOffsetLabel(session.partnerTimeZone)})`,
@@ -91,6 +97,12 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
               {t('session.cancel')}
             </button>
           </>
+        )}
+        {canJoin && session.status !== 'Scheduled' && (
+          <Link to={`/app/call/${session.id}`} className="btn-primary px-4 py-2">
+            <Icon name="video" className="h-4 w-4" />
+            {t('session.join')}
+          </Link>
         )}
         {session.status === 'Proposed' && session.proposedByMe && (
           <button className="btn-secondary px-4 py-2" onClick={() => onCancel(session)}>

@@ -685,7 +685,9 @@
       "export_rate_limited": "You can request an export once a day",
       "export_not_found": "No export has been requested",
       "two_factor_code_required": "Enter the two-factor code",
-      "staff_cannot_delete_account": "A staff account cannot be deleted this way"
+      "staff_cannot_delete_account": "A staff account cannot be deleted this way",
+      "avatar_too_large": "The photo is larger than 2 MB",
+      "unsupported_image": "Use an intact JPG, PNG or WebP file"
     },
     "validation": {
       "required": "Fill in this field",
@@ -856,7 +858,11 @@
     "reschedule": "Reschedule",
     "rescheduleTitle": "Reschedule lesson",
     "rescheduleText": "The lesson is currently set for {{when}}. Pick a new time: your partner will receive it as a proposal.",
-    "rescheduleConfirm": "Propose new time"
+    "rescheduleConfirm": "Propose new time",
+    "noShowMe": "You did not show up",
+    "noShowPartner": "{{name}} did not show up",
+    "missedNote": "Nobody showed up",
+    "lateJoin": "Your partner was {{min}} min late"
   },
   "calendar": {
     "title": "Calendar",
@@ -974,7 +980,10 @@
       "SessionNeedsConfirmation": "Confirm that the lesson took place",
       "SessionCompleted": "The lesson was counted",
       "SessionNotCounted": "The lesson was not counted: not enough confirmations",
-      "NewMessages": "{{partnerName}}: {{count}} new messages"
+      "NewMessages": "{{partnerName}}: {{count}} new messages",
+      "SessionNoShow": "{{partnerName}} did not show up for the lesson",
+      "SessionNoShowMe": "You did not show up for the lesson",
+      "SessionMissed": "The lesson did not take place: nobody showed up"
     }
   },
   "settings": {

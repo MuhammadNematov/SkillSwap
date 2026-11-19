@@ -169,6 +169,8 @@ export interface LessonSession {
   confirmedByMe?: boolean // нажал «Урок состоялся»
   confirmDeadlineAt?: string | null
   previousStartAt?: string | null
+  noShowIsMe?: boolean | null // неявка: я не пришёл (true), партнёр не пришёл (false), нет неявки (null)
+  lateJoinMinutes?: number | null // на сколько минут опоздал второй участник, если урок засчитан
 }
 
 export interface ChatMessage {

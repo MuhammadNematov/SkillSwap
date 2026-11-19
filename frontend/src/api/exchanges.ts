@@ -186,6 +186,8 @@ interface SessionDto {
   previousStartAt: string | null
   confirmedBy: string[]
   confirmDeadlineAt: string | null
+  noShowUserId?: string | null
+  lateJoinMinutes?: number | null
 }
 interface Partner {
   name: string
@@ -209,6 +211,8 @@ function toSession(d: SessionDto, partner: Partner): LessonSession {
     confirmedByMe: d.confirmedBy.includes(me),
     confirmDeadlineAt: d.confirmDeadlineAt,
     previousStartAt: d.previousStartAt,
+    noShowIsMe: d.noShowUserId ? d.noShowUserId === me : null,
+    lateJoinMinutes: d.lateJoinMinutes ?? null,
   }
 }
 

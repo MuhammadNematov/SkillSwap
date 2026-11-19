@@ -5,6 +5,7 @@ import { markAllRead, markRead } from '../../api/notifications'
 import type { AppNotification } from '../../api/types'
 import Spinner from '../../components/Spinner'
 import { useNotifications } from '../../hooks/useNotifications'
+import { getMyId } from '../../api/identity'
 import { useInvalidateAll } from '../../hooks/useSessionActions'
 import { formatDateTime } from '../../utils/dates'
 
@@ -27,6 +28,8 @@ function targetOf(n: AppNotification): string | null {
 
 // Один тип с разным смыслом: выход партнёра по своей причине или потому что он стал недоступен
 function typeKey(n: AppNotification): string {
+  // Неявка: в payload.userId лежит тот, кто не пришёл, это может быть и сам пользователь
+  if (n.type === 'SessionNoShow') return n.payload.userId === getMyId() ? 'SessionNoShowMe' : 'SessionNoShow'
   return n.type === 'ExchangeAborted' && n.payload.reason === 'partner_unavailable' ? 'ExchangeAbortedUnavailable' : n.type
 }
 

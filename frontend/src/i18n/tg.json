@@ -685,7 +685,9 @@
       "export_rate_limited": "Боркуниро рӯзе як маротиба дархост кардан мумкин аст",
       "export_not_found": "Боркунӣ дархост нашудааст",
       "two_factor_code_required": "Рамзи ҳифзи дуомилаиро ворид кунед",
-      "staff_cannot_delete_account": "Аккаунти хидматиро ин тавр нест кардан мумкин нест"
+      "staff_cannot_delete_account": "Аккаунти хидматиро ин тавр нест кардан мумкин нест",
+      "avatar_too_large": "Акс аз 2 МБ калон аст",
+      "unsupported_image": "Файли солими JPG, PNG ё WebP лозим аст"
     },
     "validation": {
       "required": "Майдонро пур кунед",
@@ -856,7 +858,11 @@
     "reschedule": "Интиқол додан",
     "rescheduleTitle": "Интиқоли дарс",
     "rescheduleText": "Ҳоло дарс барои {{when}} таъин шудааст. Вақти навро интихоб кунед: ҳамсӯҳбат онро ҳамчун пешниҳод мегирад.",
-    "rescheduleConfirm": "Вақти нав пешниҳод кардан"
+    "rescheduleConfirm": "Вақти нав пешниҳод кардан",
+    "noShowMe": "Шумо ба дарс наомадед",
+    "noShowPartner": "{{name}} ба дарс наомад",
+    "missedNote": "Ба дарс касе наомад",
+    "lateJoin": "Ҳамсӯҳбат {{min}} дақиқа дер кард"
   },
   "calendar": {
     "title": "Тақвим",
@@ -974,7 +980,10 @@
       "SessionNeedsConfirmation": "Тасдиқ кунед, ки дарс гузашт",
       "SessionCompleted": "Дарс ҳисоб карда шуд",
       "SessionNotCounted": "Дарс ҳисоб нашуд: тасдиқҳо кифоя набуданд",
-      "NewMessages": "{{partnerName}}: паёмҳои нав {{count}}"
+      "NewMessages": "{{partnerName}}: паёмҳои нав {{count}}",
+      "SessionNoShow": "{{partnerName}} ба дарс наомад",
+      "SessionNoShowMe": "Шумо ба дарс наомадед",
+      "SessionMissed": "Дарс баргузор нашуд: касе наомад"
     }
   },
   "settings": {
