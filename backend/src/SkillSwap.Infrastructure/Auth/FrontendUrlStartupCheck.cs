@@ -23,6 +23,7 @@ public sealed class FrontendUrlStartupCheck : IHostedService
     public Task StartAsync(CancellationToken cancellationToken)
     {
         Validate(_options.BaseUrl, _environment.IsDevelopment() || _environment.IsEnvironment("Testing"), _environment.EnvironmentName);
+        ValidatePaths(_options);
         return Task.CompletedTask;
     }
 
@@ -51,6 +52,20 @@ public sealed class FrontendUrlStartupCheck : IHostedService
         {
             throw new InvalidOperationException(
                 $"В окружении {environmentName} Frontend:BaseUrl должен быть https: в ссылках из писем идут одноразовые токены.");
+        }
+    }
+
+    /// <summary>Маршруты для ссылок в письмах: путь начинается с «/», в пути обмена есть «{id}».</summary>
+    public static void ValidatePaths(FrontendOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.RequestsPath) || !options.RequestsPath.StartsWith('/'))
+        {
+            throw new InvalidOperationException("Frontend:RequestsPath должен начинаться с «/», например /requests.");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.ExchangePath) || !options.ExchangePath.StartsWith('/') || !options.ExchangePath.Contains(FrontendOptions.IdPlaceholder))
+        {
+            throw new InvalidOperationException("Frontend:ExchangePath должен начинаться с «/» и содержать {id}, например /exchanges/{id}.");
         }
     }
 

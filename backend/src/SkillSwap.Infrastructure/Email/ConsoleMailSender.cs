@@ -1,13 +1,12 @@
 using Microsoft.Extensions.Logging;
-using SkillSwap.Application.Abstractions;
 
 namespace SkillSwap.Infrastructure.Email;
 
 /// <summary>
-/// Только для разработки: вместо отправки пишет письмо в консоль.
-/// В письмах есть токены — в production такой отправитель использовать нельзя (будет SMTP).
+/// Только для разработки и тестов, пока SMTP не настроен (<c>Smtp:Host</c> пуст): вместо отправки пишет письмо в консоль.
+/// В письмах есть токены, поэтому вне разработки приложение без SMTP не запустится (<see cref="SmtpStartupCheck"/>).
 /// </summary>
-public sealed class ConsoleMailSender : IMailSender
+public sealed class ConsoleMailSender : IMailTransport
 {
     private readonly ILogger<ConsoleMailSender> _logger;
 

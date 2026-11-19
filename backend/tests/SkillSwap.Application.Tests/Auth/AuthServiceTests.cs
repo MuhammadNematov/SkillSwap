@@ -129,6 +129,23 @@ public class AuthServiceTests
         Assert.Empty(_mail.Sent);
     }
 
+
+    [Fact]
+    public async Task Resend_queues_one_empty_job_when_there_is_no_letter_to_send_and_none_when_there_is()
+    {
+        await _service.ResendConfirmationAsync(new ResendConfirmationRequest("nobody@example.com"));            // неизвестный
+        var confirmed = User.CreateRegular("ali@example.com", "Ali", new DateOnly(2000, 1, 1), "en");
+        confirmed.EmailConfirmed = true;
+        _users.Existing = confirmed;
+        await _service.ResendConfirmationAsync(new ResendConfirmationRequest("ali@example.com"));               // уже подтверждён
+        Assert.Equal(2, _fx.Jobs.NoopCount);
+        Assert.Empty(_mail.Sent);
+
+        _users.Existing = User.CreateRegular("ali@example.com", "Ali", new DateOnly(2000, 1, 1), "en");
+        await _service.ResendConfirmationAsync(new ResendConfirmationRequest("ali@example.com"));               // настоящее письмо
+        Assert.Single(_mail.Sent);
+        Assert.Equal(2, _fx.Jobs.NoopCount);                                                                    // пустых задач не прибавилось
+    }
     [Fact]
     public async Task Resend_for_unconfirmed_user_sends_mail()
     {

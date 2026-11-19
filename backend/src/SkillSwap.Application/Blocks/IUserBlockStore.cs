@@ -3,7 +3,8 @@ namespace SkillSwap.Application.Blocks;
 public interface IUserBlockStore
 {
     /// <summary>
-    /// Блокирует одной транзакцией под блокировкой строки пользователя (чтобы одновременные запросы не обошли лимит).
+    /// Добавляет блокировку. Вызывать внутри транзакции под блокировкой строк обоих пользователей (<c>IUnitOfWork</c>):
+    /// иначе одновременные запросы обойдут лимит, а заявки и обмены пары не успеют закрыться вместе с блокировкой.
     /// Повтор не считается ошибкой.
     /// </summary>
     Task<BlockOutcome> AddAsync(Guid blockerId, Guid targetId, CancellationToken ct);
@@ -16,4 +17,7 @@ public interface IUserBlockStore
 
     /// <summary>Заблокировал ли хотя бы один из двоих другого. Нужна везде, где пользователи видят друг друга.</summary>
     Task<bool> IsBlockedEitherWayAsync(Guid userA, Guid userB, CancellationToken ct);
+
+    /// <summary>Кто из перечисленных заблокирован мной или заблокировал меня (одним запросом).</summary>
+    Task<IReadOnlySet<Guid>> BlockedEitherWayAmongAsync(Guid userId, IReadOnlyCollection<Guid> otherIds, CancellationToken ct);
 }

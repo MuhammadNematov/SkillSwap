@@ -123,7 +123,7 @@ public class MatchPerformanceTests : IClassFixture<ApiFactory>
             mine.Where(s => s.Direction == SkillDirection.Learn).Select(s => new SkillSwap.Application.Matching.LeveledSkill(s.SkillId, s.Level)).ToList(),
             mine.Where(s => s.Direction == SkillDirection.Teach).Select(s => new SkillSwap.Application.Matching.LeveledSkill(s.SkillId, s.Level)).ToList());
         var filter = new SkillSwap.Application.Matching.MatchFilter(null, null, null, null);
-        var store = new SkillSwap.Infrastructure.Matching.MatchStore(db);
+        var store = new SkillSwap.Infrastructure.Matching.MatchStore(db, TimeProvider.System);
 
         var watch = Stopwatch.StartNew();
         var rows = await store.FindCandidatesAsync(seeker, filter, CancellationToken.None);

@@ -21,6 +21,7 @@ namespace SkillSwap.Api.IntegrationTests.Infrastructure;
 public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17").Build();
+    private readonly GarageContainer _garage = new();
     private string _connectionString = string.Empty;
 
     // Тесты читают письма отсюда вместо консоли.
@@ -48,7 +49,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
+        await Task.WhenAll(_postgres.StartAsync(), _garage.StartAsync());
 
         _connectionString = _postgres.GetConnectionString();
 
@@ -82,7 +83,21 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         settings["LiveKit:ApiKey"] = LiveKitApiKey;
         settings["LiveKit:ApiSecret"] = LiveKitApiSecret;
         settings["LiveKit:Url"] = LiveKitUrl;
+
+        // Фоновые задачи в тестах выполняются сразу, в процессе (без Hangfire и его таблиц): письма видны сразу после запроса.
+        settings["Hangfire:Enabled"] = "false";
+
+        // SMTP задан (как на боевом сервере): иначе приложения в окружении Production в тестах не запускались бы. Сами письма
+        // в тестах перехватывает CapturingMailSender, на этот адрес ничего не уходит.
+        settings["Smtp:Host"] = "smtp.skillswap.test";
+        settings["Smtp:FromAddress"] = "no-reply@skillswap.test";
         settings["Frontend:BaseUrl"] = FrontendUrl;
+
+        // Хранилище файлов: настоящий Garage в Docker.
+        settings["Storage:Endpoint"] = _garage.Endpoint;
+        settings["Storage:AccessKey"] = GarageContainer.AccessKey;
+        settings["Storage:SecretKey"] = GarageContainer.SecretKey;
+        settings["Storage:Bucket"] = GarageContainer.Bucket;
 
         // Ключи шифрования защищены сертификатом, как на боевом сервере (в тестах он создаётся на лету).
         settings["DataProtection:CertificateBase64"] = TestCertificates.Shared.Base64;
@@ -165,6 +180,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await base.DisposeAsync();
         await _postgres.DisposeAsync();
+        await _garage.DisposeAsync();
     }
 }
 

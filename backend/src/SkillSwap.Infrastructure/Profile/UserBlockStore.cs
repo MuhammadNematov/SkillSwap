@@ -22,11 +22,6 @@ public sealed class UserBlockStore : IUserBlockStore
     {
         try
         {
-            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-
-            // Блокировка строки блокирующего: его одновременные запросы идут по очереди, лимит не обходится.
-            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Users\" WHERE \"Id\" = {blockerId} FOR UPDATE", ct);
-
             if (await _db.UserBlocks.AnyAsync(b => b.UserId == blockerId && b.BlockedUserId == targetId, ct))
             {
                 return BlockOutcome.AlreadyBlocked;
@@ -39,7 +34,6 @@ public sealed class UserBlockStore : IUserBlockStore
 
             _db.UserBlocks.Add(UserBlock.Create(blockerId, targetId, _clock.GetUtcNow().UtcDateTime));
             await _db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
             return BlockOutcome.Added;
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
@@ -60,8 +54,15 @@ public sealed class UserBlockStore : IUserBlockStore
                join u in _db.Users.AsNoTracking() on b.BlockedUserId equals u.Id
                where b.UserId == blockerId && u.Status != UserStatus.Deleted
                orderby b.CreatedAt descending, u.Id
-               select new BlockedUserDto(u.Id, u.Name, u.AvatarUrl, b.CreatedAt))
+               select new BlockedUserDto(u.Id, u.Name, u.AvatarKey, b.CreatedAt))
             .ToListAsync(ct);
+
+    public async Task<IReadOnlySet<Guid>> BlockedEitherWayAmongAsync(Guid userId, IReadOnlyCollection<Guid> otherIds, CancellationToken ct)
+    {
+        var asBlocker = _db.UserBlocks.AsNoTracking().Where(b => b.UserId == userId && otherIds.Contains(b.BlockedUserId)).Select(b => b.BlockedUserId);
+        var asBlocked = _db.UserBlocks.AsNoTracking().Where(b => b.BlockedUserId == userId && otherIds.Contains(b.UserId)).Select(b => b.UserId);
+        return (await asBlocker.Union(asBlocked).ToListAsync(ct)).ToHashSet();
+    }
 
     public Task<bool> IsBlockedEitherWayAsync(Guid userA, Guid userB, CancellationToken ct) =>
         _db.UserBlocks.AsNoTracking().AnyAsync(b =>

@@ -24,6 +24,21 @@ public static class JwtAuthenticationExtensions
             {
                 var jwt = jwtOptions.Value;
 
+                // Браузерный WebSocket не умеет слать заголовок Authorization: для хабов токен берётся из параметра access_token.
+                bearer.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var token = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = token;
+                        }
+
+                        return Task.CompletedTask;
+                    },
+                };
+
                 // Клеймы остаются под своими именами (sub, role), без переименования в длинные URI.
                 bearer.MapInboundClaims = false;
                 bearer.TokenValidationParameters = new TokenValidationParameters

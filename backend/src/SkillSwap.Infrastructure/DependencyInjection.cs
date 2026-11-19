@@ -7,6 +7,12 @@ using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Options;
 using SkillSwap.Application.Profile;
 using SkillSwap.Application.Blocks;
+using SkillSwap.Application.ExchangeRequests;
+using SkillSwap.Application.Exchanges;
+using SkillSwap.Application.Chat;
+using SkillSwap.Application.Sessions;
+using SkillSwap.Application.Notifications;
+using SkillSwap.Infrastructure.Exchanges;
 using SkillSwap.Application.Matching;
 using SkillSwap.Application.Settings;
 using SkillSwap.Infrastructure.Matching;
@@ -21,6 +27,7 @@ using SkillSwap.Infrastructure.Captcha;
 using SkillSwap.Infrastructure.DataProtection;
 using SkillSwap.Infrastructure.LiveKit;
 using SkillSwap.Infrastructure.Email;
+using SkillSwap.Infrastructure.Jobs;
 using SkillSwap.Infrastructure.Persistence;
 
 namespace SkillSwap.Infrastructure;
@@ -103,8 +110,28 @@ public static class DependencyInjection
         services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();
         services.AddScoped<ILiveKitWebhookEventStore, LiveKitWebhookEventStore>();
 
-        // TODO: заменить на SMTP-отправитель до выхода за пределы разработки.
-        services.AddScoped<IMailSender, ConsoleMailSender>();
+        // Почта: приложение ставит письма в очередь (BackgroundMailSender), фоновая задача отправляет их по SMTP или,
+        // пока SMTP не настроен (только Development и Testing), пишет в консоль.
+        services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.SectionName));
+        services.AddHostedService<SmtpStartupCheck>();
+        services.AddScoped<IMailTransport>(sp => sp.GetRequiredService<IOptions<SmtpOptions>>().Value.IsConfigured
+            ? ActivatorUtilities.CreateInstance<SmtpMailTransport>(sp)
+            : ActivatorUtilities.CreateInstance<ConsoleMailSender>(sp));
+        services.AddScoped<IMailSender, BackgroundMailSender>();
+        services.AddScoped<MailJobs>();
+
+        // Файлы: закрытый бакет S3 (Garage, облачное S3 сменой настроек); пока не настроено (только Development и Testing), загрузка отвечает 503.
+        services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
+        services.AddHostedService<SkillSwap.Infrastructure.Storage.StorageStartupCheck>();
+        services.AddSingleton<IFileStorage>(sp => sp.GetRequiredService<IOptions<StorageOptions>>().Value.IsConfigured
+            ? ActivatorUtilities.CreateInstance<SkillSwap.Infrastructure.Storage.S3FileStorage>(sp)
+            : new SkillSwap.Infrastructure.Storage.UnavailableFileStorage());
+        services.AddHostedService<SkillSwap.Infrastructure.Storage.StorageInitializer>();
+        services.AddSingleton<IImageProcessor, SkillSwap.Infrastructure.Storage.SkiaImageProcessor>();
+
+        // Фоновые задачи (Hangfire в PostgreSQL) и транзакции с блокировкой пользователей.
+        services.AddBackgroundJobs(configuration);
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
         services.AddScoped<ISkillCatalogReader, SkillCatalogReader>();
         services.AddScoped<ISkillCatalogRepository, SkillCatalogRepository>();
@@ -114,6 +141,12 @@ public static class DependencyInjection
         services.AddScoped<IUserBlockStore, UserBlockStore>();
         services.AddScoped<IMatchStore, MatchStore>();
         services.AddScoped<ISystemSettingsStore, SystemSettingsStore>();
+        services.AddScoped<IExchangeRequestStore, ExchangeRequestStore>();
+        services.AddScoped<IExchangeStore, ExchangeStore>();
+        services.AddScoped<INotificationStore, NotificationStore>();
+        services.AddScoped<IMessageStore, MessageStore>();
+        services.AddScoped<ILessonSessionStore, LessonSessionStore>();
+        services.AddSingleton<IMessageCipher, SkillSwap.Infrastructure.DataProtection.DataProtectionMessageCipher>();
 
         return services;
     }

@@ -35,4 +35,16 @@ public static class SystemSettingKeys
     /// (раздел 10.4 ТЗ). «false»: возрастных ограничений в подборе нет.
     /// </summary>
     public const string MinorsMatchOnlyMinors = "Matching.MinorsMatchOnlyMinors";
+
+    /// <summary>Не более стольких активных обменов одновременно (раздел 5.3 ТЗ). По умолчанию 3.</summary>
+    public const string MaxActiveExchanges = "Requests.MaxActiveExchanges";
+
+    /// <summary>Не более стольких ожидающих исходящих заявок. По умолчанию 5.</summary>
+    public const string MaxPendingOutgoing = "Requests.MaxPendingOutgoing";
+
+    /// <summary>Не более стольких новых заявок за сутки. По умолчанию 10.</summary>
+    public const string MaxRequestsPerDay = "Requests.MaxPerDay";
+
+    /// <summary>Через сколько дней после отказа можно снова написать тому же человеку. По умолчанию 30.</summary>
+    public const string DeclineCooldownDays = "Requests.DeclineCooldownDays";
 }

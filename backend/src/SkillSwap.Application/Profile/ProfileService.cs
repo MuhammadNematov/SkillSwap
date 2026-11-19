@@ -18,16 +18,18 @@ public sealed class ProfileService
     private readonly ISystemSettingsStore _settings;
     private readonly IValidator<UpdateProfileRequest> _validator;
     private readonly TimeProvider _clock;
+    private readonly Files.AvatarUrls _avatars;
 
     public ProfileService(
         IProfileStore store, IUserSkillStore skills, IUserBlockStore blocks, ISystemSettingsStore settings,
-        IValidator<UpdateProfileRequest> validator, TimeProvider clock)
+        IValidator<UpdateProfileRequest> validator, TimeProvider clock, Files.AvatarUrls avatars)
     {
         _store = store;
         _skills = skills;
         _blocks = blocks;
         _settings = settings;
         _validator = validator;
+        _avatars = avatars;
         _clock = clock;
     }
 
@@ -109,7 +111,7 @@ public sealed class ProfileService
         static PublicSkillDto Map(UserSkillRow r) => new(r.SkillId, r.CategoryId, r.NameTg, r.NameRu, r.NameEn, r.Level, r.Description);
 
         return new PublicProfileDto(
-            user.Id, user.Name, user.Bio, user.AvatarUrl, user.TimeZone, languages,
+            user.Id, user.Name, user.Bio, _avatars.Sign(user.AvatarKey), user.TimeZone, languages,
             skills.Where(s => s.Direction == SkillDirection.Teach).Select(Map).ToList(),
             skills.Where(s => s.Direction == SkillDirection.Learn).Select(Map).ToList(),
             user.IsMinor(Today()), PublicRating(user), user.RatingCount, user.IsNewcomer, user.CreatedAt);
@@ -120,8 +122,8 @@ public sealed class ProfileService
     /// <summary>У «Новичка» средней оценки нет: два отзыва ничего не говорят о человеке.</summary>
     private static decimal? PublicRating(User user) => user.IsNewcomer ? null : user.RatingAvg;
 
-    private static MyProfileDto ToMine(User user, string[] languages, bool skillsComplete) => new(
+    private MyProfileDto ToMine(User user, string[] languages, bool skillsComplete) => new(
         user.Id, user.Email ?? string.Empty, user.Role.ToString(), user.AccountType.ToString(),
-        user.Name, user.Bio, user.AvatarUrl, user.DateOfBirth, user.UiLanguage, user.TimeZone, user.IsSearchable,
+        user.Name, user.Bio, _avatars.Sign(user.AvatarKey), user.DateOfBirth, user.UiLanguage, user.TimeZone, user.IsSearchable,
         languages, skillsComplete, PublicRating(user), user.RatingCount, user.IsNewcomer, user.TwoFactorEnabled, user.CreatedAt);
 }

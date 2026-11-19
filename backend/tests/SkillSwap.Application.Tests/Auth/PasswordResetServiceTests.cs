@@ -55,7 +55,8 @@ public class PasswordResetServiceTests
     public async Task Forgot_for_an_unknown_email_is_silent_and_sends_nothing()
     {
         await _fx.PasswordReset.ForgotPasswordAsync(new ForgotPasswordRequest("nobody@example.com"));
-
+        Assert.Empty(_fx.Mail.Sent);
+        Assert.Equal(1, _fx.Jobs.NoopCount);   // в очередь попала одна задача: по времени ответа адрес не угадать
         Assert.Empty(_fx.Mail.Sent);
     }
 
@@ -82,6 +83,27 @@ public class PasswordResetServiceTests
         Assert.Empty(_fx.Mail.Sent);
     }
 
+
+    [Fact]
+    public async Task Forgot_queues_exactly_one_job_for_every_kind_of_address_so_timing_does_not_give_the_account_away()
+    {
+        // Известный адрес: письмо уходит через IMailSender (в приложении это ровно одна задача отправки), «пустых» задач нет.
+        AddUser();
+        await _fx.PasswordReset.ForgotPasswordAsync(new ForgotPasswordRequest("ali@example.com"));
+        Assert.Single(_fx.Mail.Sent);
+        Assert.Equal(0, _fx.Jobs.NoopCount);
+
+        // Неизвестный, неподтверждённый и заблокированный: письма нет, зато ровно одна «пустая» задача на каждый запрос.
+        await _fx.PasswordReset.ForgotPasswordAsync(new ForgotPasswordRequest("nobody@example.com"));
+        AddUser(confirmed: false);
+        await _fx.PasswordReset.ForgotPasswordAsync(new ForgotPasswordRequest("ali@example.com"));
+        var blocked = AddUser();
+        typeof(User).GetProperty(nameof(User.Status))!.SetValue(blocked, UserStatus.Blocked);
+        await _fx.PasswordReset.ForgotPasswordAsync(new ForgotPasswordRequest("ali@example.com"));
+
+        Assert.Equal(3, _fx.Jobs.NoopCount);
+        Assert.Single(_fx.Mail.Sent);   // новых писем не появилось
+    }
     [Fact]
     public async Task Forgot_behaves_the_same_when_the_mail_server_is_down()
     {

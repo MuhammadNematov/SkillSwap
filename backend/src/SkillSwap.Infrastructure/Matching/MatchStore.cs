@@ -49,6 +49,15 @@ public sealed class MatchStore : IMatchStore
                   SELECT 1 FROM "UserBlocks" b
                   WHERE (b."UserId" = @me AND b."BlockedUserId" = u."Id")
                      OR (b."UserId" = u."Id" AND b."BlockedUserId" = @me))
+              -- ожидающая заявка (в любую сторону, срок не вышел) или активный обмен: человек уже «в работе», повторно не предлагается
+              AND NOT EXISTS (
+                  SELECT 1 FROM "ExchangeRequests" r
+                  WHERE r."Status" = 'Pending' AND r."ExpiresAt" > @now
+                    AND ((r."FromUserId" = @me AND r."ToUserId" = u."Id") OR (r."FromUserId" = u."Id" AND r."ToUserId" = @me)))
+              AND NOT EXISTS (
+                  SELECT 1 FROM "Exchanges" x
+                  WHERE x."Status" IN ('Active', 'Frozen')
+                    AND ((x."UserAId" = @me AND x."UserBId" = u."Id") OR (x."UserAId" = u."Id" AND x."UserBId" = @me)))
               AND (@minRating IS NULL OR (u."RatingCount" >= @newcomerThreshold AND u."RatingAvg" >= @minRating))
               -- урок без общего языка невозможен: общий язык занятий со мной обязателен (не критерий порядка, а условие отбора)
               AND EXISTS (
@@ -89,21 +98,24 @@ public sealed class MatchStore : IMatchStore
         """;
 
     private readonly AppDbContext _db;
+    private readonly TimeProvider _clock;
 
-    public MatchStore(AppDbContext db)
+    public MatchStore(AppDbContext db, TimeProvider clock)
     {
         _db = db;
+        _clock = clock;
     }
 
     public async Task<IReadOnlyList<MatchCandidate>> FindCandidatesAsync(MatchSeeker seeker, MatchFilter filter, CancellationToken ct) =>
-        await _db.Database.SqlQueryRaw<MatchCandidate>(CandidatesSql, Parameters(seeker, filter)).ToListAsync(ct);
+        await _db.Database.SqlQueryRaw<MatchCandidate>(CandidatesSql, Parameters(seeker, filter, _clock.GetUtcNow().UtcDateTime)).ToListAsync(ct);
 
     // Параметры запроса кандидатов.
-    private static NpgsqlParameter[] Parameters(MatchSeeker seeker, MatchFilter filter)
+    private static NpgsqlParameter[] Parameters(MatchSeeker seeker, MatchFilter filter, DateTime now)
     {
         return new[]
         {
             new NpgsqlParameter("me", NpgsqlDbType.Uuid) { Value = seeker.UserId },
+            new NpgsqlParameter("now", NpgsqlDbType.TimestampTz) { Value = DateTime.SpecifyKind(now, DateTimeKind.Utc) },
             new NpgsqlParameter("restrictByAge", NpgsqlDbType.Boolean) { Value = seeker.RestrictByAgeGroup },
             new NpgsqlParameter("cutoff", NpgsqlDbType.Date) { Value = seeker.AdultBirthCutoff },
             new NpgsqlParameter("meIsMinor", NpgsqlDbType.Boolean) { Value = seeker.IsMinor },
@@ -123,7 +135,7 @@ public sealed class MatchStore : IMatchStore
     {
         var users = await _db.Users.AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.Name, u.AvatarUrl, u.DateOfBirth })
+            .Select(u => new { u.Id, u.Name, AvatarUrl = u.AvatarKey, u.DateOfBirth })
             .ToListAsync(ct);
 
         var languageRows = await _db.UserLanguages.AsNoTracking()
