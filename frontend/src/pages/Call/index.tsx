@@ -23,7 +23,8 @@ export default function Call() {
   const navigate = useNavigate()
   const [now, setNow] = useState(() => Date.now())
 
-  const { data, error, isLoading } = useQuery({
+  const [exited, setExited] = useState(false)
+  const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['joinToken', sessionId],
     queryFn: () => getJoinToken(sessionId),
     retry: false,
@@ -75,8 +76,28 @@ export default function Call() {
 
       {closed ? (
         <div className="card text-center text-sm text-ink-soft">{t('call.closed')}</div>
+      ) : exited ? (
+        // Вышли из комнаты или связь оборвалась: можно вернуться, для этого берём новый токен (пока окно входа открыто)
+        <div className="card mx-auto w-full max-w-md space-y-4 text-center">
+          <p className="text-sm text-ink-soft">{t('call.exited')}</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              className="btn-primary"
+              disabled={isFetching}
+              onClick={async () => {
+                const r = await refetch()
+                if (r.data) setExited(false)
+              }}
+            >
+              {isFetching ? t('common.loading') : t('call.rejoin')}
+            </button>
+            <button className="btn-secondary" onClick={() => navigate('/app/calendar')}>
+              {t('call.toCalendar')}
+            </button>
+          </div>
+        </div>
       ) : (
-        <CallRoom data={data} onLeave={() => navigate('/app/calendar')} />
+        <CallRoom data={data} onLeave={() => setExited(true)} />
       )}
     </div>
   )

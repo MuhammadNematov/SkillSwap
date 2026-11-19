@@ -375,7 +375,7 @@ export const sendFile = async ({ exchangeId, file }: { exchangeId: string; file:
 
 // Голосовое: multipart, поля file (.webm, Opus, до 4 МБ) и durationSeconds (1–120). Ответ 201 — готовое сообщение.
 export const sendVoice = async ({ exchangeId, blob, durationSec }: { exchangeId: string; blob: Blob; durationSec: number }): Promise<void> => {
-  if (USE_MOCKS) return m.mockSendVoice(exchangeId, durationSec)
+  if (USE_MOCKS) return m.mockSendVoice(exchangeId, durationSec, blob)
   const form = new FormData()
   form.append('file', blob, 'voice.webm')
   form.append('durationSeconds', String(Math.min(120, Math.max(1, Math.round(durationSec)))))

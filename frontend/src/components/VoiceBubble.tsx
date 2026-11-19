@@ -27,6 +27,8 @@ export default function VoiceBubble({ attachmentId, durationSec = 0, mine }: { a
     [],
   )
 
+  // Ссылка на файл действует всего 5 минут, поэтому для каждого нового прослушивания просим свежую.
+  // Пауза и продолжение работают с уже созданным плеером.
   async function toggle() {
     setError(null)
     if (playing) {
@@ -35,24 +37,40 @@ export default function VoiceBubble({ attachmentId, durationSec = 0, mine }: { a
       setPlaying(false)
       return
     }
-    try {
-      if (!audio.current && attachmentId) {
-        const a = await getAttachmentUrl(attachmentId)
-        if (a) {
-          const el = new Audio(a.url)
-          el.ontimeupdate = () => setPos(el.currentTime)
-          el.onended = () => {
-            setPlaying(false)
-            setPos(0)
-          }
-          audio.current = el
-        }
+    const el0 = audio.current
+    if (el0 && !el0.ended && el0.currentTime > 0) {
+      try {
+        await el0.play()
+        setPlaying(true)
+        return
+      } catch {
+        audio.current = null
       }
-      if (audio.current) {
-        await audio.current.play()
+    }
+    try {
+      audio.current = null
+      const a = attachmentId ? await getAttachmentUrl(attachmentId) : null
+      if (a) {
+        const el = new Audio()
+        el.preload = 'auto'
+        el.ontimeupdate = () => setPos(el.currentTime)
+        el.onerror = () => {
+          setPlaying(false)
+          audio.current = null
+          const code = el.error ? ` (код ${el.error.code})` : ''
+          setError(`${t('chat.voiceFailed')}${code}`)
+        }
+        el.onended = () => {
+          setPlaying(false)
+          setPos(0)
+          audio.current = null
+        }
+        el.src = a.url
+        audio.current = el
+        await el.play()
       } else {
-        // заглушка
-        const started = Date.now() - pos * 1000
+        // заглушка: файла нет, просто крутим таймер
+        const started = Date.now()
         timer.current = setInterval(() => {
           const p = (Date.now() - started) / 1000
           if (p >= durationSec) {
@@ -63,6 +81,27 @@ export default function VoiceBubble({ attachmentId, durationSec = 0, mine }: { a
         }, 200)
       }
       setPlaying(true)
+    } catch (e) {
+      audio.current = null
+      setPlaying(false)
+      const detail = e instanceof DOMException ? ` (${e.name})` : ''
+      setError(e instanceof DOMException ? `${t('chat.voiceFailed')}${detail}` : errorMessage(t, e))
+    }
+  }
+
+  // Скачать файл на компьютер: ссылка подписанная и короткая, запрашиваем её в момент нажатия
+  async function download() {
+    setError(null)
+    try {
+      const a = attachmentId ? await getAttachmentUrl(attachmentId) : null
+      if (!a) return
+      const link = document.createElement('a')
+      link.href = a.url
+      link.download = a.fileName || 'voice.webm'
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
     } catch (e) {
       setError(errorMessage(t, e))
     }
@@ -87,6 +126,13 @@ export default function VoiceBubble({ attachmentId, durationSec = 0, mine }: { a
         </div>
         {error && <div className="mt-1 text-[11px] opacity-90">{error}</div>}
       </div>
+      {attachmentId && (
+        <button type="button" onClick={download} aria-label={t('chat.downloadVoice')} title={t('chat.downloadVoice')} className="shrink-0 opacity-80 hover:opacity-100">
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" />
+          </svg>
+        </button>
+      )}
       <span className="text-xs tabular-nums opacity-80">{fmt(playing || pos ? pos : durationSec)}</span>
     </div>
   )

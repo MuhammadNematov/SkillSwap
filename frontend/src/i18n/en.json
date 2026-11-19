@@ -721,7 +721,9 @@
     "closesIn": "The room closes in {{time}}",
     "closed": "The lesson room is closed",
     "mockNote": "Mock mode: the real video room ({{room}}) will connect with LiveKit.",
-    "opensAt": "The room opens: {{time}}"
+    "opensAt": "The room opens: {{time}}",
+    "exited": "You left the room. If the lesson is still going, you can come back.",
+    "rejoin": "Rejoin the room"
   },
   "exchanges": {
     "title": "My exchanges",
@@ -804,7 +806,13 @@
     "voiceTooLarge": "The recording is over 4 MB",
     "play": "Play",
     "pause": "Pause",
-    "typing": "typing…"
+    "typing": "typing…",
+    "voiceFailed": "Could not play the recording",
+    "stopRecord": "Stop",
+    "noSound": "No sound: check your microphone",
+    "saveVoice": "Save to computer",
+    "discard": "Delete",
+    "downloadVoice": "Download"
   },
   "session": {
     "accept": "Accept",
