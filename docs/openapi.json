@@ -8539,6 +8539,22 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "noShowUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "lateJoinMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

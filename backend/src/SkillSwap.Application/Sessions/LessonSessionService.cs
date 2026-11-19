@@ -70,7 +70,7 @@ public sealed class LessonSessionService
     public static LessonSessionDto ToDto(LessonSession s, Guid userAId, Guid userBId) => new(
         s.Id, s.ExchangeId, s.TeacherId, s.StartAt, s.EndAt, s.DurationMin, s.Topic, s.Status, s.ProposedById, s.PreviousStartAt, s.CancelledById,
         [.. new[] { s.ConfirmedByA ? userAId : (Guid?)null, s.ConfirmedByB ? userBId : (Guid?)null }.OfType<Guid>()],
-        s.UnconfirmedAt, s.Status == SessionStatus.Unconfirmed ? s.ConfirmDeadline : null, s.CreatedAt);
+        s.UnconfirmedAt, s.Status == SessionStatus.Unconfirmed ? s.ConfirmDeadline : null, s.CreatedAt, s.NoShowUserId, s.LateJoinMinutes);
 
     // ---------- предложить время ----------
 
@@ -419,7 +419,7 @@ public sealed class LessonSessionService
         _jobs.Schedule<LessonSessionJobs>(j => j.ExpireProposalAsync(id, ticks), new DateTimeOffset(s.StartAt, TimeSpan.Zero));
     }
 
-    /// <summary>Урок подтверждён: напоминания за сутки и за 15 минут (те, что ещё впереди) и проверка после планового окончания.</summary>
+    /// <summary>Урок подтверждён: напоминания за сутки и за 15 минут (те, что ещё впереди), проверка на 15-й минуте и закрытие комнаты с итогом урока (старт + 75 минут).</summary>
     private void ScheduleConfirmedJobs(LessonSession s)
     {
         var id = s.Id;
@@ -435,7 +435,8 @@ public sealed class LessonSessionService
             }
         }
 
-        _jobs.Schedule<LessonSessionJobs>(j => j.EndAsync(id, ticks), new DateTimeOffset(s.EndAt, TimeSpan.Zero));
+        _jobs.Schedule<VideoLessonJobs>(j => j.FirstCheckAsync(id, ticks), new DateTimeOffset(s.FirstCheckAt, TimeSpan.Zero));
+        _jobs.Schedule<VideoLessonJobs>(j => j.CloseRoomAsync(id, ticks), new DateTimeOffset(s.RoomClosesAt, TimeSpan.Zero));
     }
 
     private async Task PublishUpdateAsync(LessonSessionDto dto)

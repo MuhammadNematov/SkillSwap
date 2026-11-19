@@ -90,22 +90,10 @@ public sealed class LessonSessionJobs
     });
 
     /// <summary>
-    /// Плановое окончание прошло: пока нет событий LiveKit (этап 5), урок становится неподтверждённым (Scheduled → Unconfirmed), оба получают
-    /// просьбу нажать «Урок состоялся», и ставится проверка через 24 часа.
+    /// Устарело: до видеозвонков урок после планового окончания становился неподтверждённым. Теперь итог подводит <see cref="VideoLessonJobs.CloseRoomAsync"/>.
+    /// Метод оставлен, чтобы задачи, уже стоящие в очереди Hangfire, не падали: он ничего не делает.
     /// </summary>
-    public Task EndAsync(Guid sessionId, long startAtTicks) => RunAsync(sessionId, startAtTicks, (s, exchange) =>
-    {
-        if (!s.MarkUnconfirmedIfDue(Now()))
-        {
-            return false;
-        }
-
-        _notify.Add(exchange.UserA.Id, NotificationType.SessionNeedsConfirmation, Payload(s, exchange));
-        _notify.Add(exchange.UserB.Id, NotificationType.SessionNeedsConfirmation, Payload(s, exchange));
-        var id = s.Id;
-        _jobs.Schedule<LessonSessionJobs>(j => j.ExpireUnconfirmedAsync(id), new DateTimeOffset(s.ConfirmDeadline, TimeSpan.Zero));
-        return true;
-    });
+    public Task EndAsync(Guid sessionId, long startAtTicks) => Task.CompletedTask;
 
     /// <summary>За 24 часа урок не подтвердили оба: Unconfirmed → NotCounted, баланс его не учитывает.</summary>
     public Task ExpireUnconfirmedAsync(Guid sessionId) => RunAsync(sessionId, null, (s, exchange) =>

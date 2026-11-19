@@ -423,12 +423,12 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 | `POST /sessions/{id}/decline` | Отклонить (только партнёр). `Proposed → Declined` |
 | `POST /sessions/{id}/reschedule` | Тело `{ "startAt": … }`. `Scheduled → Proposed` с новым временем (отвечает тот, кто не предлагал перенос) |
 | `POST /sessions/{id}/cancel` | Автор отзывает предложение; запланированный урок отменяет любой участник |
-| `POST /sessions/{id}/confirm-manual` | «Урок состоялся» (после планового окончания, пока нет видео) |
+| `POST /sessions/{id}/confirm-manual` | «Урок состоялся»: только для урока `Unconfirmed` (оба нажимают в течение 24 часов после закрытия комнаты) |
 | `GET /me/sessions?from=&to=&includeClosed=` | Календарь: мои уроки во всех обменах `[from, to)`, по возрастанию начала, с партнёром (`partner`: `id`, `name`, `avatarUrl`). По умолчанию ближайшие 30 дней, не больше 100 дней. Без `includeClosed` нет отклонённых, истёкших и отменённых |
 
 Урок: `id`, `exchangeId`, `teacherId`, `startAt`, `endAt`, `durationMinutes` (45), `topic`, `status`, `proposedById` (кто предложил текущее время: ответить может другой), `previousStartAt` (при переносе), `cancelledById` (null — отмена без виновного), `confirmedBy` (кто нажал «Урок состоялся»), `unconfirmedAt`, `confirmDeadlineAt`, `createdAt`.
 
-**Статусы** (раздел 9.3): `Proposed`, `Scheduled`, `Declined`, `Expired`, `Cancelled`, `LateCancelled`, `Unconfirmed`, `Completed`, `NotCounted`; `InProgress`, `Missed`, `NoShow` появятся с видеозвонками (этап 5).
+**Статусы** (раздел 9.3): `Proposed`, `Scheduled`, `Declined`, `Expired`, `Cancelled`, `LateCancelled`, `InProgress` (кто-то вошёл в видеокомнату), `NoShow`, `Missed`, `Completed`, `Unconfirmed`, `NotCounted`. В уроке также `noShowUserId` (кто не пришёл) и `lateJoinMinutes` (на сколько минут опоздал второй участник, если урок всё же засчитан).
 
 **Правила времени:**
 - Слот не раньше чем через **1 час** от сейчас (400 `slot_too_soon`) и не позже `endDate` обмена (400 `slot_after_exchange_end`); граничные значения допустимы.
@@ -445,11 +445,25 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 
 **Обмен закрывается** (прерван, заблокирован, завершён; на этапе 6 и заморожен): открытые уроки (`Proposed`, `Scheduled`) становятся `Cancelled` **без виновного** (`cancelledById: null`), карточки обновляются событием; отдельных уведомлений нет. Неподтверждённые и засчитанные уроки не трогаются, их ещё можно подтвердить.
 
-**Факт урока (пока нет видео).** В момент планового окончания `Scheduled → Unconfirmed`, обоим уведомление `SessionNeedsConfirmation`. Оба нажимают `confirm-manual` («Урок состоялся») в течение **24 часов**: `Completed` (уведомление `SessionCompleted` обоим). Иначе `NotCounted` (`SessionNotCounted`); после срока `confirm-manual` отвечает 409 `confirm_window_closed`. Повторное нажатие не ошибка (`confirmedBy` показывает, кто уже нажал). На этапе 5 это заменят события LiveKit.
+**Факт урока фиксируется автоматически по присутствию в видеокомнате** (раздел 6.3 ТЗ; фоновые задачи ставятся при подтверждении слота и переставляются при переносе):
+
+| Момент | Что видно в комнате | Статус |
+| --- | --- | --- |
+| Первый вход (в любой момент окна комнаты) | кто-то вошёл | `Scheduled → InProgress` |
+| Старт + 15 минут (предварительно) | никого | `Missed` (уведомление `SessionMissed` обоим) |
+| | один | `NoShow`, `noShowUserId` = не вошедший (уведомление `SessionNoShow` обоим, `payload.userId` — не пришедший) |
+| | оба | остаётся `InProgress` |
+| Старт + 75 минут, закрытие комнаты (окончательно) | вместе ≥ 30 минут | `Completed` из `InProgress`, `NoShow` или `Missed` (`SessionCompleted`); опоздание в `lateJoinMinutes` |
+| | оба были, вместе < 30 минут | `Unconfirmed` (`SessionNeedsConfirmation`) |
+| | один или никого (если 15-я минута не отработала) | `NoShow` / `Missed` |
+
+«Был в комнате на 15-й минуте» значит: находился в комнате в промежутке от начала урока до 15-й минуты (вход раньше начала считается, если участник остался). **Совместное время** считается как пересечение интервалов обоих (с переподключениями) **от планового начала до закрытия комнаты**: минуты до начала урока не засчитываются. `NoShow` и `Missed` после закрытия комнаты окончательные (`Missed` меняется только на `Completed`). При закрытии комнаты бэкенд удаляет её в LiveKit (участников отключает); итог урока от доступности LiveKit не зависит (удаление повторяется само).
+
+**Ручное подтверждение — только для `Unconfirmed`** (обрыв связи): оба нажимают `confirm-manual` («Урок состоялся») в течение **24 часов с закрытия комнаты** → `Completed` (`SessionCompleted`), иначе `NotCounted` (`SessionNotCounted`). Для остальных статусов `confirm-manual` отвечает 409 `invalid_state_transition`; после срока 409 `confirm_window_closed`. Повторное нажатие не ошибка (`confirmedBy` показывает, кто уже нажал).
 
 **Баланс** в карточке обмена (`balance`): `myLessons` и `partnerLessons` — число **засчитанных (`Completed`)** уроков, проведённых каждым в роли преподавателя (`teacherId`); `showReminder` при разнице больше 3. `NotCounted`, отменённые и несостоявшиеся не считаются.
 
-Типы уведомлений (`payload`: `sessionId`, `exchangeId`, `startAt`, `userId`, `userName`, у переноса `previousStartAt`, у отмены `late`, у напоминания `minutesBefore`): `SessionProposed` (перенос, партнёру), `SessionConfirmed` и `SessionDeclined` (автору), `SessionCancelled` (партнёру отменившего), `SessionExpired` (автору), `SessionReminder` (обоим, дублируется письмом), `SessionNeedsConfirmation`, `SessionCompleted`, `SessionNotCounted` (обоим).
+Типы уведомлений (`payload`: `sessionId`, `exchangeId`, `startAt`, `userId`, `userName`, у переноса `previousStartAt`, у отмены `late`, у напоминания `minutesBefore`): `SessionProposed` (перенос, партнёру), `SessionConfirmed` и `SessionDeclined` (автору), `SessionCancelled` (партнёру отменившего), `SessionExpired` (автору), `SessionReminder` (обоим, дублируется письмом), `SessionNeedsConfirmation`, `SessionCompleted`, `SessionNotCounted`, `SessionNoShow`, `SessionMissed` (обоим).
 
 ## Удаление аккаунта и выгрузка данных (этап 4, шаг 8): контракт для фронтенда
 
@@ -598,6 +612,8 @@ pre-join, таймер, автофиксация урока) — этап 5. У�
 2. То же значение задайте приложению: `dotnet user-secrets set "LiveKit:ApiSecret" "<значение>" --project src/SkillSwap.Api`.
 3. Поднимите медиасервер: `docker compose up -d livekit` (образ `livekit/livekit-server:v1.13.11`, режим `--dev`, настройки в `backend/livekit.yaml`).
 4. Запустите API в профиле **http**: `dotnet run --project src/SkillSwap.Api --launch-profile http` (порт **5023**: на него в `livekit.yaml` указан webhook).
+
+Серверный API LiveKit (удаление комнаты при закрытии окна урока): адрес берётся из `LiveKit:Url` (`ws` → `http`, `wss` → `https`), при необходимости задайте свой `LiveKit:ApiUrl` (например, внутренний адрес контейнера). `LiveKit:ApiTimeoutSeconds` (10) — сколько ждать ответ. Если LiveKit не настроен, комнаты не удаляются, а итог урока всё равно подводится.
 
 **Звонок в двух вкладках.** Откройте `http://localhost:5023/dev/livekit` в двух вкладках, нажмите «Войти» в обеих (имена разные, комната одна), разрешите камеру и микрофон.
 Вы должны увидеть и услышать друг друга; кнопка «Пинг» передаёт сообщение между вкладками (если камеры нет, снимите галочки: связь всё равно проверяется).

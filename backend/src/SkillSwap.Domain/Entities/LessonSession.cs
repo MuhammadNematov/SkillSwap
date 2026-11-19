@@ -304,22 +304,6 @@ public class LessonSession : BaseEntity
         return true;
     }
 
-    /// <summary>
-    /// Плановое окончание прошло (фоновая задача). Пока нет событий LiveKit (этап 5), урок не подтверждён автоматически:
-    /// Scheduled → Unconfirmed, дальше участники подтверждают его вручную в течение 24 часов.
-    /// </summary>
-    public bool MarkUnconfirmedIfDue(DateTime now)
-    {
-        if (Status != SessionStatus.Scheduled || now < EndAt)
-        {
-            return false;
-        }
-
-        Status = SessionStatus.Unconfirmed;
-        UnconfirmedAt = now;
-        return true;
-    }
-
     /// <summary>«Урок состоялся»: когда нажали оба, урок засчитан (Unconfirmed → Completed). Повтор тем же участником безвреден.</summary>
     /// <returns>true, если урок засчитан этим вызовом.</returns>
     public bool ConfirmManually(Guid userId, bool isParticipantA, DateTime now)

@@ -27,6 +27,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     // Тесты читают письма отсюда вместо консоли.
     public CapturingMailSender Mail { get; } = new();
 
+    /// <summary>Серверный API LiveKit (удаление комнат) в тестах — заглушка.</summary>
+    public FakeLiveKitRooms Rooms { get; } = new();
+
     /// <summary>
     /// Часы приложения, замороженные на моменте создания фабрики. Благодаря этому шаг TOTP в тесте не «ускользает»
     /// посреди теста, и можно детерминированно брать коды прошлого (−1), текущего (0) и следующего (+1) окна.
@@ -158,6 +161,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.Configure<Microsoft.AspNetCore.Identity.PasswordHasherOptions>(o => o.IterationCount = 1000);
             services.RemoveAll<IMailSender>();
             services.AddSingleton<IMailSender>(Mail);
+            services.RemoveAll<ILiveKitRoomService>();
+            services.AddSingleton<ILiveKitRoomService>(Rooms);
 
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);

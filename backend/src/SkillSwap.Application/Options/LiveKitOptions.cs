@@ -27,6 +27,13 @@ public sealed class LiveKitOptions
 
     public string? ApiSecret { get; set; }
 
+    /// <summary>Адрес API медиасервера (http или https) для серверных вызовов, например удаления комнаты. Пусто: берётся <see cref="Url"/> с заменой ws на http и wss на https.</summary>
+    public string? ApiUrl { get; set; }
+
+    /// <summary>Сколько секунд ждать ответ медиасервера на серверный вызов.</summary>
+    [Range(1, 60)]
+    public int ApiTimeoutSeconds { get; set; } = 10;
+
     /// <summary>Сколько токен действует до входа в комнату. Токен короткий (раздел 7.2 ТЗ): после входа сеанс от него не зависит.</summary>
     [Range(30, 3600)]
     public int TokenTtlSeconds { get; set; } = 300;

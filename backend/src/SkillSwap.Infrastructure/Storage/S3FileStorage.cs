@@ -15,6 +15,16 @@ namespace SkillSwap.Infrastructure.Storage;
 /// </summary>
 public sealed class S3FileStorage : IFileStorage, IDisposable
 {
+    static S3FileStorage()
+    {
+        // SDK держит поправку на расхождение часов в одном словаре на весь процесс (по адресу хранилища) и пересчитывает её по заголовку Date каждого ответа,
+        // а Date точен до секунды. Подписанные ссылки берут время именно из этого словаря (настройка клиента на них не действует), поэтому срок ссылки
+        // (X-Amz-Expires) плавал на секунды в зависимости от предыдущего запроса к хранилищу, и тесты со сроком ссылки падали только в полном прогоне.
+        // Ручная поправка перекрывает словарь для всех адресов. Нулевое значение SDK считает «не задано», поэтому ставим 1 тик (100 нс): срок ссылки
+        // ровно заявленный. Часы сервера приложений должны идти по NTP.
+        Amazon.AWSConfigs.ManualClockCorrection = TimeSpan.FromTicks(1);
+    }
+
     private readonly StorageOptions _options;
     private readonly AmazonS3Client _client;
     private readonly AmazonS3Client _publicClient;
@@ -42,6 +52,8 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
             ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
             Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds),
             MaxErrorRetry = options.MaxRetries,
+            // Подпись запросов без поправки на расхождение часов (подписанные ссылки: см. статический конструктор). SDK пересчитывал бы её по заголовку Date
+            DisableClockSkewCorrection = true,
         });
 
     public async Task PutAsync(string key, Stream content, string contentType, CancellationToken ct)

@@ -355,6 +355,9 @@ public class LiveKitWebhookServiceTests
         public Task<IReadOnlyList<LiveKitWebhookEvent>> ListByRoomAsync(string roomName, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<LiveKitWebhookEvent>>([]);
 
+        public Task<IReadOnlyList<string>> ListUnprocessedIdsAsync(string roomName, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
         public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 

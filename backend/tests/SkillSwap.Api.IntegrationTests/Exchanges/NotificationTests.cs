@@ -449,6 +449,8 @@ public class NotificationTests
     [InlineData(NotificationType.SessionProposed, false)]
     [InlineData(NotificationType.SessionConfirmed, false)]
     [InlineData(NotificationType.SessionNeedsConfirmation, false)]
+    [InlineData(NotificationType.SessionNoShow, false)]
+    [InlineData(NotificationType.SessionMissed, false)]
     public void Only_the_important_types_are_duplicated_by_email(NotificationType type, bool email) =>
         Assert.Equal(email, NotificationPolicy.SendsEmail(type));
 

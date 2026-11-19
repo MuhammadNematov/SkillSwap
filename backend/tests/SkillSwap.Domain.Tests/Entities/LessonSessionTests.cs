@@ -245,69 +245,69 @@ public class LessonSessionTests
         Assert.False(scheduled.CancelByExchange());   // повтор ничего не меняет
     }
 
-    // ---------- после урока (до видеозвонков) ----------
+    // ---------- после урока: ручное подтверждение только для Unconfirmed ----------
 
-    [Fact]
-    public void After_the_planned_end_a_scheduled_session_becomes_unconfirmed()
+    /// <summary>Оба были в комнате, но совместно меньше 30 минут: Unconfirmed, 24 часа считаются от закрытия комнаты.</summary>
+    private static LessonSession Unconfirmed()
     {
         var s = Scheduled(Now.AddHours(5));
-
-        Assert.False(s.MarkUnconfirmedIfDue(s.EndAt.AddTicks(-1)));
-        Assert.True(s.MarkUnconfirmedIfDue(s.EndAt));
-
-        Assert.Equal(SessionStatus.Unconfirmed, s.Status);
-        Assert.Equal(s.EndAt, s.UnconfirmedAt);
-        Assert.Equal(s.EndAt.AddHours(24), s.ConfirmDeadline);
-        Assert.False(s.MarkUnconfirmedIfDue(s.EndAt.AddHours(1)));
+        s.MarkStarted();
+        Assert.True(s.CloseRoom(s.RoomClosesAt, new Dictionary<Guid, DateTime> { [A] = s.StartAt, [B] = s.StartAt }, 10, A, B));
+        return s;
     }
 
     [Fact]
-    public void Only_scheduled_sessions_become_unconfirmed()
+    public void Only_a_confirmed_and_started_session_can_become_unconfirmed_after_the_room_closes()
     {
-        var s = Proposed(Now.AddHours(5));
+        var proposed = Proposed(Now.AddHours(5));
 
-        Assert.False(s.MarkUnconfirmedIfDue(Now.AddDays(1)));
-        Assert.Equal(SessionStatus.Proposed, s.Status);
+        Assert.False(proposed.CloseRoom(proposed.RoomClosesAt, new Dictionary<Guid, DateTime>(), 0, A, B));
+        Assert.Equal(SessionStatus.Proposed, proposed.Status);
+
+        var s = Unconfirmed();
+        Assert.Equal(SessionStatus.Unconfirmed, s.Status);
+        Assert.Equal(s.RoomClosesAt, s.UnconfirmedAt);
+        Assert.Equal(s.RoomClosesAt.AddHours(24), s.ConfirmDeadline);
     }
 
     [Fact]
     public void Both_pressing_the_lesson_took_place_completes_it_and_repeats_are_harmless()
     {
-        var s = Scheduled(Now.AddHours(5));
-        s.MarkUnconfirmedIfDue(s.EndAt);
+        var s = Unconfirmed();
+        var close = s.RoomClosesAt;
 
-        Assert.False(s.ConfirmManually(A, isParticipantA: true, s.EndAt.AddHours(1)));
-        Assert.False(s.ConfirmManually(A, isParticipantA: true, s.EndAt.AddHours(2)));
+        Assert.False(s.ConfirmManually(A, isParticipantA: true, close.AddHours(1)));
+        Assert.False(s.ConfirmManually(A, isParticipantA: true, close.AddHours(2)));
         Assert.Equal(SessionStatus.Unconfirmed, s.Status);
-        Assert.True(s.ConfirmManually(B, isParticipantA: false, s.EndAt.AddHours(3)));
+        Assert.True(s.ConfirmManually(B, isParticipantA: false, close.AddHours(3)));
 
         Assert.Equal(SessionStatus.Completed, s.Status);
-        Assert.Throws<InvalidStateTransitionException>(() => s.ConfirmManually(A, true, s.EndAt.AddHours(4)));
+        Assert.Throws<InvalidStateTransitionException>(() => s.ConfirmManually(A, true, close.AddHours(4)));
     }
 
     [Fact]
     public void Manual_confirmation_closes_after_24_hours()
     {
-        var s = Scheduled(Now.AddHours(5));
-        s.MarkUnconfirmedIfDue(s.EndAt);
+        var s = Unconfirmed();
+        var close = s.RoomClosesAt;
 
-        Assert.False(s.ConfirmManually(A, true, s.EndAt.AddHours(24)));   // ровно 24 часа ещё можно
+        Assert.False(s.ConfirmManually(A, true, close.AddHours(24)));   // ровно 24 часа ещё можно
         Assert.Equal("confirm_window_closed", Assert.Throws<DomainValidationException>(
-            () => s.ConfirmManually(B, false, s.EndAt.AddHours(24).AddTicks(1))).Code);
+            () => s.ConfirmManually(B, false, close.AddHours(24).AddTicks(1))).Code);
     }
 
     [Fact]
     public void Without_a_double_confirmation_the_session_is_not_counted_after_24_hours()
     {
-        var s = Scheduled(Now.AddHours(5));
-        s.MarkUnconfirmedIfDue(s.EndAt);
-        s.ConfirmManually(A, true, s.EndAt.AddHours(2));   // подтвердил только один
+        var s = Unconfirmed();
+        var close = s.RoomClosesAt;
+        s.ConfirmManually(A, true, close.AddHours(2));   // подтвердил только один
 
-        Assert.False(s.ExpireUnconfirmedIfDue(s.EndAt.AddHours(24).AddTicks(-1)));
-        Assert.True(s.ExpireUnconfirmedIfDue(s.EndAt.AddHours(24)));
+        Assert.False(s.ExpireUnconfirmedIfDue(close.AddHours(24).AddTicks(-1)));
+        Assert.True(s.ExpireUnconfirmedIfDue(close.AddHours(24)));
 
         Assert.Equal(SessionStatus.NotCounted, s.Status);
-        Assert.False(s.ExpireUnconfirmedIfDue(s.EndAt.AddDays(5)));
+        Assert.False(s.ExpireUnconfirmedIfDue(close.AddDays(5)));
     }
 
     [Fact]

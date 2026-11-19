@@ -68,6 +68,22 @@ public class SessionAttendance : BaseEntity
         return (int)total.TotalMinutes;
     }
 
+    /// <summary>
+    /// Когда участник впервые оказался в комнате в окне <c>[from, to]</c> (время до <c>from</c> подтягивается к <c>from</c>: минуты до начала урока не
+    /// считаются); null, если в окне его не было. Интервал в окне, если вход не позже <c>to</c> и выход (или конец окна) позже <c>from</c>.
+    /// </summary>
+    public static DateTime? FirstPresenceIn(IEnumerable<SessionAttendance> all, Guid userId, DateTime from, DateTime to)
+    {
+        DateTime? first = null;
+        foreach (var a in all.Where(x => x.UserId == userId && x.JoinedAt <= to && (x.LeftAt is null || x.LeftAt > from)))
+        {
+            var at = Max(a.JoinedAt, from);
+            first = first is { } f && f < at ? f : at;
+        }
+
+        return first;
+    }
+
     private static DateTime Max(DateTime x, DateTime y) => x > y ? x : y;
     private static DateTime Min(DateTime x, DateTime y) => x < y ? x : y;
 }
