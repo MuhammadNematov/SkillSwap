@@ -1,8 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { errorMessage } from '../api/errors'
-import { getMessages, getSessions, sendFile, sendMessage } from '../api/exchanges'
+import { getMessages, getSessions, markMessagesRead, sendFile, sendMessage, sendTyping, toMessage } from '../api/exchanges'
+import { USE_MOCKS } from '../api/config'
+import { getChatHub, startHub } from '../api/realtime'
 import type { ChatMessage, Exchange, LessonSession } from '../api/types'
 import { useInvalidateAll, useSessionActions } from '../hooks/useSessionActions'
 import { formatDateTime, formatTime } from '../utils/dates'
@@ -10,8 +12,8 @@ import Icon from './Icon'
 import { SessionStatusChip } from './SessionItem'
 import SessionProposalModal from './SessionProposalModal'
 
-// Чат обмена. Сейчас работает на заглушках; по ТЗ транспорт — SignalR (/hubs/chat), подключим вместе с бэкендом.
-// Голосовые сообщения (запись до 2 минут) и «печатает…» добавим позже.
+// Чат обмена. Транспорт — SignalR (/hubs/chat); в режиме моков — заглушки.
+// Голосовые сообщения (запись до 2 минут) добавим позже.
 export default function Chat({ exchange }: { exchange: Exchange }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? 'ru'
@@ -33,20 +35,91 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const invalidate = useInvalidateAll()
+  const qc = useQueryClient()
+  const msgKey = ['messages', exchange.id]
+  const upsert = (msg: ChatMessage) =>
+    qc.setQueryData<ChatMessage[]>(msgKey, (old = []) =>
+      old.some((x) => x.id === msg.id) ? old.map((x) => (x.id === msg.id ? msg : x)) : [...old, msg],
+    )
   const send = useMutation({
     mutationFn: sendMessage,
-    onSuccess: () => {
+    onSuccess: (msg) => {
       setText('')
-      invalidate()
+      if (USE_MOCKS) invalidate()
+      else upsert(msg)
     },
   })
+  const [typing, setTyping] = useState(false)
+  const lastTypingSent = useRef(0)
   const upload = useMutation({ mutationFn: sendFile, onSuccess: invalidate })
+
+  // События хаба /hubs/chat
+  useEffect(() => {
+    if (USE_MOCKS) return
+    const hub = getChatHub()
+    let typingTimer: ReturnType<typeof setTimeout> | undefined
+    const mine = (d: { exchangeId: string }) => d.exchangeId === exchange.id
+
+    const onMessage = (dto: Parameters<typeof toMessage>[0]) => {
+      if (!mine(dto)) return
+      const msg = toMessage(dto)
+      upsert(msg)
+      if (!msg.senderIsMe && document.visibilityState === 'visible') void markMessagesRead(exchange.id)
+    }
+    const onDeleted = (d: { exchangeId: string; messageId: string }) => {
+      if (!mine(d)) return
+      qc.setQueryData<ChatMessage[]>(msgKey, (old = []) =>
+        old.map((x) => (x.id === d.messageId ? { ...x, deleted: true, text: undefined } : x)),
+      )
+    }
+    const onRead = (d: { exchangeId: string; readerId: string; readAt: string }) => {
+      if (!mine(d)) return
+      qc.setQueryData<ChatMessage[]>(msgKey, (old = []) =>
+        old.map((x) => (x.senderIsMe && !x.readAt ? { ...x, readAt: d.readAt } : x)),
+      )
+    }
+    const onTyping = (d: { exchangeId: string }) => {
+      if (!mine(d)) return
+      setTyping(true)
+      clearTimeout(typingTimer)
+      typingTimer = setTimeout(() => setTyping(false), 4000)
+    }
+    const onSession = () => qc.invalidateQueries({ queryKey: ['sessions', exchange.id] })
+    const onReconnected = () => {
+      void hub.invoke('Join', exchange.id).catch(() => undefined)
+      qc.invalidateQueries({ queryKey: msgKey })
+    }
+
+    hub.on('message', onMessage)
+    hub.on('messageEdited', onMessage)
+    hub.on('messageDeleted', onDeleted)
+    hub.on('messagesRead', onRead)
+    hub.on('typing', onTyping)
+    hub.on('sessionUpdated', onSession)
+    hub.onreconnected(onReconnected)
+    void startHub(hub).then((ok) => {
+      if (ok) void hub.invoke('Join', exchange.id).catch(() => undefined)
+    })
+    void markMessagesRead(exchange.id).then(() => qc.invalidateQueries({ queryKey: ['notifications'] })).catch(() => undefined)
+
+    return () => {
+      clearTimeout(typingTimer)
+      hub.off('message', onMessage)
+      hub.off('messageEdited', onMessage)
+      hub.off('messageDeleted', onDeleted)
+      hub.off('messagesRead', onRead)
+      hub.off('typing', onTyping)
+      hub.off('sessionUpdated', onSession)
+      void hub.invoke('Leave', exchange.id).catch(() => undefined)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exchange.id])
 
   // Прокрутка вниз при новых сообщениях
   useEffect(() => {
     const el = listRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages.length])
+  }, [messages.length, typing])
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -148,6 +221,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
         ) : (
           messages.map(renderMessage)
         )}
+        {typing && <p className="px-1 text-xs italic text-slate-400">{t('chat.typing')}</p>}
       </div>
 
       {error && <p className="border-t border-ink-line px-4 py-2 text-xs text-red-600">{errorMessage(t, error)}</p>}
@@ -190,7 +264,13 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
             value={text}
             maxLength={2000}
             placeholder={t('chat.placeholder')}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value)
+              if (Date.now() - lastTypingSent.current > 2000) {
+                lastTypingSent.current = Date.now()
+                sendTyping(exchange.id)
+              }
+            }}
           />
           <button className="btn-primary px-3" disabled={!text.trim() || send.isPending} aria-label={t('chat.send')}>
             <Icon name="send" />

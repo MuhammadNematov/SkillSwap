@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { getExchangeRequests, getExchanges } from '../api/exchanges'
 import { useAuth } from '../hooks/useAuth'
-import { useUnreadCount } from '../hooks/useNotifications'
+import { useNotificationsHub, useUnreadCount } from '../hooks/useNotifications'
 import Avatar from './Avatar'
 import Icon, { type IconName } from './Icon'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -50,6 +50,7 @@ const greetingKey = () => {
 export default function AppLayout() {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
+  useNotificationsHub()
   const unread = useUnreadCount()
   const navigate = useNavigate()
   const location = useLocation()

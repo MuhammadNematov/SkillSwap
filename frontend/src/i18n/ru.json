@@ -531,6 +531,7 @@
     "abortReason_partner_unavailable": "Партнёр больше недоступен"
   },
   "chat": {
+    "typing": "печатает…",
     "attach": "Прикрепить файл",
     "empty": "Сообщений пока нет",
     "placeholder": "Напишите сообщение",

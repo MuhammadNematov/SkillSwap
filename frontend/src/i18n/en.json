@@ -527,6 +527,7 @@
     "abortReason_partner_unavailable": "Your partner is no longer available"
   },
   "chat": {
+    "typing": "typing…",
     "attach": "Attach file",
     "empty": "No messages yet",
     "placeholder": "Write a message",

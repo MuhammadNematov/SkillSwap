@@ -6,6 +6,8 @@ import { API_URL } from './config'
 let accessToken: string | null = null
 let onAuthFailure: (() => void) | null = null
 
+export const getAccessToken = () => accessToken
+
 export function setAccessToken(token: string | null) {
   accessToken = token
 }

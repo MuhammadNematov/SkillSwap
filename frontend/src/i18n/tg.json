@@ -527,6 +527,7 @@
     "abortReason_partner_unavailable": "Шарик дигар дастрас нест"
   },
   "chat": {
+    "typing": "менависад…",
     "attach": "Замима кардани файл",
     "empty": "Ҳоло паём нест",
     "placeholder": "Паём нависед",
