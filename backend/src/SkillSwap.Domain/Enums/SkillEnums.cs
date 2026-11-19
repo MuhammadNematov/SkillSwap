@@ -126,6 +126,9 @@ public enum NotificationType
 
     /// <summary>Модератор взял обращение в работу и получил доступ к переписке этого обмена (одно уведомление каждому из двоих). В данных: caseId, exchangeId, role (Opener или Against).</summary>
     CaseTaken,
+
+    /// <summary>Модератор задал вам вопрос по обращению: ответить нужно за 48 часов. В данных: caseId, exchangeId, questionId, deadlineAt.</summary>
+    CaseExplanationRequested,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

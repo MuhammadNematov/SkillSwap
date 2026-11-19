@@ -728,6 +728,25 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 
 **Для бэкенда.** `ModerationService.RevokeChatAccessAsync(caseId, actorId)` отзывает все действующие доступы по обращению (аудит `ChatAccessRevoked`, повтор безвреден); решение, закрытие апелляции и очистка в следующих шагах вызывают её в своей транзакции. После отзыва чтение сразу даёт 403. Проверка доступа: `ChatAccessPolicy` (роль `Moderator` + действующий доступ; администратору и суперадмину чат недоступен, даже если доступ на них записан).
 
+## Пояснения по обращению (этап 6, шаг 4): контракт для фронтенда
+
+Раздел 8.2 ТЗ. Модератор, взявший обращение, задаёт вопросы участникам; у них 48 часов на ответ.
+
+| Метод | Кто | Что делает |
+| --- | --- | --- |
+| `POST /moderation/cases/{id}/questions` | модератор | Вопрос: `recipient` (`Opener`, `Against`, `Both`), `text` 1–2000 символов |
+| `GET /moderation/cases/{id}/explanations` | модератор | Вся переписка по обращению |
+| `GET /cases/{id}/explanations` | участник | Моя переписка: вопросы мне и мои ответы (видна, когда обращение взято) |
+| `POST /cases/{id}/explanations` | участник | Ответ: `questionId`, `text` 1–2000 символов |
+
+**Ход.** Вопрос переводит обращение `InProgress → WaitingResponse` и задаёт `responseDeadlineAt` (сейчас + 48 часов); получатели получают уведомление **`CaseExplanationRequested`** (`caseId`, `exchangeId`, `questionId`, `deadlineAt`). Вопрос обоим создаёт отдельный вопрос каждому, каждый видит только свой. Пока ждём ответов, второй запрос на пояснения невозможен (409 `explanation_already_requested`). Когда ответили на все вопросы, обращение возвращается в `InProgress` сразу; если кто-то промолчал, то через 48 часов его возвращает задача `CaseJobs.ExplanationDueAsync` (с тем, что есть). После возврата можно спрашивать снова; всего по обращению не больше 10 вопросов (409 `too_many_questions`). Доступ модератора к чату на время ожидания сохраняется.
+
+**Ошибки ответа.** 404 `case_not_found` (чужое обращение, обвиняемому не взятое), 404 `question_not_found` (чужой или несуществующий вопрос), 409 `explanation_not_requested` (обращение не в `WaitingResponse`), 409 `explanation_window_closed` (срок вышел), 409 `question_already_answered`, 400 `case_message_empty` и `case_message_too_long`. Вопрос: 404, если обращение чужое или не взято, 409 `invalid_state_transition`, если обращение не в работе.
+
+**В карточках.** `CaseDto.pendingQuestions` — сколько вопросов ждут моего ответа (когда `status: WaitingResponse`), `responseDeadlineAt` — срок; `ModerationCaseDto.pendingQuestions` — сколько заданных модератором вопросов без ответа. Элемент переписки (`ExplanationDto`): `id`, `kind` (`Question` или `Answer`), `senderId`, `recipientId`, `text`, `inReplyToId`, `answered` (у вопроса), `createdAt`.
+
+**Для бэкенда.** Всё в транзакции под блокировкой модератора и обоих участников. Задача возврата ставится при вопросе на момент срока, сверяется с состоянием (повтор и ранний запуск безвредны, допуск 5 секунд). Аудит: `ExplanationRequested`, `ExplanationAnswered`, `ExplanationExpired` (без исполнителя).
+
 ## Отзывы и обращения: основа (этап 6, шаг 0): для бэкенда
 
 Фронтенду здесь ничего вызывать не нужно: API отзывов и обращений появится в следующих шагах. Что заложено.

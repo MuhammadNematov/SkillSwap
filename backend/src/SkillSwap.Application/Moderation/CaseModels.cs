@@ -41,6 +41,7 @@ public enum CaseListFilter
 /// <param name="Decision">Решение: появляется, когда обращение решено.</param>
 /// <param name="ResponseDeadlineAt">Пока ждём пояснений: до какого времени отвечать.</param>
 /// <param name="CanWithdraw">Заявитель может отозвать обращение (пока его не взяли в работу).</param>
+/// <param name="PendingQuestions">Сколько вопросов модератора ждут моего ответа (ответить: <c>POST /cases/{id}/explanations</c>).</param>
 public sealed record CaseDto(
     Guid Id,
     CaseType Type,
@@ -61,7 +62,8 @@ public sealed record CaseDto(
     string? DecisionReason,
     DateTime? ResolvedAt,
     DateTime? ResponseDeadlineAt,
-    bool CanWithdraw);
+    bool CanWithdraw,
+    int PendingQuestions);
 
 public sealed record CaseListDto(IReadOnlyList<CaseDto> Items, int Page, int PageSize, int TotalCount);
 

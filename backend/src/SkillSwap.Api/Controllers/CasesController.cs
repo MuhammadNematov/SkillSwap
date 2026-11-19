@@ -78,5 +78,31 @@ public class CasesController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Withdraw(Guid caseId, CancellationToken ct) => Ok(await _cases.WithdrawAsync(UserId(), caseId, ct));
 
+    /// <summary>
+    /// Моя переписка с модератором по обращению: вопросы мне (<c>kind: Question</c>, <c>answered</c>) и мои ответы. Видна, когда обращение взято в работу; иначе и чужое — 404 <c>case_not_found</c>.
+    /// </summary>
+    [HttpGet("cases/{caseId:guid}/explanations")]
+    [ProducesResponseType<ExplanationThreadDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Explanations(Guid caseId, [FromServices] ExplanationService explanations, CancellationToken ct) =>
+        Ok(await explanations.ListForParticipantAsync(UserId(), caseId, ct));
+
+    /// <summary>
+    /// Ответить на вопрос модератора (<c>questionId</c> из переписки, <c>text</c> 1–2000 символов), пока обращение в статусе <c>WaitingResponse</c> и не вышли 48 часов.
+    /// Ответили на все вопросы — обращение возвращается в работу. 400: <c>case_message_empty</c>, <c>case_message_too_long</c>. 404: <c>case_not_found</c>, <c>question_not_found</c>
+    /// (чужой вопрос). 409: <c>explanation_not_requested</c>, <c>explanation_window_closed</c>, <c>question_already_answered</c>.
+    /// </summary>
+    [HttpPost("cases/{caseId:guid}/explanations")]
+    [ProducesResponseType<ExplanationThreadDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Answer(Guid caseId, [FromBody] AnswerQuestionRequest request, [FromServices] ExplanationService explanations, CancellationToken ct) =>
+        Ok(await explanations.AnswerAsync(UserId(), caseId, request, ct));
+
     private Guid UserId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

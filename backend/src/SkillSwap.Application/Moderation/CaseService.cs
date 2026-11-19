@@ -43,12 +43,14 @@ public sealed class CaseService
     private readonly AvatarUrls _avatars;
     private readonly TimeProvider _clock;
     private readonly ILogger<CaseService> _logger;
+    private readonly ICaseMessageStore _caseMessages;
 
     public CaseService(
         ICaseStore cases, IReviewStore reviews, ReviewService reviewService, IExchangeStore exchanges, IMessageStore messages, ILessonSessionStore sessions,
         LessonSessionService lessons, ILiveKitRoomService rooms, IProfileStore profiles, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify,
-        AvatarUrls avatars, TimeProvider clock, ILogger<CaseService> logger)
+        AvatarUrls avatars, TimeProvider clock, ILogger<CaseService> logger, ICaseMessageStore caseMessages)
     {
+        _caseMessages = caseMessages;
         _cases = cases;
         _reviews = reviews;
         _reviewService = reviewService;
@@ -248,6 +250,7 @@ public sealed class CaseService
         }
 
         var evidence = await _cases.GetEvidenceIdsAsync(items.Select(c => c.Id).ToList(), ct);
+        var pending = await _caseMessages.CountUnansweredAsync(items.Select(c => c.Id).ToList(), viewerId, ct);
         var exchanges = await _exchanges.GetViewsAsync(items.Select(c => c.ExchangeId).Distinct().ToList(), ct);
         var people = exchanges.Values.SelectMany(e => new[] { e.UserA, e.UserB }).GroupBy(u => u.Id).Select(g => g.First()).ToList();
         var urls = await _avatars.ForViewerAsync(viewerId, people.Select(p => (p.Id, p.AvatarUrl)).ToList(), ct);
@@ -265,7 +268,7 @@ public sealed class CaseService
                 c.OpenedById == viewerId ? CaseRole.Opener : CaseRole.Against, c.Description, c.FromCall, c.CreatedAt,
                 evidence.GetValueOrDefault(c.Id) ?? [], decided ? c.Decision : null, decided && c.AlsoWarned, decided ? c.DecisionReason : null,
                 decided ? c.ResolvedAt : null, c.Status == CaseStatus.WaitingResponse ? c.ResponseDeadlineAt : null,
-                c.Status == CaseStatus.Open && c.OpenedById == viewerId);
+                c.Status == CaseStatus.Open && c.OpenedById == viewerId, c.Status == CaseStatus.WaitingResponse ? pending.GetValueOrDefault(c.Id) : 0);
         }).ToList();
     }
 

@@ -33,11 +33,13 @@ public sealed class ModerationService
     private readonly INotificationPublisher _notify;
     private readonly IMessageCipher _cipher;
     private readonly TimeProvider _clock;
+    private readonly ICaseMessageStore _caseMessages;
 
     public ModerationService(
         ICaseStore cases, IReviewStore reviews, IExchangeStore exchanges, IMessageStore messages, IChatAccessGrantStore grants, ChatAccessPolicy policy,
-        IProfileStore profiles, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify, IMessageCipher cipher, TimeProvider clock)
+        IProfileStore profiles, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify, IMessageCipher cipher, TimeProvider clock, ICaseMessageStore caseMessages)
     {
+        _caseMessages = caseMessages;
         _cases = cases;
         _reviews = reviews;
         _exchanges = exchanges;
@@ -218,6 +220,7 @@ public sealed class ModerationService
 
         var now = Now();
         var evidence = await _cases.GetEvidenceIdsAsync(items.Select(c => c.Id).ToList(), ct);
+        var pending = await _caseMessages.CountUnansweredAsync(items.Select(c => c.Id).ToList(), null, ct);
         var exchanges = await _exchanges.GetViewsAsync(items.Select(c => c.ExchangeId).Distinct().ToList(), ct);
         var people = exchanges.Values.SelectMany(e => new[] { e.UserA, e.UserB }).GroupBy(u => u.Id).ToDictionary(g => g.Key, g => g.First() with { AvatarUrl = null });
         var reviews = new Dictionary<Guid, Review>();
@@ -240,7 +243,7 @@ public sealed class ModerationService
             result.Add(new ModerationCaseDto(
                 c.Id, c.Type, c.Category, c.Status, c.Priority, c.ExchangeId, c.ReviewId, people[c.OpenedById], people[c.AgainstUserId], c.Description, c.FromCall,
                 c.CreatedAt, c.DueAt, c.IsOverdue(now), c.ModeratorId, mine, access, evidence.GetValueOrDefault(c.Id) ?? [], review,
-                c.Decision, c.AlsoWarned, c.DecisionReason, c.ResolvedAt, c.ResponseDeadlineAt));
+                c.Decision, c.AlsoWarned, c.DecisionReason, c.ResolvedAt, c.ResponseDeadlineAt, pending.GetValueOrDefault(c.Id)));
         }
 
         return result;

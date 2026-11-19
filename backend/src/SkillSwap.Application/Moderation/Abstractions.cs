@@ -33,6 +33,8 @@ public static class AuditActions
     public const string CaseWithdrawn = "CaseWithdrawn";
     public const string CaseTaken = "CaseTaken";
     public const string ExplanationRequested = "ExplanationRequested";
+    public const string ExplanationAnswered = "ExplanationAnswered";
+    public const string ExplanationExpired = "ExplanationExpired";
     public const string CaseResolved = "CaseResolved";
     public const string CaseAppealed = "CaseAppealed";
     public const string AppealReviewAssigned = "AppealReviewAssigned";

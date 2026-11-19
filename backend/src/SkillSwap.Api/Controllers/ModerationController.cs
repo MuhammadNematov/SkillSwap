@@ -77,5 +77,30 @@ public class ModerationController : ControllerBase
     public async Task<IActionResult> Chat(Guid caseId, [FromQuery] string? before, [FromQuery] int? limit, CancellationToken ct) =>
         Ok(await _moderation.ReadChatAsync(ModeratorId(), caseId, before, limit, ct));
 
+    /// <summary>
+    /// Запросить пояснения: вопрос заявителю, обвиняемому или обоим (<c>recipient</c>: <c>Opener</c>, <c>Against</c>, <c>Both</c>; <c>text</c> 1–2000 символов).
+    /// Обращение переходит в <c>WaitingResponse</c>, у него появляется <c>responseDeadlineAt</c> (48 часов), получатели получают уведомление <c>CaseExplanationRequested</c>.
+    /// Когда ответят все или срок выйдет, обращение вернётся в работу само. Не ваше или не взятое — 404; уже ждём ответов — 409 <c>explanation_already_requested</c>;
+    /// больше 10 вопросов — 409 <c>too_many_questions</c>; обращение не в работе — 409 <c>invalid_state_transition</c>.
+    /// </summary>
+    [HttpPost("cases/{caseId:guid}/questions")]
+    [ProducesResponseType<ExplanationThreadDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Ask(Guid caseId, [FromBody] AskQuestionRequest request, [FromServices] ExplanationService explanations, CancellationToken ct) =>
+        Ok(await explanations.AskAsync(ModeratorId(), caseId, request, ct));
+
+    /// <summary>Вся переписка по моему обращению: вопросы обоим участникам и их ответы.</summary>
+    [HttpGet("cases/{caseId:guid}/explanations")]
+    [ProducesResponseType<ExplanationThreadDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Explanations(Guid caseId, [FromServices] ExplanationService explanations, CancellationToken ct) =>
+        Ok(await explanations.ListForModeratorAsync(ModeratorId(), caseId, ct));
+
     private Guid ModeratorId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

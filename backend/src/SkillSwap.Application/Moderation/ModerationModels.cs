@@ -23,6 +23,7 @@ public sealed record ModerationReviewDto(
 /// <param name="IsMine">Обращение взял этот модератор.</param>
 /// <param name="HasChatAccess">У меня сейчас есть доступ к чату этого обмена по этому обращению (читать: <c>GET /moderation/cases/{id}/chat</c>).</param>
 /// <param name="Review">Оспариваемый отзыв (только спор по отзыву).</param>
+/// <param name="PendingQuestions">Сколько заданных мной вопросов ещё без ответа.</param>
 public sealed record ModerationCaseDto(
     Guid Id,
     CaseType Type,
@@ -47,7 +48,8 @@ public sealed record ModerationCaseDto(
     bool AlsoWarned,
     string? DecisionReason,
     DateTime? ResolvedAt,
-    DateTime? ResponseDeadlineAt);
+    DateTime? ResponseDeadlineAt,
+    int PendingQuestions);
 
 public sealed record ModerationCaseListDto(IReadOnlyList<ModerationCaseDto> Items, int Page, int PageSize, int TotalCount);
 
