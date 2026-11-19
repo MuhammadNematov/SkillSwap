@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getBlocks, unblockUser } from '../../api/blocks'
 import { errorMessage } from '../../api/errors'
+import { deleteAccount, getExport, requestExport } from '../../api/account'
 import { deleteAvatar, getMe, updateMe, uploadAvatar } from '../../api/me'
 import { getLanguages } from '../../api/onboarding'
 import { disableTwoFactor, getAuthSessions, revokeAllAuthSessions, revokeAuthSession } from '../../api/twoFactor'
@@ -25,6 +27,7 @@ export default function Settings() {
       <TwoFactorSection />
       <SessionsSection />
       <BlocksSection />
+      <AccountSection />
     </div>
   )
 }
@@ -68,6 +71,7 @@ function ProfileSection() {
   })
 
   const fileRef = useRef<HTMLInputElement>(null)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
   const afterAvatar = (url: string | null) => {
     qc.invalidateQueries({ queryKey: ['me'] })
     qc.invalidateQueries({ queryKey: ['profile'] })
@@ -108,7 +112,11 @@ function ProfileSection() {
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0]
-                if (f) upload.mutate(f)
+                if (!f) return
+                setAvatarError(null)
+                if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) return setAvatarError(t('settings.avatarBadType'))
+                if (f.size > 2 * 1024 * 1024) return setAvatarError(t('settings.avatarTooBig'))
+                upload.mutate(f)
                 e.target.value = ''
               }}
             />
@@ -122,7 +130,7 @@ function ProfileSection() {
             )}
           </div>
           <p className="text-xs text-slate-400">{t('settings.avatarHint')}</p>
-          {(upload.isError || remove.isError) && <p className="text-xs text-red-600">{errorMessage(t, upload.error ?? remove.error)}</p>}
+          {(avatarError || upload.isError || remove.isError) && <p className="text-xs text-red-600">{avatarError ?? errorMessage(t, upload.error ?? remove.error)}</p>}
         </div>
       </div>
       <label className="block">
@@ -144,7 +152,7 @@ function ProfileSection() {
                 type="button"
                 onClick={() => setLanguages((cur) => (on ? cur.filter((c) => c !== l.code) : [...cur, l.code]))}
                 className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
+                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
                 }`}
               >
                 {pickName(l.names, lang)}
@@ -345,6 +353,102 @@ function BlocksSection() {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  )
+}
+
+// ───────── Данные и удаление аккаунта: POST/GET /me/export, DELETE /me ─────────
+function AccountSection() {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.resolvedLanguage ?? 'ru'
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const [deleting, setDeleting] = useState(false)
+  const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [recovery, setRecovery] = useState(false)
+
+  const exportQuery = useQuery({
+    queryKey: ['dataExport'],
+    queryFn: getExport,
+    // пока выгрузка готовится, опрашиваем статус
+    refetchInterval: (q) => (q.state.data && (q.state.data.status === 'Pending' || q.state.data.status === 'Processing') ? 5000 : false),
+  })
+  const request = useMutation({ mutationFn: requestExport, onSuccess: () => qc.invalidateQueries({ queryKey: ['dataExport'] }) })
+  const remove = useMutation({
+    mutationFn: () => deleteAccount({ password, code: code.trim(), isRecoveryCode: recovery }),
+    onSuccess: async () => {
+      try {
+        await logout()
+      } catch {
+        /* сеанс на сервере уже отозван */
+      }
+      navigate('/', { replace: true })
+    },
+  })
+
+  const ex = exportQuery.data
+  const busy = ex?.status === 'Pending' || ex?.status === 'Processing'
+
+  return (
+    <section className="card space-y-4">
+      <h2 className="font-bold text-slate-900">{t('settings.account.title')}</h2>
+
+      <div className="space-y-2">
+        <div className="text-sm font-medium text-slate-700">{t('settings.account.exportTitle')}</div>
+        <p className="text-xs text-slate-400">{t('settings.account.exportHint')}</p>
+        {ex && <p className="text-sm text-slate-600">{t(`settings.account.status.${ex.status}`, { date: ex.expiresAt ? formatDateTime(ex.expiresAt, lang) : '' })}</p>}
+        {request.isError && <p className={errorBox}>{errorMessage(t, request.error)}</p>}
+        <button className="btn-secondary" disabled={request.isPending || busy} onClick={() => request.mutate()}>
+          {request.isPending || busy ? t('common.loading') : t('settings.account.exportButton')}
+        </button>
+      </div>
+
+      <div className="space-y-2 border-t border-ink-line pt-4">
+        <div className="text-sm font-medium text-red-700">{t('settings.account.deleteTitle')}</div>
+        <p className="text-xs text-slate-400">{t('settings.account.deleteHint')}</p>
+        <button className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => setDeleting(true)}>
+          {t('settings.account.deleteButton')}
+        </button>
+      </div>
+
+      {deleting && (
+        <Modal title={t('settings.account.deleteTitle')} onClose={() => setDeleting(false)}>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700">{t('settings.account.deleteConfirm')}</p>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('settings.account.password')}</span>
+              <input type="password" className="input" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </label>
+            {user?.twoFactorEnabled && (
+              <div className="space-y-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">{recovery ? t('settings.account.recoveryCode') : t('settings.account.code')}</span>
+                  <input className="input" inputMode={recovery ? 'text' : 'numeric'} value={code} onChange={(e) => setCode(e.target.value)} />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  <input type="checkbox" checked={recovery} onChange={(e) => setRecovery(e.target.checked)} />
+                  {t('settings.account.useRecovery')}
+                </label>
+              </div>
+            )}
+            {remove.isError && <p className={errorBox}>{errorMessage(t, remove.error)}</p>}
+            <div className="flex justify-end gap-3">
+              <button className="btn-secondary" onClick={() => setDeleting(false)}>
+                {t('common.cancel')}
+              </button>
+              <button
+                className="btn-primary bg-[#DC3545] hover:bg-[#c42f3d]"
+                disabled={remove.isPending || !password || (!!user?.twoFactorEnabled && !code.trim())}
+                onClick={() => remove.mutate()}
+              >
+                {remove.isPending ? t('common.loading') : t('settings.account.deleteButton')}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </section>
   )

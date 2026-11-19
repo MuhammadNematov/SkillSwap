@@ -15,13 +15,13 @@ export default function CallRoomMock({ data, onLeave }: { data: JoinToken; onLea
           { src: '/characters/boy-phone.webp', name: t('call.you') },
           { src: '/characters/girl-phone.webp', name: t('call.partner') },
         ].map((p, i) => (
-          <div key={i} className="relative min-h-[260px] overflow-hidden rounded-3xl border border-ink-line bg-ink">
+          <div key={i} className="relative min-h-[260px] overflow-hidden rounded-3xl border border-ink-line bg-[#17143d]">
             {i === 0 && !cam ? (
               <div className="flex h-full items-center justify-center text-sm text-white/70">{t('call.camOff')}</div>
             ) : (
               <img src={p.src} alt="" className="h-full w-full object-cover" draggable={false} />
             )}
-            <span className="absolute bottom-3 left-3 rounded-full bg-black/50 px-3 py-1 text-xs font-semibold text-white backdrop-blur">{p.name}</span>
+            <span className="absolute bottom-3 left-3 rounded-full bg-black/50 px-3 py-1 text-xs font-semibold text-white">{p.name}</span>
           </div>
         ))}
       </div>

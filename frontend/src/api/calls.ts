@@ -3,12 +3,14 @@ import { USE_MOCKS } from './config'
 import { toApiError } from './errors'
 
 // POST /sessions/{id}/join-token: данные для входа в видеокомнату LiveKit.
-// Окно входа: открывается за 10 минут до начала и закрывается через 30 минут после планового окончания.
-// Ошибки (окно не открыто, окно закрыто, обмен заморожен) приходят кодами, переводятся через errors.codes.*
+// Окно входа: от старта − 10 минут до старта + 75 минут.
+// Ошибки 409: join_window_not_open (opensAt), join_window_closed (closedAt), session_not_joinable, exchange_frozen, exchange_not_active; 503 livekit_not_configured.
+// Все переводятся через errors.codes.*
 export interface JoinToken {
   token: string
   url: string // wss-адрес LiveKit
   roomName: string
+  expiresAt?: string // токен годится для входа до этого момента
   startAt: string // UTC
   plannedEndAt: string // UTC
   roomClosesAt: string // UTC

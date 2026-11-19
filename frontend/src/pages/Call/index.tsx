@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getJoinToken } from '../../api/calls'
-import { errorMessage } from '../../api/errors'
+import { errorMessage, toApiError } from '../../api/errors'
+import { formatDateTime } from '../../utils/dates'
 import CallRoom from '../../components/CallRoom'
 import Spinner from '../../components/Spinner'
 
@@ -17,7 +18,7 @@ function fmt(ms: number): string {
 // Страница видеоурока: берём токен у бэкенда и открываем комнату.
 // За 5 минут до планового окончания показываем «осталось 5 минут», комната закрывается в roomClosesAt.
 export default function Call() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
   const [now, setNow] = useState(() => Date.now())
@@ -38,10 +39,13 @@ export default function Call() {
   if (isLoading) return <Spinner />
 
   if (error || !data) {
+    const apiErr = error ? toApiError(error) : null
+    const opensAt = apiErr?.code === 'join_window_not_open' && typeof apiErr.data.opensAt === 'string' ? apiErr.data.opensAt : null
     return (
       <div className="mx-auto max-w-lg space-y-4 py-10 text-center">
         <h1 className="text-2xl font-extrabold text-ink">{t('call.title')}</h1>
         <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage(t, error)}</p>
+        {opensAt && <p className="text-sm text-ink-soft">{t('call.opensAt', { time: formatDateTime(opensAt, i18n.resolvedLanguage ?? 'ru') })}</p>}
         <Link to="/app/calendar" className="btn-secondary">
           {t('call.toCalendar')}
         </Link>
