@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+
 interface Props {
   name: string
   src?: string | null
@@ -6,12 +9,12 @@ interface Props {
 
 // Пастельные градиенты из дизайна: цвет выбирается по имени, чтобы у человека он был всегда один и тот же
 const TONES = [
-  'from-[#D6E6FB] to-[#B9C9F3] text-[#24467A]',
-  'from-[#FBD6E6] to-[#F3B9C9] text-[#7A2448]',
-  'from-[#D0F5EC] to-[#A9E3E0] text-[#1E6A5C]',
-  'from-[#FBE3D0] to-[#F3CDA9] text-[#7A4A1E]',
-  'from-[#F0D6FB] to-[#DDB9F3] text-[#5E247A]',
-  'from-[#E4D9FF] to-[#CBB8F8] text-[#4A2A9A]',
+  'bg-[#D6E6FB] text-[#24467A]',
+  'bg-[#FBD6E6] text-[#7A2448]',
+  'bg-[#D0F5EC] text-[#1E6A5C]',
+  'bg-[#FBE3D0] text-[#7A4A1E]',
+  'bg-[#F0D6FB] text-[#5E247A]',
+  'bg-[#E4D9FF] text-[#4A2A9A]',
 ]
 
 function initials(name: string) {
@@ -27,13 +30,32 @@ function toneOf(name: string) {
 }
 
 // Фото или кружок с инициалами
+// Ссылка на аватар подписанная и живёт около часа: если она протухла (403), показываем инициалы
+// и один раз за сеанс просим перезагрузить данные, где мог быть аватар.
+let refetchedAt = 0
+
 export default function Avatar({ name, src, className = 'h-10 w-10' }: Props) {
-  if (src) {
-    return <img src={src} alt={name} className={`${className} rounded-full object-cover`} />
+  const qc = useQueryClient()
+  const [failed, setFailed] = useState<string | null>(null)
+  if (src && failed !== src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={`${className} rounded-full object-cover`}
+        onError={() => {
+          setFailed(src)
+          if (Date.now() - refetchedAt > 60_000) {
+            refetchedAt = Date.now()
+            for (const key of ['me', 'profile', 'matches', 'exchanges', 'exchange', 'dashboard', 'conversations']) qc.invalidateQueries({ queryKey: [key] })
+          }
+        }}
+      />
+    )
   }
   return (
     <span
-      className={`${className} inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold ${toneOf(name)}`}
+      className={`${className} inline-flex shrink-0 items-center justify-center rounded-full text-sm font-bold ${toneOf(name)}`}
       aria-label={name}
     >
       {initials(name)}

@@ -373,6 +373,15 @@ export const sendFile = async ({ exchangeId, file }: { exchangeId: string; file:
   await http(api.post(`/exchanges/${exchangeId}/attachments`, form))
 }
 
+// Голосовое: multipart, поля file (.webm, Opus, до 4 МБ) и durationSeconds (1–120). Ответ 201 — готовое сообщение.
+export const sendVoice = async ({ exchangeId, blob, durationSec }: { exchangeId: string; blob: Blob; durationSec: number }): Promise<void> => {
+  if (USE_MOCKS) return m.mockSendVoice(exchangeId, durationSec)
+  const form = new FormData()
+  form.append('file', blob, 'voice.webm')
+  form.append('durationSeconds', String(Math.min(120, Math.max(1, Math.round(durationSec)))))
+  await http(api.post(`/exchanges/${exchangeId}/attachments`, form))
+}
+
 // Список чатов: отдельного эндпоинта в ТЗ нет, собираем из /exchanges
 export const getConversations = async (): Promise<Conversation[]> => {
   if (USE_MOCKS) return m.mockGetConversations()

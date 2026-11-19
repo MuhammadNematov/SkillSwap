@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getAttachmentUrl } from '../api/attachments'
 import { errorMessage } from '../api/errors'
-import { getMessages, getSessions, markMessagesRead, sendFile, sendMessage, sendTyping, toMessage } from '../api/exchanges'
+import { getMessages, getSessions, markMessagesRead, sendFile, sendMessage, sendVoice, sendTyping, toMessage } from '../api/exchanges'
 import { USE_MOCKS } from '../api/config'
 import { getChatHub, startHub } from '../api/realtime'
 import type { ChatMessage, Exchange, LessonSession } from '../api/types'
@@ -10,6 +11,8 @@ import { useInvalidateAll, useSessionActions } from '../hooks/useSessionActions'
 import { formatDateTime, formatTime } from '../utils/dates'
 import Icon from './Icon'
 import { SessionStatusChip } from './SessionItem'
+import VoiceBubble from './VoiceBubble'
+import VoiceRecorder from './VoiceRecorder'
 import SessionProposalModal from './SessionProposalModal'
 
 // Чат обмена. Транспорт — SignalR (/hubs/chat); в режиме моков — заглушки.
@@ -52,6 +55,8 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
   const [typing, setTyping] = useState(false)
   const lastTypingSent = useRef(0)
   const upload = useMutation({ mutationFn: sendFile, onSuccess: invalidate })
+  const [recording, setRecording] = useState(false)
+  const voice = useMutation({ mutationFn: sendVoice, onSuccess: invalidate })
 
   // События хаба /hubs/chat
   useEffect(() => {
@@ -129,13 +134,25 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
   }
 
   const sessionById = (id?: string): LessonSession | undefined => sessions.find((s) => s.id === id)
-  const error = send.error ?? upload.error ?? confirm.error ?? decline.error
+  const [fileError, setFileError] = useState<string | null>(null)
+  const error = send.error ?? upload.error ?? voice.error ?? confirm.error ?? decline.error
+
+  // Ссылка на файл временная, поэтому запрашиваем её в момент клика
+  async function openAttachment(id?: string) {
+    if (!id) return
+    try {
+      const a = await getAttachmentUrl(id)
+      if (a) window.open(a.url, '_blank', 'noopener')
+    } catch (e) {
+      setFileError(errorMessage(t, e))
+    }
+  }
 
   function renderSessionCard(session?: LessonSession) {
     if (!session) return null
     const canAnswer = session.status === 'Proposed' && !session.proposedByMe && !readOnly
     return (
-      <div className="w-72 max-w-full rounded-xl border border-ink-line bg-white p-3 text-left text-slate-800 shadow-sm">
+      <div className="w-72 max-w-full rounded-xl border border-ink-line bg-surface p-3 text-left text-slate-800 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5 text-xs font-semibold text-brand-700">
             <Icon name="calendar" className="h-4 w-4" />
@@ -181,20 +198,22 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
       body = renderSessionCard(sessionById(m.sessionId))
     } else if (m.type === 'File') {
       body = (
-        <div className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm ${mine ? 'bg-brand-600 text-white' : 'bg-white text-slate-800'}`}>
+        <button
+          type="button"
+          className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-left text-sm hover:opacity-90 ${mine ? 'bg-brand-600 text-white' : 'bg-surface text-slate-800'}`}
+          onClick={() => openAttachment(m.attachmentId)}
+        >
           <Icon name="file" className="h-4 w-4 shrink-0" />
-          <span className="break-all">{m.fileName}</span>
-        </div>
+          <span className="break-all underline-offset-2 hover:underline">{m.fileName}</span>
+        </button>
       )
     } else if (m.type === 'Voice') {
       body = (
-        <div className={`rounded-2xl px-4 py-2.5 text-sm ${mine ? 'bg-brand-600 text-white' : 'bg-white text-slate-800'}`}>
-          {t('chat.voice')} {m.durationSec ? `· ${Math.floor(m.durationSec / 60)}:${String(m.durationSec % 60).padStart(2, '0')}` : ''}
-        </div>
+        <VoiceBubble attachmentId={m.attachmentId} durationSec={m.durationSec} mine={mine} />
       )
     } else {
       body = (
-        <div className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm ${mine ? 'rounded-br-md bg-brand-600 text-white' : 'rounded-bl-md bg-white text-slate-800'}`}>
+        <div className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm ${mine ? 'rounded-br-md bg-brand-600 text-white' : 'rounded-bl-md bg-surface text-slate-800'}`}>
           {m.deleted ? <em className="opacity-70">{t('chat.deleted')}</em> : m.text}
         </div>
       )
@@ -224,7 +243,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
         {typing && <p className="px-1 text-xs italic text-slate-400">{t('chat.typing')}</p>}
       </div>
 
-      {error && <p className="border-t border-ink-line px-4 py-2 text-xs text-red-600">{errorMessage(t, error)}</p>}
+      {(error || fileError) && <p className="border-t border-ink-line px-4 py-2 text-xs text-red-600">{error ? errorMessage(t, error) : fileError}</p>}
 
       {readOnly ? (
         <div className="border-t border-ink-line px-4 py-3 text-center text-sm text-slate-500">{t('exchange.readOnly')}</div>
@@ -243,7 +262,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
           />
           <button
             type="button"
-            className="rounded-lg p-2 text-slate-500 hover:bg-brand-50"
+            className={`rounded-lg p-2 text-slate-500 hover:bg-brand-50 ${recording ? 'hidden' : ''}`}
             aria-label={t('chat.attach')}
             title={t('chat.attach')}
             onClick={() => fileRef.current?.click()}
@@ -252,15 +271,24 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
           </button>
           <button
             type="button"
-            className="rounded-lg p-2 text-slate-500 hover:bg-brand-50"
+            className={`rounded-lg p-2 text-slate-500 hover:bg-brand-50 ${recording ? 'hidden' : ''}`}
             aria-label={t('chat.proposeLesson')}
             title={t('chat.proposeLesson')}
             onClick={() => setProposing(true)}
           >
             <Icon name="calendar" />
           </button>
+          <VoiceRecorder
+            disabled={voice.isPending}
+            onError={setFileError}
+            onRecordingChange={setRecording}
+            onDone={(blob, durationSec) => {
+              setFileError(null)
+              voice.mutate({ exchangeId: exchange.id, blob, durationSec })
+            }}
+          />
           <input
-            className="input"
+            className={`input ${recording ? 'hidden' : ''}`}
             value={text}
             maxLength={2000}
             placeholder={t('chat.placeholder')}
@@ -272,7 +300,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
               }
             }}
           />
-          <button className="btn-primary px-3" disabled={!text.trim() || send.isPending} aria-label={t('chat.send')}>
+          <button className={`btn-primary px-3 ${recording ? 'hidden' : ''}`} disabled={!text.trim() || send.isPending} aria-label={t('chat.send')}>
             <Icon name="send" />
           </button>
         </form>

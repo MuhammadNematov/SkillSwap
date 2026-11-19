@@ -368,6 +368,12 @@ export async function mockSendFile(exchangeId: string, file: { name: string; siz
   messages.push(mkMessage(exchangeId, true, 'File', Date.now(), { fileName: file.name }))
 }
 
+export async function mockSendVoice(exchangeId: string, durationSec: number): Promise<void> {
+  await sleep(300)
+  if (find(exchanges, exchangeId).status !== 'Active') throw new ApiError('CHAT_READ_ONLY', 409)
+  messages.push(mkMessage(exchangeId, true, 'Voice', Date.now(), { durationSec: Math.round(durationSec), attachmentId: nextId('a') }))
+}
+
 export async function mockGetConversations(): Promise<Conversation[]> {
   await sleep()
   return clone(
