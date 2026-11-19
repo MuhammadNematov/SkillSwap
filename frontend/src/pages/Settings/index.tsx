@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getBlocks, unblockUser } from '../../api/blocks'
 import { errorMessage } from '../../api/errors'
-import { getMe, updateMe } from '../../api/me'
+import { deleteAvatar, getMe, updateMe, uploadAvatar } from '../../api/me'
 import { getLanguages } from '../../api/onboarding'
 import { disableTwoFactor, getAuthSessions, revokeAllAuthSessions, revokeAuthSession } from '../../api/twoFactor'
+import Avatar from '../../components/Avatar'
 import Modal from '../../components/Modal'
 import Spinner from '../../components/Spinner'
 import TwoFactorSetup from '../../components/TwoFactorSetup'
@@ -66,6 +67,15 @@ function ProfileSection() {
     },
   })
 
+  const fileRef = useRef<HTMLInputElement>(null)
+  const afterAvatar = (url: string | null) => {
+    qc.invalidateQueries({ queryKey: ['me'] })
+    qc.invalidateQueries({ queryKey: ['profile'] })
+    if (user) updateUser({ ...user, avatarUrl: url })
+  }
+  const upload = useMutation({ mutationFn: uploadAvatar, onSuccess: (url) => afterAvatar(url) })
+  const remove = useMutation({ mutationFn: deleteAvatar, onSuccess: () => afterAvatar(null) })
+
   if (me.isLoading || langs.isLoading) return <Spinner />
 
   function submit() {
@@ -87,6 +97,34 @@ function ProfileSection() {
   return (
     <section className="card space-y-4">
       <h2 className="font-bold text-slate-900">{t('settings.profile')}</h2>
+      <div className="flex flex-wrap items-center gap-4">
+        <Avatar name={name || user?.name || '?'} src={me.data?.avatarUrl} className="h-20 w-20 text-2xl" />
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) upload.mutate(f)
+                e.target.value = ''
+              }}
+            />
+            <button type="button" className="btn-secondary px-4 py-2" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
+              {upload.isPending ? t('common.loading') : t('settings.avatarChange')}
+            </button>
+            {me.data?.avatarUrl && (
+              <button type="button" className="btn-secondary px-4 py-2" disabled={remove.isPending} onClick={() => remove.mutate()}>
+                {t('settings.avatarRemove')}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">{t('settings.avatarHint')}</p>
+          {(upload.isError || remove.isError) && <p className="text-xs text-red-600">{errorMessage(t, upload.error ?? remove.error)}</p>}
+        </div>
+      </div>
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('registerPage.name')}</span>
         <input className="input" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />

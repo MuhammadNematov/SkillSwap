@@ -3,6 +3,7 @@ import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Admin from './pages/Admin'
 import AppHome from './pages/AppHome'
+import Call from './pages/Call'
 import Calendar from './pages/Calendar'
 import ExchangeDetail from './pages/ExchangeDetail'
 import Exchanges from './pages/Exchanges'
@@ -20,7 +21,6 @@ import Login from './pages/Login'
 import Matches from './pages/Matches'
 import Moderation from './pages/Moderation'
 import NotFound from './pages/NotFound'
-import Placeholder from './pages/Placeholder'
 import Profile from './pages/Profile'
 import Register from './pages/Register'
 
@@ -58,7 +58,7 @@ export default function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="calendar" element={<Calendar />} />
-          <Route path="call/:sessionId" element={<Placeholder titleKey="call.title" />} />
+          <Route path="call/:sessionId" element={<Call />} />
           <Route path="profile" element={<Profile />} />
           <Route path="users/:id" element={<Profile />} />
           <Route path="*" element={<NotFound />} />

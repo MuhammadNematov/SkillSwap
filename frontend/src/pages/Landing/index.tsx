@@ -3,58 +3,51 @@ import { Link } from 'react-router-dom'
 import Icon, { type IconName } from '../../components/Icon'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
 import Logo from '../../components/Logo'
+import SwapStage from '../../components/SwapScene'
 import { useAuth } from '../../hooks/useAuth'
 import { homeForRole } from '../../utils/roles'
 
 const NAV = [
   { key: 'home', href: '#top' },
   { key: 'features', href: '#features' },
+  { key: 'subjects', href: '#subjects' },
   { key: 'about', href: '#how' },
   { key: 'faq', href: '#faq' },
 ] as const
 
-const STEPS: { key: 's1' | 's2' | 's3'; icon: IconName }[] = [
-  { key: 's1', icon: 'user' },
-  { key: 's2', icon: 'search' },
-  { key: 's3', icon: 'video' },
+const FEATURES_MORE: { key: 'f5' | 'f6' | 'f7' | 'f8'; icon: IconName }[] = [
+  { key: 'f5', icon: 'calendar' },
+  { key: 'f6', icon: 'paperclip' },
+  { key: 'f7', icon: 'bell' },
+  { key: 'f8', icon: 'bolt' },
 ]
 
-const FEATURES: { key: 'f1' | 'f2' | 'f3' | 'f4'; icon: IconName }[] = [
+const FEATURES: { key: 'f1' | 'f2' | 'f3' | 'f4' | 'f5' | 'f6' | 'f7' | 'f8'; icon: IconName }[] = [
   { key: 'f1', icon: 'search' },
   { key: 'f2', icon: 'video' },
   { key: 'f3', icon: 'scale' },
   { key: 'f4', icon: 'star' },
+  ...FEATURES_MORE,
 ]
 
-const FACTS = ['languages', 'lesson', 'free'] as const
-const FAQ = ['q1', 'q2', 'q3', 'q4'] as const
+const STATS = ['s1', 's2', 's3', 's4'] as const
+const JOURNEY = ['j1', 'j2', 'j3', 'j4', 'j5', 'j6'] as const
+const SAFETY = ['k1', 'k2', 'k3', 'k4'] as const
 
-// Карточка-иллюстрация: двое обмениваются навыками (имена не показываем — только буквы и навыки)
-function SkillCard({ letter, teach, learn }: { letter: string; teach: string; learn: string }) {
-  const { t } = useTranslation()
-  return (
-    <div className="card w-56 space-y-3">
-      <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
-          {letter}
-        </span>
-        <div className="h-2.5 w-20 rounded-full bg-slate-100" />
-      </div>
-      <div>
-        <div className="text-xs text-slate-400">{t('landing.hero.teach')}</div>
-        <span className="mt-1 inline-block rounded-lg bg-brand-50 px-2.5 py-1 text-sm font-semibold text-brand-700">
-          {teach}
-        </span>
-      </div>
-      <div>
-        <div className="text-xs text-slate-400">{t('landing.hero.learn')}</div>
-        <span className="mt-1 inline-block rounded-lg bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-700">
-          {learn}
-        </span>
-      </div>
-    </div>
-  )
-}
+const SUBJECTS = [
+  { key: 'it' },
+  { key: 'math' },
+  { key: 'design' },
+  { key: 'smm' },
+  { key: 'languages' },
+  { key: 'business' },
+  { key: 'science' },
+  { key: 'creative' },
+] as const
+
+const AFTER = ['a1', 'a2', 'a3', 'a4'] as const
+
+const FAQ = ['q1', 'q2', 'q3', 'q4'] as const
 
 export default function Landing() {
   const { t } = useTranslation()
@@ -62,8 +55,8 @@ export default function Landing() {
   const year = new Date().getFullYear()
 
   return (
-    <div id="top">
-      <header className="sticky top-0 z-20 border-b border-ink-line bg-brand-50">
+    <div id="top" className="bg-white">
+      <header className="sticky top-0 z-40 border-b border-ink-line bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <a href="#top">
             <Logo />
@@ -97,78 +90,114 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* Герой */}
-      <section>
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 md:grid-cols-2 md:py-24">
-          <div>
-            <h1 className="text-4xl font-extrabold leading-tight text-slate-900 sm:text-5xl">
+      {/* Герой: парень слева, девушка справа, между ними бесконечный обмен навыками */}
+      <section className="relative overflow-hidden">
+        <SwapStage centerWidth={720} links={false} className="min-h-[680px]">
+          <div className="w-full px-4 py-16 text-center md:py-24 lg:pb-32">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">{t('landing.badge')}</p>
+            <h1 className="mt-4 text-4xl font-extrabold leading-[1.08] tracking-tight text-ink sm:text-[68px]">
               {t('landing.title1')}
               <br />
               <span className="text-brand-600">{t('landing.title2')}</span>
             </h1>
-            <p className="mt-5 max-w-md text-lg text-slate-500">{t('landing.subtitle')}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/register" className="btn-primary px-6 py-3">
+            <p className="mx-auto mt-6 max-w-xl text-xl text-ink-soft">{t('landing.subtitle')}</p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link to="/register" className="btn-primary h-14 rounded-2xl px-8 text-lg">
                 {t('landing.cta.start')}
                 <Icon name="arrowRight" className="h-4 w-4" />
               </Link>
-              <a href="#how" className="btn-secondary px-6 py-3">
+              <a href="#how" className="btn-secondary h-14 rounded-2xl px-7 text-lg">
                 <Icon name="play" className="h-4 w-4" />
                 {t('landing.cta.more')}
               </a>
             </div>
           </div>
+        </SwapStage>
 
-          <div className="relative flex items-center justify-center gap-4">
-            <SkillCard letter="A" teach="C#" learn="English" />
-            <span className="absolute left-1/2 top-1/2 z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg">
-              <Icon name="swap" />
-            </span>
-            <SkillCard letter="S" teach="English" learn="C#" />
-          </div>
+        {/* Цифры из ТЗ */}
+        <div className="mx-auto grid max-w-6xl gap-4 px-4 pb-20 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+          {STATS.map((k) => (
+            <div key={k} className="rounded-3xl border border-ink-line bg-brand-50 p-7 text-center">
+              <div className="text-4xl font-extrabold text-brand-700 sm:text-5xl">{t(`landing.stats.${k}.value`)}</div>
+              <div className="mt-2 text-sm text-ink-soft">{t(`landing.stats.${k}.label`)}</div>
+            </div>
+          ))}
         </div>
+      </section>
 
-        {/* Факты из ТЗ вместо выдуманной статистики */}
-        <div className="mx-auto grid max-w-4xl gap-4 px-4 pb-14 sm:grid-cols-3 sm:px-6">
-          {FACTS.map((f) => (
-            <div key={f} className="glass rounded-xl2 p-5 text-center">
-              <div className="text-2xl font-extrabold text-brand-700">{t(`landing.facts.${f}.value`)}</div>
-              <div className="mt-1 text-sm text-slate-500">{t(`landing.facts.${f}.label`)}</div>
+      {/* Чему можно научиться */}
+      <section id="subjects" className="scroll-mt-16 mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <h2 className="text-center text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{t('landing.subjects.title')}</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-ink-soft">{t('landing.subjects.subtitle')}</p>
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {SUBJECTS.map((s) => (
+            <div key={s.key} className={`rounded-3xl border border-ink-line bg-white p-5 transition hover:-translate-y-1 hover:shadow-card`}>
+              <div className="text-lg font-bold text-ink">{t(`landing.subjects.${s.key}.title`)}</div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {(t(`landing.subjects.${s.key}.items`, { returnObjects: true }) as string[]).map((item) => (
+                  <span key={item} className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-8 text-center text-lg font-bold text-ink">{t('landing.subjects.more')}</p>
+      </section>
+
+      {/* Для кого */}
+      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <h2 className="text-center text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{t('landing.audience.title')}</h2>
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          {(['teacher', 'learner'] as const).map((k) => (
+            <div key={k} className="rounded-3xl border border-ink-line bg-white p-8 shadow-card">
+              <h3 className="text-2xl font-extrabold text-ink">{t(`landing.audience.${k}.title`)}</h3>
+              <p className="mt-2 text-ink-soft">{t(`landing.audience.${k}.text`)}</p>
+              <ul className="mt-5 space-y-2.5">
+                {(t(`landing.audience.${k}.points`, { returnObjects: true }) as string[]).map((pt) => (
+                  <li key={pt} className="flex items-start gap-3 text-[15px] text-ink">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+                      <Icon name="check" className="h-3 w-3" />
+                    </span>
+                    {pt}
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
       </section>
 
       {/* Как это работает */}
-      <section id="how" className="scroll-mt-16 mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-3xl font-bold text-slate-900">{t('landing.how.title')}</h2>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {STEPS.map((s, i) => (
-            <div key={s.key} className="card text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
-                <Icon name={s.icon} className="h-7 w-7" />
-              </span>
-              <div className="mt-4 text-lg font-bold text-slate-900">
-                {i + 1}. {t(`landing.how.${s.key}.title`)}
-              </div>
-              <p className="mt-2 text-sm text-slate-500">{t(`landing.how.${s.key}.text`)}</p>
-            </div>
-          ))}
+      <section id="how" className="scroll-mt-16 bg-brand-50 py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <h2 className="text-center text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{t('landing.journey.title')}</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-ink-soft">{t('landing.journey.subtitle')}</p>
+          <ol className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {JOURNEY.map((k, i) => (
+              <li key={k} className="relative rounded-3xl border border-ink-line bg-white p-7">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-600 text-lg font-extrabold text-white">{i + 1}</span>
+                <div className="mt-4 text-xl font-bold text-ink">{t(`landing.journey.${k}.title`)}</div>
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">{t(`landing.journey.${k}.text`)}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
       {/* Возможности */}
       <section id="features" className="scroll-mt-16">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <h2 className="text-center text-3xl font-bold text-slate-900">{t('landing.features.title')}</h2>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+          <h2 className="text-center text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{t('landing.features.title')}</h2>
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((f) => (
-              <div key={f.key} className="card flex gap-4">
+              <div key={f.key} className="card flex flex-col gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
                   <Icon name={f.icon} className="h-6 w-6" />
                 </span>
                 <div>
-                  <div className="font-bold text-slate-900">{t(`landing.features.${f.key}.title`)}</div>
+                  <div className="font-bold text-ink">{t(`landing.features.${f.key}.title`)}</div>
                   <p className="mt-1 text-sm text-slate-500">{t(`landing.features.${f.key}.text`)}</p>
                 </div>
               </div>
@@ -177,13 +206,54 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Безопасность и правила */}
+      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <h2 className="text-center text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{t('landing.safety.title')}</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-ink-soft">{t('landing.safety.subtitle')}</p>
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {SAFETY.map((k) => (
+            <div key={k} className="rounded-3xl border border-ink-line bg-white p-6">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E5F7EC] text-[#12A150]">
+                <Icon name="check" className="h-6 w-6" />
+              </span>
+              <div className="mt-4 text-lg font-bold text-ink">{t(`landing.safety.${k}.title`)}</div>
+              <p className="mt-2 text-sm leading-relaxed text-ink-soft">{t(`landing.safety.${k}.text`)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Что будет после регистрации */}
+      <section className="mx-auto max-w-5xl px-4 py-20 sm:px-6">
+        <div className="rounded-[2rem] bg-[#17143d] p-8 text-white sm:p-12">
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{t('landing.after.title')}</h2>
+          <ol className="mt-8 grid gap-4 sm:grid-cols-2">
+            {AFTER.map((a, i) => (
+              <li key={a} className="flex gap-4 rounded-2xl bg-white/10 p-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-lg font-extrabold text-white">{i + 1}</span>
+                <div>
+                  <div className="font-bold">{t(`landing.after.${a}.title`)}</div>
+                  <p className="mt-1 text-sm text-white/70">{t(`landing.after.${a}.text`)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {!user && (
+            <Link to="/register" className="btn-primary mt-8 h-14 rounded-2xl px-8 text-lg">
+              {t('landing.cta.start')}
+              <Icon name="arrowRight" className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
+      </section>
+
       {/* FAQ */}
       <section id="faq" className="scroll-mt-16 mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-3xl font-bold text-slate-900">{t('landing.faq.title')}</h2>
+        <h2 className="text-center text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">{t('landing.faq.title')}</h2>
         <div className="mt-8 space-y-3">
           {FAQ.map((q) => (
             <details key={q} className="group card cursor-pointer">
-              <summary className="flex list-none items-center justify-between gap-4 font-semibold text-slate-900 [&::-webkit-details-marker]:hidden">
+              <summary className="flex list-none items-center justify-between gap-4 font-semibold text-ink [&::-webkit-details-marker]:hidden">
                 {t(`landing.faq.${q}.q`)}
                 <Icon name="chevronDown" className="h-5 w-5 shrink-0 text-brand-600 transition group-open:rotate-180" />
               </summary>
@@ -193,7 +263,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-ink-line py-8 text-center text-sm text-slate-500">
+      <footer className="border-t border-ink-line bg-white py-8 text-center text-sm text-ink-soft">
         © {year} {t('common.appName')}
       </footer>
     </div>

@@ -38,3 +38,32 @@
     @apply text-xs font-bold uppercase tracking-[0.12em] text-brand-600;
   }
 }
+
+/* ───────── Лендинг: королевская книга как фон ───────── */
+.rbg-fly { animation: rbg-fly 1.7s cubic-bezier(.1,.85,.2,1) both; transform-style: preserve-3d; }
+.rbg-frame-anim { animation: rbg-frame 4.6s cubic-bezier(.7,0,.2,1) both; }
+.rbg-cover { transform-origin: left center; transform-style: preserve-3d; }
+.rbg-cover-anim { animation: rbg-open 1.5s cubic-bezier(.55,0,.2,1) 1.6s both; }
+.rbg-cover-open { transform: rotateY(-180deg); }
+.rbg-text { animation: rbg-out 1s ease 3.6s both; }
+.rbg-content { animation: rbg-in .9s ease 3.7s both; }
+@keyframes rbg-fly {
+  0% { transform: translate3d(6vw, -30vh, -5200px) rotateY(-55deg) rotateX(25deg) rotateZ(14deg); opacity: 0; filter: blur(8px); }
+  15% { opacity: 1; }
+  100% { transform: none; opacity: 1; filter: blur(0); }
+}
+@keyframes rbg-frame {
+  0%, 65% { transform: translateX(calc(-25% * var(--s0))) scale(var(--s0)); }
+  100% { transform: none; }
+}
+@keyframes rbg-open { from { transform: rotateY(0deg); } to { transform: rotateY(-180deg); } }
+@keyframes rbg-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rbg-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .rbg-fly, .rbg-frame-anim, .rbg-cover-anim, .rbg-text, .rbg-content { animation: none !important; }
+  .rbg-cover { transform: rotateY(-180deg); }
+}
+
+@keyframes swap-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+@keyframes swap-dash { to { stroke-dashoffset: -28; } }
+@media (prefers-reduced-motion: reduce) { [style*="swap-float"], [style*="swap-dash"] { animation: none !important; } }

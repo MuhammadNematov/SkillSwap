@@ -4,7 +4,6 @@ import { ApiError, toApiError } from './errors'
 import * as m from './mocks/exchanges'
 import i18n from '../i18n'
 import { getMyId } from './identity'
-import { getChatHub, startHub } from './realtime'
 import { getUserProfile } from './users'
 import { pickName } from '../utils/localized'
 import type { ChatMessage, Conversation, Exchange, ExchangeRequest, ExchangeStatus, LessonSession, RequestStatus, SessionStatus } from './types'
@@ -276,6 +275,12 @@ export const cancelSession = async (id: string): Promise<void> => {
   await http(api.post(`/sessions/${id}/cancel`))
 }
 
+// Перенос: новое время уходит партнёру как предложение (ограничения проверяет сервер)
+export const rescheduleSession = async ({ id, startAt }: { id: string; startAt: string }): Promise<void> => {
+  if (USE_MOCKS) return m.mockRescheduleSession(id, startAt)
+  await http(api.post(`/sessions/${id}/reschedule`, { startAt }))
+}
+
 // «Урок состоялся»: после планового окончания, пока нет видеозвонков
 export const confirmSessionManual = async (id: string): Promise<void> => {
   if (USE_MOCKS) return m.mockConfirmManual(id)
@@ -324,40 +329,9 @@ export const getMessages = async (exchangeId: string): Promise<ChatMessage[]> =>
   return data.items.map(toMessage)
 }
 
-// Код ошибки хаба лежит в тексте исключения: "...chat_read_only..."
-function hubError(e: unknown): ApiError {
-  const msg = e instanceof Error ? e.message : ''
-  const m = /(chat_read_only|chat_archived|chat_rate_limited|message_empty|message_too_long|exchange_not_found|message_not_found|not_message_author|edit_window_expired|message_deleted)/.exec(msg)
-  return new ApiError(m ? m[1] : 'NETWORK_ERROR', m ? 400 : 0)
-}
-
-async function hubInvoke<T>(method: string, ...args: unknown[]): Promise<T> {
-  const hub = getChatHub()
-  if (!(await startHub(hub))) throw new ApiError('NETWORK_ERROR', 0)
-  try {
-    return await hub.invoke<T>(method, ...args)
-  } catch (e) {
-    throw hubError(e)
-  }
-}
-
-export const sendMessage = async ({ exchangeId, text }: { exchangeId: string; text: string }): Promise<ChatMessage> => {
-  if (USE_MOCKS) {
-    await m.mockSendMessage(exchangeId, text)
-    return (await m.mockGetMessages(exchangeId)).at(-1) as ChatMessage
-  }
-  return toMessage(await hubInvoke<MessageDto>('Send', exchangeId, text))
-}
-
-export const sendTyping = (exchangeId: string): void => {
-  if (USE_MOCKS) return
-  void hubInvoke('Typing', exchangeId).catch(() => undefined)
-}
-
-// POST /exchanges/{id}/messages/read — «прочитано» собеседнику
-export const markMessagesRead = async (exchangeId: string): Promise<void> => {
-  if (USE_MOCKS) return
-  await http(api.post(`/exchanges/${exchangeId}/messages/read`))
+export const sendMessage = async ({ exchangeId, text }: { exchangeId: string; text: string }): Promise<void> => {
+  if (USE_MOCKS) return m.mockSendMessage(exchangeId, text)
+  throw new ApiError('NOT_IMPLEMENTED', 501)
 }
 
 export const sendFile = async ({ exchangeId, file }: { exchangeId: string; file: File }): Promise<void> => {

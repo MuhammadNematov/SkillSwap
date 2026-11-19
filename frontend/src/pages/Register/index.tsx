@@ -25,6 +25,18 @@ interface RegisterForm {
 
 const MIN_AGE = 16 // ТЗ, FR-3
 
+// Оценка пароля для индикатора: 0..4 (только подсказка, правило валидации отдельное)
+function passwordScore(v: string): number {
+  if (!v) return 0
+  let n = 0
+  if (v.length >= 8) n++
+  if (/\p{Ll}/u.test(v) && /\p{Lu}/u.test(v)) n++
+  if (/\d/.test(v) && /\p{L}/u.test(v)) n++
+  if (v.length >= 12 || /[^\p{L}\d]/u.test(v)) n++
+  return n
+}
+const STRENGTH_COLORS = ['bg-ink-line', 'bg-[#DC3545]', 'bg-[#F5A524]', 'bg-[#8BC34A]', 'bg-[#12A150]']
+
 export default function Register() {
   const { t, i18n } = useTranslation()
   const { user, loading } = useAuth()
@@ -40,8 +52,11 @@ export default function Register() {
     register,
     handleSubmit,
     getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({ defaultValues: { acceptTerms: false, consentModeratorAccess: false } })
+
+  const score = passwordScore(watch('password') ?? '')
 
   if (!loading && user) return <Navigate to={homeForRole(user.role)} replace />
 
@@ -165,6 +180,14 @@ export default function Register() {
               validate: (v) => (v.length >= 8 && /\p{L}/u.test(v) && /\d/.test(v)) || 'validation.passwordRule',
             })}
           />
+          <div className="mt-2 flex items-center gap-2" aria-hidden>
+            <div className="flex flex-1 gap-1">
+              {[1, 2, 3, 4].map((i) => (
+                <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= score ? STRENGTH_COLORS[score] : 'bg-ink-line'}`} />
+              ))}
+            </div>
+            <span className="w-16 text-right text-xs text-ink-soft">{score > 0 ? t(`registerPage.strength.${score}`) : ''}</span>
+          </div>
         </FormField>
 
         <FormField label={t('registerPage.confirmPassword')} error={errors.confirmPassword}>

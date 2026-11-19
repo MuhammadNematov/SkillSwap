@@ -379,3 +379,15 @@ export async function mockGetConversations(): Promise<Conversation[]> {
       .sort((a, b) => (b.last?.createdAt ?? '').localeCompare(a.last?.createdAt ?? '')),
   )
 }
+
+export async function mockRescheduleSession(id: string, startAt: string): Promise<void> {
+  await sleep()
+  const s = find(sessions, id)
+  if (s.status !== 'Scheduled') throw new ApiError('INVALID_STATE_TRANSITION', 409)
+  if (new Date(s.startAt).getTime() - Date.now() < 2 * HOUR) throw new ApiError('RESCHEDULE_TOO_LATE', 409)
+  const start = new Date(startAt).getTime()
+  if (start < Date.now() + HOUR) throw new ApiError('SESSION_TOO_SOON', 400)
+  s.startAt = new Date(start).toISOString()
+  s.status = 'Proposed'
+  s.proposedByMe = true
+}

@@ -72,3 +72,27 @@ export function toCurrentUser(p: MyProfile): CurrentUser {
     twoFactorEnabled: p.twoFactorEnabled,
   }
 }
+
+// PUT /me/avatar — multipart, поле File (jpeg/png/webp). Ответ: { avatarUrl } (подписанная ссылка)
+export async function uploadAvatar(file: File): Promise<string> {
+  if (USE_MOCKS) {
+    await sleep(400)
+    const url = URL.createObjectURL(file)
+    mockMe = { ...mockMe, avatarUrl: url }
+    return url
+  }
+  const form = new FormData()
+  form.append('File', file)
+  const data = await http(() => api.put<{ avatarUrl: string }>('/me/avatar', form))
+  return data.avatarUrl
+}
+
+// DELETE /me/avatar
+export async function deleteAvatar(): Promise<void> {
+  if (USE_MOCKS) {
+    await sleep(250)
+    mockMe = { ...mockMe, avatarUrl: null }
+    return
+  }
+  await http(() => api.delete('/me/avatar'))
+}

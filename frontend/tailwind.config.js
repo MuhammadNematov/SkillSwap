@@ -19,10 +19,12 @@ export default {
           800: '#4a2a9a',
           900: '#17143d',
         },
+        gold: { DEFAULT: '#C9A24B', light: '#F0D58A', dark: '#8A6A1E' },
         ink: { DEFAULT: '#17143d', soft: '#777493', faint: '#a3a0bc', line: '#ece9f7' },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'],
+        serif: ['"Playfair Display"', 'Georgia', 'Cambria', 'Times New Roman', 'serif'],
       },
       borderRadius: {
         xl2: '1.5rem',

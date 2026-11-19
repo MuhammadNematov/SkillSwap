@@ -16,7 +16,8 @@
       "home": "Home",
       "features": "Features",
       "about": "About",
-      "faq": "FAQ"
+      "faq": "FAQ",
+      "subjects": "Subjects"
     },
     "cta": {
       "start": "Start for free",
@@ -72,6 +73,22 @@
       "f4": {
         "title": "Honest reviews",
         "text": "Blind mutual reviews and dispute resolution by a moderator"
+      },
+      "f5": {
+        "title": "Lesson calendar",
+        "text": "All lessons in one place, shown in your own time zone"
+      },
+      "f6": {
+        "title": "Files and voice",
+        "text": "Send materials and voice messages right in the exchange chat"
+      },
+      "f7": {
+        "title": "Notifications",
+        "text": "Requests, new messages and lesson reminders arrive instantly"
+      },
+      "f8": {
+        "title": "Home with to-dos",
+        "text": "Your next lesson and everything waiting for your answer on one screen"
       }
     },
     "faq": {
@@ -91,6 +108,217 @@
       "q4": {
         "q": "What is the minimum age?",
         "a": "16. Extra protection rules apply to users aged 16–17."
+      }
+    },
+    "badge": "Knowledge for knowledge",
+    "book": {
+      "tagline": "School of swapping"
+    },
+    "subjects": {
+      "title": "What you can learn",
+      "subtitle": "Not only IT: on SkillSwap people teach and learn in any field where there is something to share.",
+      "more": "…and anything you know! Add your skill to your profile.",
+      "it": {
+        "title": "IT & programming",
+        "items": [
+          "React",
+          "TypeScript",
+          "C# / .NET",
+          "Python",
+          "JavaScript",
+          "Java",
+          "SQL",
+          "Docker",
+          "Git",
+          "Node.js",
+          "Flutter",
+          "AI / ML"
+        ]
+      },
+      "math": {
+        "title": "Mathematics",
+        "items": [
+          "Algebra",
+          "Geometry",
+          "Calculus",
+          "Statistics",
+          "Olympiads",
+          "Logic"
+        ]
+      },
+      "design": {
+        "title": "Design",
+        "items": [
+          "UI/UX",
+          "Figma",
+          "Graphic design",
+          "Branding",
+          "Motion",
+          "Illustration"
+        ]
+      },
+      "smm": {
+        "title": "SMM & marketing",
+        "items": [
+          "SMM",
+          "Paid ads",
+          "Content",
+          "SEO",
+          "Copywriting",
+          "Analytics"
+        ]
+      },
+      "languages": {
+        "title": "Languages",
+        "items": [
+          "English",
+          "Русский",
+          "Тоҷикӣ",
+          "Deutsch",
+          "Türkçe",
+          "中文"
+        ]
+      },
+      "business": {
+        "title": "Business & finance",
+        "items": [
+          "Startups",
+          "Sales",
+          "Excel",
+          "Finance",
+          "Management",
+          "Public speaking"
+        ]
+      },
+      "science": {
+        "title": "Science & school",
+        "items": [
+          "Physics",
+          "Chemistry",
+          "Biology",
+          "History",
+          "Exam prep"
+        ]
+      },
+      "creative": {
+        "title": "Creativity & life",
+        "items": [
+          "Photo",
+          "Video editing",
+          "Music",
+          "Chess",
+          "Cooking",
+          "Fitness"
+        ]
+      }
+    },
+    "after": {
+      "title": "What happens after you sign up",
+      "a1": {
+        "title": "Tell us about you",
+        "text": "List what you can teach and want to learn, and pick your languages."
+      },
+      "a2": {
+        "title": "Get your matches",
+        "text": "We show people who know what you need and want to learn what you know."
+      },
+      "a3": {
+        "title": "Send a request",
+        "text": "Choose a partner, propose an exchange and agree on lesson times."
+      },
+      "a4": {
+        "title": "Learn on video",
+        "text": "Chat, 45-minute lessons and reviews after the exchange: all in your browser."
+      }
+    },
+    "skip": "Skip",
+    "stats": {
+      "s1": {
+        "value": "45 min",
+        "label": "one video lesson, no extra software"
+      },
+      "s2": {
+        "value": "30 / 60",
+        "label": "days per exchange, extendable once"
+      },
+      "s3": {
+        "value": "3",
+        "label": "interface languages: Tajik, Russian, English"
+      },
+      "s4": {
+        "value": "16+",
+        "label": "open from age 16, with extra protection for 16–17"
+      }
+    },
+    "audience": {
+      "title": "Who SkillSwap is for",
+      "teacher": {
+        "title": "If you can teach",
+        "text": "Everyone has something to show others: from code and design to chess and languages.",
+        "points": [
+          "Describe your skills and experience",
+          "Choose your language and lesson times",
+          "Earn reviews and a growing rating",
+          "Teach people who know what you need"
+        ]
+      },
+      "learner": {
+        "title": "If you want to learn",
+        "text": "Instead of pricey courses, real conversation with someone who has walked this path.",
+        "points": [
+          "Find a mentor for the skill you need",
+          "Learn at your own pace, one on one",
+          "Study in your own language",
+          "Swap knowledge without paying"
+        ]
+      }
+    },
+    "journey": {
+      "title": "The exchange from start to finish",
+      "subtitle": "Six simple steps: from your profile to a review.",
+      "j1": {
+        "title": "Fill in your profile",
+        "text": "Add skills to “I can teach” and “I want to learn”, pick languages and a time zone. Matching opens after that."
+      },
+      "j2": {
+        "title": "Get your matches",
+        "text": "We show people with full and partial matches: filters for skill, language, level and rating."
+      },
+      "j3": {
+        "title": "Send a request",
+        "text": "Propose an exchange to the person you chose. They can accept, decline or not answer in time."
+      },
+      "j4": {
+        "title": "Agree on a time",
+        "text": "Chat with text, voice and files. Propose lesson times with time zones taken into account."
+      },
+      "j5": {
+        "title": "Learn on video",
+        "text": "A 45-minute lesson right in your browser. A counter shows how many lessons each side taught, keeping it fair."
+      },
+      "j6": {
+        "title": "Finish and review",
+        "text": "After the exchange, leave mutual reviews on four criteria: good teachers see their rating grow."
+      }
+    },
+    "safety": {
+      "title": "Safety and fair rules",
+      "subtitle": "We make sure every exchange is safe for everyone.",
+      "k1": {
+        "title": "16+ only",
+        "text": "Extra protection rules apply to users aged 16–17."
+      },
+      "k2": {
+        "title": "No money",
+        "text": "Exchanges are mutual. Money transfers between users are forbidden."
+      },
+      "k3": {
+        "title": "Moderator only in a dispute",
+        "text": "A pair’s chat is read only after a complaint, and only with the consent you give at sign-up."
+      },
+      "k4": {
+        "title": "Blocking and reports",
+        "text": "You can block a person so they can no longer message you."
       }
     }
   },
@@ -150,7 +378,13 @@
     "mockMail": "Mock mode: no email is sent.",
     "mockConfirm": "Confirm email",
     "pasteLink": "Got the email? Paste its link here",
-    "badLink": "The link has no confirmation data"
+    "badLink": "The link has no confirmation data",
+    "strength": {
+      "1": "Weak",
+      "2": "Fair",
+      "3": "Good",
+      "4": "Strong"
+    }
   },
   "levels": {
     "Beginner": "Beginner",
@@ -461,7 +695,21 @@
     }
   },
   "call": {
-    "title": "Video lesson"
+    "title": "Video lesson",
+    "you": "You",
+    "partner": "Partner",
+    "camOn": "Camera on",
+    "camOff": "Camera off",
+    "micOn": "Mic on",
+    "micOff": "Mic off",
+    "leave": "Leave lesson",
+    "toCalendar": "Back to calendar",
+    "timeLeft": "Time left {{time}}",
+    "overtime": "Planned time is over",
+    "fiveMinutes": "5 minutes left until the lesson ends",
+    "closesIn": "The room closes in {{time}}",
+    "closed": "The lesson room is closed",
+    "mockNote": "Mock mode: the real video room ({{room}}) will connect with LiveKit."
   },
   "exchanges": {
     "title": "My exchanges",
@@ -527,7 +775,6 @@
     "abortReason_partner_unavailable": "Your partner is no longer available"
   },
   "chat": {
-    "typing": "typing…",
     "attach": "Attach file",
     "empty": "No messages yet",
     "placeholder": "Write a message",
@@ -577,7 +824,11 @@
       "NotCounted": "Not counted"
     },
     "happened": "The lesson took place",
-    "waitingConfirm": "Waiting for your partner to confirm"
+    "waitingConfirm": "Waiting for your partner to confirm",
+    "reschedule": "Reschedule",
+    "rescheduleTitle": "Reschedule lesson",
+    "rescheduleText": "The lesson is currently set for {{when}}. Pick a new time: your partner will receive it as a proposal.",
+    "rescheduleConfirm": "Propose new time"
   },
   "calendar": {
     "title": "Calendar",
@@ -718,7 +969,10 @@
     "revoke": "Sign out",
     "unknownDevice": "Unknown device",
     "thisDevice": "This device",
-    "lastActive": "active {{date}}"
+    "lastActive": "active {{date}}",
+    "avatarChange": "Upload photo",
+    "avatarRemove": "Remove",
+    "avatarHint": "JPG, PNG or WebP"
   },
   "block": {
     "action": "Block",

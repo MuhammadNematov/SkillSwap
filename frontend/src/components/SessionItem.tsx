@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { errorMessage } from '../api/errors'
@@ -7,6 +8,7 @@ import { confirmSessionManual } from '../api/exchanges'
 import { useInvalidateAll, useSessionActions } from '../hooks/useSessionActions'
 import { formatDateTime, formatInZone, isJoinWindowOpen, utcOffsetLabel } from '../utils/dates'
 import Icon from './Icon'
+import RescheduleModal from './RescheduleModal'
 
 const TONE: Partial<Record<SessionStatus, string>> = {
   Scheduled: 'bg-brand-100/80 text-brand-700',
@@ -36,6 +38,7 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
   const lang = i18n.resolvedLanguage ?? 'ru'
   const { confirm, decline } = useSessionActions()
   const invalidateAll = useInvalidateAll()
+  const [rescheduling, setRescheduling] = useState(false)
   const happened = useMutation({ mutationFn: confirmSessionManual, onSuccess: invalidateAll })
 
   const canJoin = (session.status === 'Scheduled' || session.status === 'InProgress') && isJoinWindowOpen(session.startAt)
@@ -81,6 +84,9 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
                 {t('session.join')}
               </button>
             )}
+            <button className="btn-secondary px-4 py-2" onClick={() => setRescheduling(true)}>
+              {t('session.reschedule')}
+            </button>
             <button className="btn-secondary px-4 py-2" onClick={() => onCancel(session)}>
               {t('session.cancel')}
             </button>
@@ -110,6 +116,7 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
           </>
         )}
       </div>
+      {rescheduling && <RescheduleModal session={session} onClose={() => setRescheduling(false)} />}
     </li>
   )
 }

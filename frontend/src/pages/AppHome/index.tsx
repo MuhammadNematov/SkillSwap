@@ -5,6 +5,7 @@ import { getDashboard } from '../../api/dashboard'
 import Avatar from '../../components/Avatar'
 import Icon, { type IconName } from '../../components/Icon'
 import Spinner from '../../components/Spinner'
+import SwapStage from '../../components/SwapScene'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateTime, formatTime, isJoinWindowOpen, isSameDay } from '../../utils/dates'
 
@@ -40,24 +41,26 @@ export default function AppHome() {
 
   return (
     <div className="space-y-6">
-      <section className="relative flex flex-wrap items-center justify-between gap-8 overflow-hidden rounded-[1.75rem] border border-ink-line bg-[radial-gradient(120%_140%_at_100%_0%,#E7DFFF_0%,rgba(231,223,255,0)_55%),#fff] p-8 sm:p-10">
-        <div className="min-w-0 flex-1 basis-[380px]">
-          <p className="inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand-600 shadow-sm">{t('dashboard.heroEyebrow', { name: user?.name?.split(' ')[0] })}</p>
-          <h1 className="mt-4 text-4xl font-extrabold leading-[1.08] tracking-tight text-ink sm:text-[44px]">
-            {t('dashboard.heroTitle1')}
-            <br />
-            <span className="text-brand-600">{t('dashboard.heroTitle2')}</span>
-          </h1>
-          <p className="mt-3 max-w-[480px] text-base leading-relaxed text-ink-soft">{t('dashboard.heroText')}</p>
-          <div className="mt-6 flex flex-wrap gap-2.5">
-            <Link to="/app/matches" className="btn-primary h-12 rounded-2xl px-6 text-[15px]">
-              {t('dashboard.heroMatches')}
-            </Link>
-            <Link to="/app/calendar" className="btn-secondary h-12 rounded-2xl px-6 text-[15px]">
-              {t('dashboard.heroSchedule')}
-            </Link>
+      <section className="overflow-hidden rounded-[1.75rem] border border-ink-line bg-white">
+        <SwapStage centerWidth={560} links={false} compact className="min-h-[340px]">
+          <div className="w-full px-4 py-10 text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">{t('dashboard.heroEyebrow', { name: user?.name?.split(' ')[0] })}</p>
+            <h1 className="mt-3 text-4xl font-extrabold leading-[1.08] tracking-tight text-ink sm:text-[52px]">
+              {t('dashboard.heroTitle1')}
+              <br />
+              <span className="text-brand-600">{t('dashboard.heroTitle2')}</span>
+            </h1>
+            <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-ink-soft">{t('dashboard.heroText')}</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+              <Link to="/app/matches" className="btn-primary h-12 rounded-2xl px-6 text-[15px]">
+                {t('dashboard.heroMatches')}
+              </Link>
+              <Link to="/app/calendar" className="btn-secondary h-12 rounded-2xl px-6 text-[15px]">
+                {t('dashboard.heroSchedule')}
+              </Link>
+            </div>
           </div>
-        </div>
+        </SwapStage>
       </section>
 
       <div className="grid gap-4">
