@@ -267,7 +267,16 @@
     "heroTitle2": "Grow together.",
     "heroText": "Find people who know what you want to learn and teach them something you know.",
     "heroMatches": "See my matches",
-    "heroSchedule": "Schedule a session"
+    "heroSchedule": "Schedule a session",
+    "actionsTitle": "Needs your attention",
+    "actionOpen": "Open",
+    "action": {
+      "AnswerRequest": "Answer an exchange request",
+      "AnswerSession": "Your partner proposed a lesson time",
+      "ConfirmSession": "Confirm that the lesson took place",
+      "FinishExchange": "Your partner finished the exchange — confirm",
+      "AnswerExtension": "Your partner agreed to extend the exchange"
+    }
   },
   "moderation": {
     "title": "Moderation"

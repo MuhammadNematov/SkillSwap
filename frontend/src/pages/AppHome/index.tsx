@@ -64,10 +64,29 @@ export default function AppHome() {
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard icon="swap" tone="bg-brand-100 text-brand-700" label={t('dashboard.activeExchanges')} value={data.activeExchanges} />
           <StatCard icon="calendar" tone="bg-emerald-100 text-emerald-700" label={t('dashboard.upcomingLessons')} value={data.upcomingLessons} />
-          <StatCard icon="star" tone="bg-amber-100 text-amber-600" label={t('dashboard.rating')} value={data.rating.toFixed(1)} />
+          <StatCard icon="star" tone="bg-amber-100 text-amber-600" label={t('dashboard.rating')} value={data.rating == null ? '—' : data.rating.toFixed(1)} />
         </div>
 
       </div>
+
+      {data.actions.length > 0 && (
+        <section className="card">
+          <h2 className="text-lg font-bold text-ink">{t('dashboard.actionsTitle')}</h2>
+          <ul className="mt-3 divide-y divide-ink-line">
+            {data.actions.map((a, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 py-3">
+                <span className="text-sm text-ink">{t(`dashboard.action.${a.type}`)}</span>
+                <Link
+                  to={a.requestId ? '/app/exchanges?tab=incoming' : `/app/exchanges/${a.exchangeId}`}
+                  className="btn-secondary px-4 py-2"
+                >
+                  {t('dashboard.actionOpen')}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card">

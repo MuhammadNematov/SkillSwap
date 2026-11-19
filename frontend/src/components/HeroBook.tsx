@@ -246,7 +246,7 @@ export default function HeroBook() {
           <span
             key={c.label}
             className="hb-chip"
-            style={{ ...c.style, '--d': c.d, animationDelay: `${c.delay}, 0s` } as CSSProperties}
+            style={{ ...c.style, '--d': c.d, animationDelay: `${c.delay}, 0s` } as unknown as CSSProperties}
           >
             {c.label}
           </span>
