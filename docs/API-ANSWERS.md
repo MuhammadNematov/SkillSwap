@@ -6,29 +6,24 @@
 
 ## Вопрос 14. Главная страница: ближайший урок и статистика
 
-**Эндпоинта пока нет. Появится на этапе 4** (заявки, обмены, сессии), потому что считать его не из чего, пока нет обменов и сессий. Это `GET /me/dashboard`: один запрос вместо нескольких, доступен обычному аккаунту. До этапа 4 главная страница может показывать только данные профиля (`GET /me`) и подбор (`GET /matches`).
-
-Примерная форма ответа (не окончательная, уточнится при реализации; даты в UTC):
+**Готово: `GET /me/dashboard`.** Один запрос вместо нескольких, нужен вход, только обычный аккаунт (служебному 403 `regular_account_required`). Все даты в UTC. Подробности и правила: раздел «Главная страница» в `BACKEND-DEV.md`.
 
 ```json
 {
   "nextSession": {
-    "id": "…", "exchangeId": "…", "startAt": "2026-12-01T13:00:00Z", "durationMin": 45, "topic": "…",
-    "status": "Confirmed", "iAmTeacher": true,
-    "partner": { "id": "…", "name": "…", "avatarUrl": null },
-    "canJoinFrom": "2026-12-01T12:55:00Z"
+    "id": "…", "exchangeId": "…", "startAt": "2026-12-01T13:00:00Z", "endAt": "2026-12-01T13:45:00Z", "durationMin": 45, "topic": "…",
+    "status": "Scheduled", "iAmTeacher": true,
+    "partner": { "id": "…", "name": "…", "avatarUrl": null, "isDeleted": false },
+    "canJoinFrom": "2026-12-01T12:50:00Z", "canJoinUntil": "2026-12-01T14:15:00Z"
   },
   "counters": { "activeExchanges": 2, "incomingRequests": 1, "outgoingRequests": 0, "unreadMessages": 5, "unreadNotifications": 3 },
   "stats": { "completedSessions": 12, "taughtMinutes": 540, "learnedMinutes": 300, "completedExchanges": 3 },
   "rating": { "average": 4.8, "count": 7, "isNewcomer": false },
   "actionsNeeded": [
-    { "type": "ConfirmSession", "sessionId": "…" },
-    { "type": "WriteReview", "exchangeId": "…", "dueAt": "…" }
+    { "type": "ConfirmSession", "sessionId": "…", "exchangeId": "…", "requestId": null, "dueAt": "…" },
+    { "type": "AnswerRequest", "sessionId": null, "exchangeId": null, "requestId": "…", "dueAt": "…" }
   ]
 }
 ```
 
-- `nextSession` равен `null`, если ближайших сессий нет.
-- `actionsNeeded` — то, что ждёт ответа пользователя («подтвердить слот», «оставить отзыв»).
-- Счётчики и статистику считает сервер.
-- Рейтинг уже сейчас приходит в `GET /me` (`ratingAvg`, `ratingCount`, `isNewcomer`).
+Отличия от прикидочной формы: статус урока `Scheduled` (а не `Confirmed`), добавлены `endAt` и `canJoinUntil`, у `partner` есть `isDeleted`; в `actionsNeeded` пока нет `WriteReview` (появится вместе с отзывами), зато есть `AnswerRequest`, `AnswerSession`, `ConfirmSession`, `FinishExchange`, `AnswerExtension`. Вход в видеокомнату (`canJoinFrom`) заработает на этапе 5.

@@ -39,6 +39,15 @@ public class User : IdentityUser<Guid>, ITimestamped
     /// автоматически после заполнения анкеты. Снова показаться пользователь может только сам.
     /// </summary>
     public bool HiddenByUser { get; private set; }
+
+    /// <summary>Когда пользователь удалил аккаунт (Status = Deleted); данные при этом обезличиваются, см. <see cref="MarkDeleted"/>.</summary>
+    public DateTime? DeletedAt { get; private set; }
+
+    /// <summary>
+    /// Аккаунт удалён, но личные данные (имя, био, дата рождения, навыки) пока сохранены: по пользователю есть открытое обращение (раздел 8).
+    /// Данные стираются, когда оно закрыто.
+    /// </summary>
+    public bool ErasurePending { get; private set; }
     public UserStatus Status { get; private set; } = UserStatus.Active;
     public Guid? LinkedUserId { get; private set; }
     public decimal RatingAvg { get; private set; }
@@ -168,4 +177,43 @@ public class User : IdentityUser<Guid>, ITimestamped
     }
 
     public bool IsBlocked => Status == UserStatus.Blocked;
+
+    /// <summary>Подпись удалённого пользователя в чатах, заявках и отзывах (раздел 8.1 ТЗ); клиент по флагу <c>isDeleted</c> показывает её на своём языке.</summary>
+    public const string DeletedDisplayName = "Удалённый пользователь";
+
+    /// <summary>
+    /// Пользователь удалил аккаунт: статус Deleted, из подбора он исчезает навсегда. Личные данные стираются здесь же
+    /// (<paramref name="keepPersonalData"/> = false) или остаются до закрытия обращения (<c>true</c>, <see cref="ErasurePending"/>).
+    /// Адрес почты, пароль и 2FA убирает сервис (через Identity).
+    /// </summary>
+    public void MarkDeleted(DateTime now, bool keepPersonalData)
+    {
+        if (!IsRegular)
+        {
+            throw new Exceptions.DomainValidationException("staff_cannot_delete_account", "Служебный аккаунт удалить нельзя.");
+        }
+
+        Status = UserStatus.Deleted;
+        DeletedAt ??= now;
+        IsSearchable = false;
+        if (keepPersonalData)
+        {
+            ErasurePending = true;
+            return;
+        }
+
+        WipePersonalData();
+    }
+
+    /// <summary>Стирает личные данные: имя, био, дату рождения, аватар. Вызывается при удалении и после закрытия обращения.</summary>
+    public void WipePersonalData()
+    {
+        Name = DeletedDisplayName;
+        Bio = null;
+        DateOfBirth = null;
+        AvatarKey = null;
+        TimeZone = DefaultTimeZone;
+        UiLanguage = DefaultUiLanguage;
+        ErasurePending = false;
+    }
 }

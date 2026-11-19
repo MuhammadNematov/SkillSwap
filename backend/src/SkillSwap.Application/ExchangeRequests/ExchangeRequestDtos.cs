@@ -11,7 +11,8 @@ public sealed record CreateExchangeRequestRequest(Guid ToUserId, Guid ToTeachesS
 /// <summary>Принятие заявки. <c>FromTeachesSkillId</c> обязателен, если отправитель не указал свой навык.</summary>
 public sealed record AcceptExchangeRequestRequest(Guid? FromTeachesSkillId);
 
-public sealed record RequestUserDto(Guid Id, string Name, string? AvatarUrl);
+/// <param name="IsDeleted">Пользователь удалил аккаунт: имя заменено подписью «Удалённый пользователь» (клиент показывает её на своём языке), аватара нет.</param>
+public sealed record RequestUserDto(Guid Id, string Name, string? AvatarUrl, bool IsDeleted = false);
 
 public sealed record RequestSkillDto(Guid Id, string NameTg, string NameRu, string NameEn);
 

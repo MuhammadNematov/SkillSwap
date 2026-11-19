@@ -138,3 +138,13 @@ public enum SessionStatus
     Unconfirmed,
     NotCounted,
 }
+
+/// <summary>Состояние выгрузки данных пользователя (POST /me/export).</summary>
+public enum DataExportStatus
+{
+    Pending,
+    Processing,
+    Ready,
+    Failed,
+    Expired,
+}

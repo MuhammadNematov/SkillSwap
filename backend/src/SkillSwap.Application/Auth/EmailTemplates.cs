@@ -44,4 +44,32 @@ internal static class EmailTemplates
             "SkillSwap: your password was changed",
             $"Hello, {name}!\n\nYour account password was changed and all devices will be signed out. If this was not you, reset your password again right away and contact support."),
     };
+
+    /// <summary>Письмо на старый адрес после удаления аккаунта (раздел 8.1 ТЗ).</summary>
+    public static (string Subject, string Body) AccountDeleted(string language, string name) => language switch
+    {
+        "ru" => (
+            "SkillSwap: аккаунт удалён",
+            $"Здравствуйте, {name}!\n\nВаш аккаунт SkillSwap удалён: личные данные стёрты, активные обмены завершены, все устройства вышли из аккаунта. Сообщения, которые вы писали партнёрам, остаются у них до плановой очистки чатов, автор в них отмечен как «Удалённый пользователь». Этот адрес можно использовать для новой регистрации.\n\nЕсли это сделали не вы, срочно напишите в поддержку."),
+        "tg" => (
+            "SkillSwap: ҳисоб нест карда шуд",
+            $"Салом, {name}!\n\nҲисоби шумо дар SkillSwap нест карда шуд: маълумоти шахсӣ пок карда шуд, мубодилаҳои фаъол анҷом ёфтанд, ҳамаи дастгоҳҳо аз ҳисоб баромаданд. Паёмҳое, ки шумо ба ҳамкорон навиштаед, то тозакунии нақшавии чатҳо назди онҳо мемонанд, муаллиф дар онҳо «Корбари нест кардашуда» номида мешавад. Ин суроғаро барои сабти номи нав истифода бурдан мумкин аст.\n\nАгар ин корро шумо накарда бошед, фавран ба дастгирӣ нависед."),
+        _ => (
+            "SkillSwap: your account was deleted",
+            $"Hello, {name}!\n\nYour SkillSwap account has been deleted: personal data was erased, active exchanges were ended and all devices were signed out. Messages you wrote to your partners stay with them until the scheduled chat cleanup, with you shown as \"Deleted user\". You can use this address to sign up again.\n\nIf this was not you, contact support right away."),
+    };
+
+    /// <summary>Письмо со ссылкой на выгрузку данных (раздел 8.1 ТЗ): ссылка действует 24 часа.</summary>
+    public static (string Subject, string Body) DataExportReady(string language, string name, string link) => language switch
+    {
+        "ru" => (
+            "SkillSwap: ваши данные готовы",
+            $"Здравствуйте, {name}!\n\nВыгрузка ваших данных готова. Скачать файл (JSON) можно по ссылке, она действует 24 часа:\n{link}\n\nФайл содержит личные данные: не передавайте ссылку другим. Если вы не запрашивали выгрузку, смените пароль и напишите в поддержку."),
+        "tg" => (
+            "SkillSwap: маълумоти шумо тайёр аст",
+            $"Салом, {name}!\n\nБорфарории маълумоти шумо тайёр аст. Файлро (JSON) тавассути ин истинод боргирӣ кунед, он 24 соат эътибор дорад:\n{link}\n\nФайл маълумоти шахсӣ дорад: истинодро ба дигарон надиҳед. Агар шумо борфарорӣ дархост накарда бошед, паролро иваз кунед ва ба дастгирӣ нависед."),
+        _ => (
+            "SkillSwap: your data is ready",
+            $"Hello, {name}!\n\nYour data export is ready. Download the file (JSON) using this link, it is valid for 24 hours:\n{link}\n\nThe file contains personal data: do not share the link. If you did not request an export, change your password and contact support."),
+    };
 }
