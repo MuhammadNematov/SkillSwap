@@ -147,7 +147,9 @@
     "resend": "Resend the email",
     "resent": "The email was sent again",
     "mockMail": "Mock mode: no email is sent.",
-    "mockConfirm": "Confirm email"
+    "mockConfirm": "Confirm email",
+    "pasteLink": "Got the email? Paste its link here",
+    "badLink": "The link has no confirmation data"
   },
   "levels": {
     "Beginner": "Beginner",

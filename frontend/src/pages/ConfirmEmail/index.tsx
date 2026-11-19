@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import { confirmEmail } from '../../api/auth'
-import { errorMessage } from '../../api/errors'
+import { USE_MOCKS } from '../../api/config'
+import { errorMessage, toApiError } from '../../api/errors'
 import AuthLayout from '../../components/AuthLayout'
 import Spinner from '../../components/Spinner'
 
@@ -28,7 +29,12 @@ export default function ConfirmEmail() {
       ) : isLoading ? (
         <Spinner />
       ) : isError ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage(t, error)}</p>
+        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p>{errorMessage(t, error)}</p>
+          <p className="mt-1 text-xs opacity-70">
+            {toApiError(error).code} · {toApiError(error).status} · {USE_MOCKS ? 'mock' : 'api'}
+          </p>
+        </div>
       ) : (
         <p className="text-sm text-slate-600">{t('confirmEmail.success')}</p>
       )}
