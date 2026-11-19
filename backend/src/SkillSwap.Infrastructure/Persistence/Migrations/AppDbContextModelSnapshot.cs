@@ -703,6 +703,45 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.SessionAttendance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LeftAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SessionId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SessionAttendances_OpenPerUser")
+                        .HasFilter("\"LeftAt\" IS NULL");
+
+                    b.ToTable("SessionAttendances", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SessionAttendances_Interval", "\"LeftAt\" IS NULL OR \"LeftAt\" >= \"JoinedAt\"");
+                        });
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.Skill", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1742,6 +1781,21 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.SessionAttendance", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.LessonSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
 

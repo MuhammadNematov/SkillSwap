@@ -23,6 +23,18 @@ public class LessonSession : BaseEntity
     /// <summary>Сколько после планового окончания участники могут подтвердить урок вручную (раздел 6.3 ТЗ).</summary>
     public static readonly TimeSpan ManualConfirmWindow = TimeSpan.FromHours(24);
 
+    /// <summary>Вход в комнату открывается за столько до начала (раздел 7.2 ТЗ).</summary>
+    public static readonly TimeSpan JoinOpensBefore = TimeSpan.FromMinutes(10);
+
+    /// <summary>Вход закрывается через столько после планового окончания (45 + 30 = старт + 75 минут); тогда же проверка итога и удаление комнаты.</summary>
+    public static readonly TimeSpan JoinClosesAfterEnd = TimeSpan.FromMinutes(30);
+
+    /// <summary>Предварительная проверка («пришли ли оба») — через столько после начала (раздел 6.3 ТЗ).</summary>
+    public static readonly TimeSpan FirstCheckAfterStart = TimeSpan.FromMinutes(15);
+
+    /// <summary>Сколько минут оба должны провести в комнате одновременно, чтобы урок засчитался.</summary>
+    public const int MinJointMinutes = 30;
+
     private LessonSession()
     {
     }
@@ -74,6 +86,121 @@ public class LessonSession : BaseEntity
     }
 
     public DateTime ConfirmDeadline => (UnconfirmedAt ?? EndAt) + ManualConfirmWindow;
+
+    /// <summary>Вход в комнату открывается (старт − 10 минут).</summary>
+    public DateTime JoinOpensAt => StartAt - JoinOpensBefore;
+
+    /// <summary>Вход закрывается и комната удаляется (плановое окончание + 30 минут = старт + 75).</summary>
+    public DateTime RoomClosesAt => EndAt + JoinClosesAfterEnd;
+
+    /// <summary>Момент предварительной проверки (старт + 15 минут).</summary>
+    public DateTime FirstCheckAt => StartAt + FirstCheckAfterStart;
+
+    /// <summary>Можно ли сейчас получить токен: урок подтверждён и идёт (или ещё может идти) и время в окне комнаты. Статус Missed и NoShow входят: опоздавший может зайти.</summary>
+    public bool IsJoinableAt(DateTime now) =>
+        Status is SessionStatus.Scheduled or SessionStatus.InProgress or SessionStatus.NoShow or SessionStatus.Missed
+        && now >= JoinOpensAt && now < RoomClosesAt;
+
+    /// <summary>Первый участник вошёл в комнату: Scheduled → InProgress. В любом другом статусе ничего не меняет (повторный вход, опоздавший).</summary>
+    public bool MarkStarted()
+    {
+        if (Status != SessionStatus.Scheduled)
+        {
+            return false;
+        }
+
+        Status = SessionStatus.InProgress;
+        return true;
+    }
+
+    /// <summary>
+    /// Предварительная проверка на 15-й минуте (раздел 6.3 ТЗ). <paramref name="joinedIds"/> — кто из участников уже входил в комнату.
+    /// Никого нет: Scheduled → Missed; зашёл один: InProgress → NoShow с виновником (не вошедший); зашли оба: ничего не меняется.
+    /// </summary>
+    /// <returns>true, если статус изменился.</returns>
+    public bool ApplyFirstCheck(DateTime now, IReadOnlyCollection<Guid> joinedIds, Guid userA, Guid userB)
+    {
+        if (now < FirstCheckAt || Status is not (SessionStatus.Scheduled or SessionStatus.InProgress))
+        {
+            return false;
+        }
+
+        var aJoined = joinedIds.Contains(userA);
+        var bJoined = joinedIds.Contains(userB);
+        if (aJoined && bJoined)
+        {
+            return false;
+        }
+
+        if (!aJoined && !bJoined)
+        {
+            Status = SessionStatus.Missed;
+            return true;
+        }
+
+        Status = SessionStatus.NoShow;
+        NoShowUserId = aJoined ? userB : userA;
+        return true;
+    }
+
+    /// <summary>
+    /// Итог при закрытии комнаты (старт + 75 минут), раздел 6.3 ТЗ. <paramref name="firstJoins"/> — первое время входа каждого, кто входил;
+    /// <paramref name="jointMinutes"/> — сколько минут оба пробыли в комнате одновременно.
+    /// <list type="bullet">
+    /// <item>≥ 30 минут: Completed (из InProgress, NoShow и Missed); опоздание второго сохраняется в <see cref="LateJoinMinutes"/>;</item>
+    /// <item>оба были, но меньше 30: InProgress → Unconfirmed (ручное подтверждение 24 часа); NoShow и Missed остаются окончательными;</item>
+    /// <item>вошёл один: NoShow с виновником; не вошёл никто: Missed (если первая проверка не успела, например задача пропущена).</item>
+    /// </list>
+    /// </summary>
+    /// <returns>true, если статус изменился.</returns>
+    public bool CloseRoom(DateTime now, IReadOnlyDictionary<Guid, DateTime> firstJoins, int jointMinutes, Guid userA, Guid userB)
+    {
+        if (now < RoomClosesAt || Status is not (SessionStatus.Scheduled or SessionStatus.InProgress or SessionStatus.NoShow or SessionStatus.Missed))
+        {
+            return false;
+        }
+
+        var aJoined = firstJoins.TryGetValue(userA, out var firstA);
+        var bJoined = firstJoins.TryGetValue(userB, out var firstB);
+        var before = Status;
+
+        if (aJoined && bJoined && jointMinutes >= MinJointMinutes)
+        {
+            var late = (int)((firstA > firstB ? firstA : firstB) - StartAt).TotalMinutes;
+            LateJoinMinutes = late > 0 ? late : null;
+            Status = SessionStatus.Completed;
+            return true;
+        }
+
+        if (aJoined && bJoined)
+        {
+            if (Status != SessionStatus.InProgress && Status != SessionStatus.Scheduled)
+            {
+                return false;   // NoShow / Missed с совместным временем < 30 остаются окончательными
+            }
+
+            Status = SessionStatus.Unconfirmed;
+            UnconfirmedAt = now;
+            return true;
+        }
+
+        if (Status == SessionStatus.Missed)
+        {
+            return false;   // Missed меняется только на Completed (оба успели ≥ 30 минут)
+        }
+
+        if (aJoined || bJoined)
+        {
+            Status = SessionStatus.NoShow;
+            NoShowUserId = aJoined ? userB : userA;
+        }
+        else
+        {
+            Status = SessionStatus.Missed;
+        }
+
+        return Status != before;
+    }
 
     /// <summary>Партнёр принимает предложенное время (из Proposed в Scheduled). Предлагавший принять своё же предложение не может.</summary>
     public void Confirm(Guid userId, DateTime now)
