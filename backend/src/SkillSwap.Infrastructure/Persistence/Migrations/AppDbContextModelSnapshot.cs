@@ -217,6 +217,11 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("AbortedById")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AbortedForNoShow")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<Guid?>("BlockedById")
                         .HasColumnType("uuid");
 
@@ -412,6 +417,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("Reminder24Sent")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("RoomClosedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("StartAt")
                         .HasColumnType("timestamp with time zone");

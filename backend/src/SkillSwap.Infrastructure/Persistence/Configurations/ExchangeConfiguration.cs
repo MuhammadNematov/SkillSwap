@@ -16,6 +16,7 @@ public class ExchangeConfiguration : IEntityTypeConfiguration<Exchange>
 
         builder.Property(e => e.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(e => e.AbortReason).HasMaxLength(Exchange.AbortReasonMaxLength);
+        builder.Property(e => e.AbortedForNoShow).HasDefaultValue(false);
 
         // Из одной заявки получается ровно один обмен.
         builder.HasIndex(e => e.RequestId).IsUnique();

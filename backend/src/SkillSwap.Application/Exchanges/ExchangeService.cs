@@ -55,7 +55,8 @@ public sealed class ExchangeService
         var (items, total) = await _exchanges.ListAsync(userId, status, page, pageSize, ct);
         var unread = await _messages.CountUnreadAsync(userId, items.Select(r => r.Id).ToList(), ct);
         var completed = await _sessions.CountCompletedAsync(items.Select(r => r.Id).ToList(), ct);
-        var dtos = items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id), completed)).ToList();
+        var noShows = await _sessions.CountFinalNoShowsAsync(items.Select(r => r.Id).ToList(), ct);
+        var dtos = items.Select(r => Map(r, userId, unread.GetValueOrDefault(r.Id), completed, noShows)).ToList();
         var urls = await _avatars.ForViewerAsync(userId, dtos.Select(d => (d.Partner.Id, d.Partner.AvatarUrl)), ct);
         return new PagedResult<ExchangeDto>(dtos.Select(d => d with { Partner = d.Partner with { AvatarUrl = urls.GetValueOrDefault(d.Partner.Id) } }).ToList(), page, pageSize, total);
     }
@@ -92,9 +93,47 @@ public sealed class ExchangeService
     {
         var me = await RequireActiveRegularAsync(userId, ct);
         await _abortValidator.ValidateAndThrowAsync(request ?? new AbortExchangeRequest(null), ct);
+
+        if (string.Equals(request!.Reason?.Trim(), Exchange.AbortReasonPartnerNoShow, StringComparison.OrdinalIgnoreCase))
+        {
+            return await AbortForNoShowAsync(userId, exchangeId, me, ct);
+        }
+
         await Mutate(userId, exchangeId, ct, e =>
         {
             e.Abort(userId, request!.Reason, Now());
+            _notify.Add(e.PartnerOf(userId), NotificationType.ExchangeAborted, new { exchangeId = e.Id, userId, userName = me.Name, reason = e.AbortReason });
+        });
+        _notify.Dispatch();
+        return await ViewAsync(userId, exchangeId, ct);
+    }
+
+    /// <summary>
+    /// Выход пострадавшего после трёх окончательных неявок партнёра (причина <c>partner_no_show</c>, раздел 6.3 ТЗ). Неявки считаются по урокам, итог
+    /// которых уже подведён при закрытии комнаты; окончательная неявка не отменяется, поэтому число, прочитанное до блокировки, не может уменьшиться.
+    /// Виновным записывается партнёр (у пострадавшего <c>abortedBy</c> = <c>partner</c>), признак сохраняется для одностороннего отзыва (этап 6).
+    /// </summary>
+    private async Task<ExchangeDto> AbortForNoShowAsync(Guid userId, Guid exchangeId, User me, CancellationToken ct)
+    {
+        var row = await _exchanges.GetViewAsync(exchangeId, ct);
+        if (row is null || (row.UserA.Id != userId && row.UserB.Id != userId))
+        {
+            throw new NotFoundException("exchange_not_found", "Обмен не найден.");
+        }
+
+        var partnerId = row.UserA.Id == userId ? row.UserB.Id : row.UserA.Id;
+        var count = (await _sessions.CountFinalNoShowsAsync([exchangeId], ct)).GetValueOrDefault((exchangeId, partnerId));
+        if (count < Exchange.NoShowAbortThreshold)
+        {
+            throw new ConflictException(
+                "no_show_threshold_not_reached",
+                $"Выйти без последствий можно после {Exchange.NoShowAbortThreshold} неявок партнёра.",
+                new Dictionary<string, object?> { ["partnerNoShows"] = count, ["required"] = Exchange.NoShowAbortThreshold });
+        }
+
+        await Mutate(userId, exchangeId, ct, e =>
+        {
+            e.AbortForPartnerNoShow(userId, count, Now());
             _notify.Add(e.PartnerOf(userId), NotificationType.ExchangeAborted, new { exchangeId = e.Id, userId, userName = me.Name, reason = e.AbortReason });
         });
         _notify.Dispatch();
@@ -141,7 +180,7 @@ public sealed class ExchangeService
         }
 
         var unread = await _messages.CountUnreadAsync(userId, [row.Id], ct);
-        var dto = Map(row, userId, unread.GetValueOrDefault(row.Id), await _sessions.CountCompletedAsync([row.Id], ct));
+        var dto = Map(row, userId, unread.GetValueOrDefault(row.Id), await _sessions.CountCompletedAsync([row.Id], ct), await _sessions.CountFinalNoShowsAsync([row.Id], ct));
         return await WithAvatarAsync(userId, dto, ct);
     }
 
@@ -205,10 +244,13 @@ public sealed class ExchangeService
         return dto with { Partner = dto.Partner with { AvatarUrl = urls.GetValueOrDefault(dto.Partner.Id) } };
     }
 
-    private ExchangeDto Map(ExchangeRow r, Guid viewerId, int unread, IReadOnlyDictionary<(Guid ExchangeId, Guid TeacherId), int> completed)
+    private ExchangeDto Map(
+        ExchangeRow r, Guid viewerId, int unread, IReadOnlyDictionary<(Guid ExchangeId, Guid TeacherId), int> completed,
+        IReadOnlyDictionary<(Guid ExchangeId, Guid UserId), int> noShows)
     {
-
         var isA = r.UserA.Id == viewerId;
+        var partnerId = isA ? r.UserB.Id : r.UserA.Id;
+        var partnerNoShows = noShows.GetValueOrDefault((r.Id, partnerId));
         var abortedBy = r.AbortedById is null ? null : r.AbortedById == viewerId ? "me" : "partner";
 
         // Баланс: засчитанные (Completed) уроки в роли преподавателя у меня и у партнёра (раздел 6.1 ТЗ).
@@ -220,6 +262,7 @@ public sealed class ExchangeService
             isA ? r.ExtensionAcceptedByA : r.ExtensionAcceptedByB, isA ? r.ExtensionAcceptedByB : r.ExtensionAcceptedByA,
             r.FrozenAt, abortedBy, AbortReasonFor(r, viewerId), r.ClosedAt, ExchangeBalance.Calculate(
                 completed.GetValueOrDefault((r.Id, viewerId)), completed.GetValueOrDefault((r.Id, r.UserA.Id == viewerId ? r.UserB.Id : r.UserA.Id))), r.CreatedAt,
-            ChatAccess.Evaluate(r.Status, r.ClosedAt, Now()), unread);
+            ChatAccess.Evaluate(r.Status, r.ClosedAt, Now()), unread,
+            partnerNoShows, r.Status == ExchangeStatus.Active && partnerNoShows >= Exchange.NoShowAbortThreshold, r.AbortedForNoShow);
     }
 }

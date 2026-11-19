@@ -123,6 +123,11 @@ public sealed class VideoLessonJobs
 
             var joint = SessionAttendance.JointMinutes(rows, a, b, s.StartAt, s.RoomClosesAt);
             var before = s.Status;
+            if (s.AcceptsPresence)
+            {
+                s.MarkRoomClosed(now);   // с этого момента NoShow и Missed окончательные (считаются в неявки обмена)
+            }
+
             if (!s.CloseRoom(now, firstJoins, joint, a, b))
             {
                 return before != s.Status;

@@ -19,6 +19,16 @@ public class Exchange : BaseEntity
     /// <summary>Причина прерывания при удалении аккаунта одного из участников (виновного нет). Партнёр видит нейтральную <c>partner_unavailable</c>.</summary>
     public const string AbortReasonAccountDeleted = "account_deleted";
 
+    /// <summary>
+    /// Причина прерывания, когда пострадавший выходит после трёх окончательных неявок партнёра (раздел 6.3 ТЗ). Участники видят эту причину обоим;
+    /// виновным записывается партнёр (см. <see cref="AbortForPartnerNoShow"/>). Свободный текст причины этим значением не становится: признак
+    /// хранится отдельно (<see cref="AbortedForNoShow"/>) и ставится только этим методом.
+    /// </summary>
+    public const string AbortReasonPartnerNoShow = "partner_no_show";
+
+    /// <summary>Сколько окончательных неявок партнёра нужно, чтобы пострадавший мог выйти без последствий для себя.</summary>
+    public const int NoShowAbortThreshold = 3;
+
     private Exchange()
     {
     }
@@ -45,6 +55,9 @@ public class Exchange : BaseEntity
     public Guid? AbortedById { get; private set; }
 
     public string? AbortReason { get; private set; }
+
+    /// <summary>Обмен прерван пострадавшим после трёх неявок партнёра (<see cref="AbortForPartnerNoShow"/>). Основание для одностороннего отзыва на этапе 6.</summary>
+    public bool AbortedForNoShow { get; private set; }
 
     /// <summary>Кто заблокировал партнёра, из-за чего обмен прерван. В базе причина хранится настоящей (для модератора), участникам она показывается по-разному.</summary>
     public Guid? BlockedById { get; private set; }
@@ -129,6 +142,29 @@ public class Exchange : BaseEntity
 
         AbortedById = userId;
         AbortReason = text;
+        Close(ExchangeStatus.Aborted, now);
+    }
+
+    /// <summary>
+    /// Обмен прерван пострадавшим из-за неявок партнёра: после трёх окончательных неявок (раздел 6.3 ТЗ). Выход «без последствий для себя»:
+    /// виновным (<see cref="AbortedById"/>) записывается партнёр, а не вышедший. Признак <see cref="AbortedForNoShow"/> остаётся навсегда:
+    /// на нём этап 6 строит одностороннее право пострадавшего на отзыв (раздел 8.1 ТЗ, пункт 3).
+    /// </summary>
+    /// <param name="victimId">Кто выходит.</param>
+    /// <param name="partnerFinalNoShows">Сколько окончательных неявок у партнёра в этом обмене.</param>
+    public void AbortForPartnerNoShow(Guid victimId, int partnerFinalNoShows, DateTime now)
+    {
+        RequireParticipant(victimId);
+        RequireStatus(ExchangeStatus.Aborted, ExchangeStatus.Active);
+        if (partnerFinalNoShows < NoShowAbortThreshold)
+        {
+            throw new DomainValidationException(
+                "no_show_threshold_not_reached", $"Выйти без последствий можно после {NoShowAbortThreshold} неявок партнёра: сейчас {partnerFinalNoShows}.");
+        }
+
+        AbortedById = PartnerOf(victimId);
+        AbortReason = AbortReasonPartnerNoShow;
+        AbortedForNoShow = true;
         Close(ExchangeStatus.Aborted, now);
     }
 

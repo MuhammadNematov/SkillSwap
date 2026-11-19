@@ -37,4 +37,10 @@ public interface ILessonSessionStore
 
     /// <summary>Сколько засчитанных (Completed) уроков провёл каждый преподаватель в каждом из обменов (баланс, раздел 6.1 ТЗ).</summary>
     Task<IReadOnlyDictionary<(Guid ExchangeId, Guid TeacherId), int>> CountCompletedAsync(IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct);
+
+    /// <summary>
+    /// Сколько окончательных неявок у каждого участника в каждом из обменов: уроки в статусе NoShow, итог которых уже подведён при закрытии комнаты.
+    /// Предварительная неявка на 15-й минуте не считается: опоздавший ещё может зайти, и тогда урок станет Completed. Ключ — (обмен, не пришедший).
+    /// </summary>
+    Task<IReadOnlyDictionary<(Guid ExchangeId, Guid UserId), int>> CountFinalNoShowsAsync(IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct);
 }

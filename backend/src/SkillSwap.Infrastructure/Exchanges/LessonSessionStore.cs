@@ -77,4 +77,19 @@ public sealed class LessonSessionStore : ILessonSessionStore
             .ToListAsync(ct);
         return rows.ToDictionary(r => (r.ExchangeId, r.TeacherId), r => r.Count);
     }
+
+    public async Task<IReadOnlyDictionary<(Guid ExchangeId, Guid UserId), int>> CountFinalNoShowsAsync(IReadOnlyCollection<Guid> exchangeIds, CancellationToken ct)
+    {
+        if (exchangeIds.Count == 0)
+        {
+            return new Dictionary<(Guid, Guid), int>();
+        }
+
+        var rows = await _db.Sessions.AsNoTracking()
+            .Where(s => exchangeIds.Contains(s.ExchangeId) && s.Status == SessionStatus.NoShow && s.NoShowUserId != null && s.RoomClosedAt != null)
+            .GroupBy(s => new { s.ExchangeId, UserId = s.NoShowUserId!.Value })
+            .Select(g => new { g.Key.ExchangeId, g.Key.UserId, Count = g.Count() })
+            .ToListAsync(ct);
+        return rows.ToDictionary(r => (r.ExchangeId, r.UserId), r => r.Count);
+    }
 }

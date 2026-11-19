@@ -75,6 +75,12 @@ public class LessonSession : BaseEntity
 
     public bool Reminder15Sent { get; private set; }
 
+    /// <summary>Когда задача закрытия комнаты подвела итог урока. С этого момента статус окончательный (NoShow и Missed после этого уже не меняются): неявки считаются только окончательные.</summary>
+    public DateTime? RoomClosedAt { get; private set; }
+
+    /// <summary>Итог подведён: фиксирует момент (повторный вызов безвреден).</summary>
+    public void MarkRoomClosed(DateTime now) => RoomClosedAt ??= now;
+
     public static LessonSession Propose(
         Guid exchangeId, Guid teacherId, Guid proposedById, DateTime startAt, string? topic, DateTime now, DateTime exchangeEnd)
     {

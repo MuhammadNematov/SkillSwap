@@ -8349,6 +8349,23 @@
               "string"
             ],
             "format": "int32"
+          },
+          "partnerNoShows": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "canAbortForNoShow": {
+            "type": "boolean",
+            "default": false
+          },
+          "abortedForNoShow": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

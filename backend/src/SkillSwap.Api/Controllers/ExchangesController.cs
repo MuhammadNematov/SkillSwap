@@ -59,6 +59,12 @@ public class ExchangesController : ControllerBase
     /// <summary>
     /// Выйти досрочно: нужна причина (до 500 символов, 400 <c>validation_failed</c>). Обмен становится Aborted, виновный — я (<c>abortedBy: me</c>).
     /// Прервать можно только активный обмен (замороженный закрывает модератор): иначе 409 <c>invalid_state_transition</c>.
+    /// <para>
+    /// <b>Выход из-за неявок партнёра:</b> причина ровно <c>partner_no_show</c> (регистр не важен). Разрешено, когда у партнёра в этом обмене не меньше трёх
+    /// окончательных неявок (<c>partnerNoShows</c> и <c>canAbortForNoShow</c> в обмене), иначе 409 <c>no_show_threshold_not_reached</c> (<c>partnerNoShows</c>, <c>required</c>).
+    /// Виновным записывается партнёр: у вышедшего <c>abortedBy: partner</c>, у партнёра <c>me</c>; <c>abortReason</c> = <c>partner_no_show</c>,
+    /// <c>abortedForNoShow</c> = true (на этом признаке этап 6 даст пострадавшему одностороннее право на отзыв). Партнёру приходит уведомление <c>ExchangeAborted</c>.
+    /// </para>
     /// </summary>
     [HttpPost("{id:guid}/abort")]
     [ProducesResponseType<ExchangeDto>(StatusCodes.Status200OK)]

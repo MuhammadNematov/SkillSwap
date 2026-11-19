@@ -16,6 +16,9 @@ public sealed record ExchangeBalanceDto(int MyLessons, int PartnerLessons, bool 
 /// <param name="ISkillLearn">Чему учит партнёр (то, что изучаю я).</param>
 /// <param name="MyExtensionAccepted">Я согласился на продление и жду партнёра.</param>
 /// <param name="AbortedBy">me, partner или null (прервала система при блокировке либо модератор).</param>
+/// <param name="PartnerNoShows">Сколько окончательных неявок у партнёра в этом обмене (урок закрыт, партнёр так и не пришёл).</param>
+/// <param name="CanAbortForNoShow">Можно выйти из обмена с причиной partner_no_show: обмен активен и неявок партнёра не меньше трёх.</param>
+/// <param name="AbortedForNoShow">Обмен прерван из-за неявок партнёра (при этом abortedBy у пострадавшего — partner).</param>
 public sealed record ExchangeDto(
     Guid Id,
     ExchangeStatus Status,
@@ -37,7 +40,10 @@ public sealed record ExchangeDto(
     ExchangeBalanceDto Balance,
     DateTime CreatedAt,
     ChatStateDto Chat,
-    int UnreadMessages);
+    int UnreadMessages,
+    int PartnerNoShows = 0,
+    bool CanAbortForNoShow = false,
+    bool AbortedForNoShow = false);
 
 /// <summary>Обмен из хранилища с людьми и навыками обеих сторон.</summary>
 public sealed record ExchangeRow(
@@ -60,7 +66,8 @@ public sealed record ExchangeRow(
     Guid? BlockedById,
     string? AbortReason,
     DateTime? ClosedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool AbortedForNoShow = false);
 
 /// <summary>Баланс уроков (раздел 6.1 ТЗ): подсказка, если разница больше 3.</summary>
 public static class ExchangeBalance

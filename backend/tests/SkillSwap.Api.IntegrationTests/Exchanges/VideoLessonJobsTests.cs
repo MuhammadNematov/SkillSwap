@@ -210,6 +210,7 @@ public class VideoLessonJobsTests
 
         var s = await LoadAsync(lesson.SessionId);
         Assert.Equal(SessionStatus.Completed, s.Status);
+        Assert.NotNull(s.RoomClosedAt);   // итог подведён
         Assert.Equal(10, s.LateJoinMinutes);
         Assert.Single(await NotificationsOf(lesson.A, "SessionCompleted"));
         Assert.Single(await NotificationsOf(lesson.B, "SessionCompleted"));
@@ -348,6 +349,30 @@ public class VideoLessonJobsTests
         Assert.Contains(lesson.Room, _factory.Rooms.Deleted);
     }
 
+    [Fact]
+    public async Task A_no_show_becomes_final_only_when_the_room_closes_and_then_counts_for_leaving_the_exchange()
+    {
+        var lesson = await LessonAsync(80);
+        await SeedAsync(lesson, lesson.A, 1, 60);   // пришёл только A: B не явился
+
+        await RunAsync(j => j.FirstCheckAsync(lesson.SessionId, lesson.Ticks));
+        var preliminary = await LoadAsync(lesson.SessionId);
+        Assert.Equal(SessionStatus.NoShow, preliminary.Status);
+        Assert.Null(preliminary.RoomClosedAt);
+        var before = await JsonAsync(await ApiAsync(lesson.A, HttpMethod.Get, $"/exchanges/{lesson.ExchangeId}"));
+        Assert.Equal(0, before.GetProperty("partnerNoShows").GetInt32());   // предварительная неявка не считается
+
+        await RunAsync(j => j.CloseRoomAsync(lesson.SessionId, lesson.Ticks));
+
+        var final = await LoadAsync(lesson.SessionId);
+        Assert.Equal(SessionStatus.NoShow, final.Status);
+        Assert.NotNull(final.RoomClosedAt);
+        var after = await JsonAsync(await ApiAsync(lesson.A, HttpMethod.Get, $"/exchanges/{lesson.ExchangeId}"));
+        Assert.Equal(1, after.GetProperty("partnerNoShows").GetInt32());
+        var theirs = await JsonAsync(await ApiAsync(lesson.B, HttpMethod.Get, $"/exchanges/{lesson.ExchangeId}"));
+        Assert.Equal(0, theirs.GetProperty("partnerNoShows").GetInt32());
+    }
+
     // ---------- сбои и повторы ----------
 
     [Fact]
@@ -412,6 +437,8 @@ public class VideoLessonJobsTests
 
         Assert.Equal(SessionStatus.InProgress, (await LoadAsync(early.SessionId)).Status);
         Assert.Equal(SessionStatus.InProgress, (await LoadAsync(moved.SessionId)).Status);
+        Assert.Null((await LoadAsync(early.SessionId)).RoomClosedAt);   // рано: итог не подведён, неявка (если будет) ещё не окончательная
+        Assert.Null((await LoadAsync(moved.SessionId)).RoomClosedAt);
         Assert.DoesNotContain(early.Room, _factory.Rooms.Deleted);
         Assert.DoesNotContain(moved.Room, _factory.Rooms.Deleted);
     }
