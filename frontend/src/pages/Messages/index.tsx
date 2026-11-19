@@ -37,7 +37,7 @@ export default function Messages() {
         <ul className="space-y-3">
           {data.map((c) => (
             <li key={c.exchange.id}>
-              <Link to={`/app/exchanges/${c.exchange.id}`} className="card flex items-center gap-3 transition hover:bg-white/75">
+              <Link to={`/app/exchanges/${c.exchange.id}`} className="card flex items-center gap-3 transition hover:bg-white">
                 <Avatar name={c.exchange.partner.name} className="h-12 w-12" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">

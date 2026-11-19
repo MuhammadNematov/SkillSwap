@@ -106,7 +106,7 @@ function ProfileSection() {
                 type="button"
                 onClick={() => setLanguages((cur) => (on ? cur.filter((c) => c !== l.code) : [...cur, l.code]))}
                 className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-white/70 bg-white/50 text-slate-600 hover:bg-white/80'
+                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
                 }`}
               >
                 {pickName(l.names, lang)}
@@ -251,7 +251,7 @@ function SessionsSection() {
       ) : (
         <ul className="space-y-2">
           {data.map((s) => (
-            <li key={s.id} className="flex items-center gap-3 rounded-xl bg-white/50 px-3 py-2.5">
+            <li key={s.id} className="flex items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-slate-900">
                   {s.deviceInfo ?? t('settings.unknownDevice')}
@@ -299,7 +299,7 @@ function BlocksSection() {
       ) : (
         <ul className="space-y-2">
           {data.map((b) => (
-            <li key={b.userId} className="flex items-center gap-3 rounded-xl bg-white/50 px-3 py-2.5">
+            <li key={b.userId} className="flex items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{b.name}</span>
               <button className="text-sm font-medium text-brand-600 hover:underline" disabled={unblock.isPending} onClick={() => unblock.mutate(b.userId)}>
                 {t('block.unblock')}

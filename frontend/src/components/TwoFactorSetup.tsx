@@ -42,7 +42,7 @@ export default function TwoFactorSetup({ twoFactorToken, onDone, onCancel }: Pro
     return (
       <div className="space-y-4">
         <p className="text-sm text-slate-600">{t('twoFactor.recoveryInfo')}</p>
-        <ul className="grid grid-cols-2 gap-2 rounded-xl bg-white/60 p-4 font-mono text-sm text-slate-800">
+        <ul className="grid grid-cols-2 gap-2 rounded-xl bg-brand-50 p-4 font-mono text-sm text-slate-800">
           {result.recoveryCodes.map((c) => (
             <li key={c}>{c}</li>
           ))}
@@ -78,7 +78,7 @@ export default function TwoFactorSetup({ twoFactorToken, onDone, onCancel }: Pro
       }}
     >
       <p className="text-sm text-slate-600">{t('twoFactor.setupInfo')}</p>
-      <div className="rounded-xl bg-white/60 p-4">
+      <div className="rounded-xl bg-brand-50 p-4">
         <div className="text-xs text-slate-400">{t('twoFactor.key')}</div>
         <div className="mt-1 break-all font-mono text-base font-semibold text-slate-900">{key}</div>
         <div className="mt-2 flex gap-4 text-sm">

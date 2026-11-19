@@ -100,7 +100,7 @@ export default function Exchanges() {
           </span>
         </div>
 
-        <p className="mt-3 rounded-xl bg-white/50 px-3 py-2 text-sm text-slate-700">{r.message}</p>
+        <p className="mt-3 rounded-xl bg-brand-50 px-3 py-2 text-sm text-slate-700">{r.message}</p>
 
         {pending && (
           <div className="mt-4 flex gap-2">
@@ -143,7 +143,7 @@ export default function Exchanges() {
           {list.map((e) => {
             const daysLeft = Math.max(0, Math.ceil((new Date(e.endDate).getTime() - Date.now()) / DAY))
             return (
-              <Link key={e.id} to={`/app/exchanges/${e.id}`} className="card block transition hover:bg-white/75">
+              <Link key={e.id} to={`/app/exchanges/${e.id}`} className="card block transition hover:bg-white">
                 <div className="flex items-center gap-3">
                   <Avatar name={e.partner.name} className="h-12 w-12" />
                   <div className="min-w-0 flex-1">
@@ -197,7 +197,7 @@ export default function Exchanges() {
             className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition ${
               tab === tb.key
                 ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25'
-                : 'border-white/70 bg-white/50 text-slate-600 backdrop-blur-md hover:bg-white/80'
+                : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
             }`}
           >
             {tb.label}

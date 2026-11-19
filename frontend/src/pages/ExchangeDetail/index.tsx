@@ -68,7 +68,7 @@ export default function ExchangeDetail() {
             <SkillChip name={exchange.partnerSkill} tone="green" />
           </div>
         </div>
-        <span className="rounded-full bg-white/70 px-3 py-1 text-sm font-medium text-slate-700">{t(`exchangeStatus.${exchange.status}`)}</span>
+        <span className="rounded-full bg-white px-3 py-1 text-sm font-medium text-slate-700">{t(`exchangeStatus.${exchange.status}`)}</span>
       </section>
 
       <div className="grid gap-5 lg:grid-cols-5">

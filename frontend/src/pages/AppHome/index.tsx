@@ -40,29 +40,33 @@ export default function AppHome() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-          {t('dashboard.greeting', { name: user?.name })} <span aria-hidden>👋</span>
-        </h1>
-      </div>
+      <section className="relative flex flex-wrap items-center justify-between gap-8 overflow-hidden rounded-[1.75rem] border border-ink-line bg-[radial-gradient(120%_140%_at_100%_0%,#E7DFFF_0%,rgba(231,223,255,0)_55%),#fff] p-8 sm:p-10">
+        <div className="min-w-0 flex-1 basis-[380px]">
+          <p className="inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand-600 shadow-sm">{t('dashboard.heroEyebrow', { name: user?.name?.split(' ')[0] })}</p>
+          <h1 className="mt-4 text-4xl font-extrabold leading-[1.08] tracking-tight text-ink sm:text-[44px]">
+            {t('dashboard.heroTitle1')}
+            <br />
+            <span className="text-brand-600">{t('dashboard.heroTitle2')}</span>
+          </h1>
+          <p className="mt-3 max-w-[480px] text-base leading-relaxed text-ink-soft">{t('dashboard.heroText')}</p>
+          <div className="mt-6 flex flex-wrap gap-2.5">
+            <Link to="/app/matches" className="btn-primary h-12 rounded-2xl px-6 text-[15px]">
+              {t('dashboard.heroMatches')}
+            </Link>
+            <Link to="/app/calendar" className="btn-secondary h-12 rounded-2xl px-6 text-[15px]">
+              {t('dashboard.heroSchedule')}
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="grid gap-4 sm:grid-cols-3 lg:col-span-2">
+      <div className="grid gap-4">
+        <div className="grid gap-4 sm:grid-cols-3">
           <StatCard icon="swap" tone="bg-brand-100 text-brand-700" label={t('dashboard.activeExchanges')} value={data.activeExchanges} />
           <StatCard icon="calendar" tone="bg-emerald-100 text-emerald-700" label={t('dashboard.upcomingLessons')} value={data.upcomingLessons} />
           <StatCard icon="star" tone="bg-amber-100 text-amber-600" label={t('dashboard.rating')} value={data.rating.toFixed(1)} />
         </div>
 
-        <div className="flex flex-col justify-between rounded-xl2 border border-white/30 bg-gradient-to-br from-brand-600/95 to-brand-400/90 p-5 text-white shadow-glass backdrop-blur-xl">
-          <div className="text-lg font-bold leading-snug">{t('dashboard.findPartnerTitle')}</div>
-          <Link
-            to="/app/matches"
-            className="mt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50"
-          >
-            {t('dashboard.find')}
-            <Icon name="arrowRight" className="h-4 w-4" />
-          </Link>
-        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -111,7 +115,7 @@ export default function AppHome() {
               <Icon name="arrowRight" className="h-4 w-4" />
             </Link>
           </div>
-          <ul className="mt-4 divide-y divide-white/70">
+          <ul className="mt-4 divide-y divide-ink-line">
             {data.recommended.map((p) => (
               <li key={p.id} className="flex items-center gap-3 py-3">
                 <Avatar name={p.name} />

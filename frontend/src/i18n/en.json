@@ -104,7 +104,8 @@
     "password": "Password",
     "submit": "Log in",
     "noAccount": "Don't have an account?",
-    "forgot": "Forgot password?"
+    "forgot": "Forgot password?",
+    "fillDemo": "Fill in demo account"
   },
   "twoFactor": {
     "title": "Confirm sign-in",
@@ -238,7 +239,13 @@
     "searchPlaceholder": "Search skills...",
     "menu": "Menu",
     "close": "Close",
-    "soon": "This section will appear in the next steps"
+    "soon": "This section will appear in the next steps",
+    "sectionMenu": "Menu",
+    "sectionActivity": "Activity",
+    "greeting_morning": "Good morning,",
+    "greeting_afternoon": "Good afternoon,",
+    "greeting_evening": "Good evening,",
+    "scheduleSession": "Schedule session"
   },
   "dashboard": {
     "greeting": "Hi, {{name}}!",
@@ -254,7 +261,13 @@
     "joinHint": "The room opens 10 minutes before the start",
     "recommended": "Recommended partners",
     "all": "All",
-    "profile": "Profile"
+    "profile": "Profile",
+    "heroEyebrow": "{{name}}, new people to swap with are waiting",
+    "heroTitle1": "Learn together.",
+    "heroTitle2": "Grow together.",
+    "heroText": "Find people who know what you want to learn and teach them something you know.",
+    "heroMatches": "See my matches",
+    "heroSchedule": "Schedule a session"
   },
   "moderation": {
     "title": "Moderation"
@@ -725,5 +738,15 @@
     "submit": "Create account",
     "doneTitle": "Account created",
     "doneText": "Sign in and set up two-factor protection."
+  },
+  "authPromo": {
+    "footer": "© 2026 SkillSwap",
+    "eyebrow": "FREE · ONE-ON-ONE · FOR EVERYONE",
+    "title": "Teach what you know. Learn what you love.",
+    "text": "Find a partner, agree on a swap and grow together: no fees, just knowledge.",
+    "match": "Full match",
+    "sessionTitle": "Figma auto layout",
+    "sessionTime": "Tomorrow · 6:30 PM with Sarah",
+    "quote": "“I reached B1 German in four months and taught 30 hours of Python along the way.”"
   }
 }

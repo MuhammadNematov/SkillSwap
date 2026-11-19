@@ -98,7 +98,7 @@ export default function ExchangeRequestModal({ partner, partnerSkills, matchType
             {(['30', '60'] as const).map((d) => (
               <label
                 key={d}
-                className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-white/70 bg-white/50 px-4 py-2.5 text-sm has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50"
+                className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-ink-line bg-brand-50 px-4 py-2.5 text-sm has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50"
               >
                 <input type="radio" value={d} className="accent-brand-600" {...register('durationDays')} />
                 {t(`request.days${d}`)}

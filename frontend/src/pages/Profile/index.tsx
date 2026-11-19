@@ -25,7 +25,7 @@ function SkillList({ title, skills }: { title: string; skills: UserSkill[] }) {
       <h3 className="mb-3 font-bold text-slate-900">{title}</h3>
       <ul className="space-y-2">
         {skills.map((s) => (
-          <li key={s.skillId} className="rounded-xl border border-white/70 bg-white/50 px-4 py-3">
+          <li key={s.skillId} className="rounded-xl border border-ink-line bg-brand-50 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="font-semibold text-slate-900">{s.name}</span>
               <span className="rounded-full bg-brand-100/80 px-2.5 py-0.5 text-xs font-medium text-brand-700">
@@ -114,7 +114,7 @@ export default function Profile() {
               { label: t('profile.rating'), value: user.ratingCount < 3 ? '—' : user.ratingAvg.toFixed(1) },
               { label: t('profile.reviewsCount'), value: user.ratingCount },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-white/70 bg-white/50 px-3 py-3 text-center">
+              <div key={s.label} className="rounded-xl border border-ink-line bg-brand-50 px-3 py-3 text-center">
                 <div className="text-xl font-bold text-brand-700">{s.value}</div>
                 <div className="text-xs text-slate-500">{s.label}</div>
               </div>
@@ -131,7 +131,7 @@ export default function Profile() {
             className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
               tab === tb.key
                 ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25'
-                : 'border-white/70 bg-white/50 text-slate-600 backdrop-blur-md hover:bg-white/80'
+                : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
             }`}
           >
             {tb.label}

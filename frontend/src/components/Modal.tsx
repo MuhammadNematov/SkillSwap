@@ -28,10 +28,10 @@ export default function Modal({ title, onClose, children }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="card relative max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white/80 p-6">
+      <div className="card relative max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-          <button className="rounded-lg p-1.5 text-slate-500 hover:bg-white/60" aria-label={t('shell.close')} onClick={onClose}>
+          <button className="rounded-lg p-1.5 text-slate-500 hover:bg-brand-50" aria-label={t('shell.close')} onClick={onClose}>
             <Icon name="x" />
           </button>
         </div>
