@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using SkillSwap.Domain.Common;
 using SkillSwap.Domain.Enums;
+using SkillSwap.Domain.Exceptions;
 
 namespace SkillSwap.Domain.Entities;
 
@@ -113,6 +114,25 @@ public class User : IdentityUser<Guid>, ITimestamped
             Status = UserStatus.Active,
             IsSearchable = false,
         };
+    }
+
+    /// <summary>
+    /// Привязывает к служебному аккаунту личный аккаунт сотрудника (раздел 3 ТЗ): по нему проверяется конфликт интересов, модератор не берёт обращения, где участвует его
+    /// личный аккаунт. Привязать можно только обычный аккаунт, не больше одного служебного на личный (уникальный индекс).
+    /// </summary>
+    public void LinkPersonalAccount(User personal)
+    {
+        if (IsRegular)
+        {
+            throw new DomainValidationException("linked_account_staff_only", "Личный аккаунт привязывается к служебному, а не к обычному.");
+        }
+
+        if (!personal.IsRegular)
+        {
+            throw new DomainValidationException("linked_account_must_be_regular", "Привязывается обычный аккаунт.");
+        }
+
+        LinkedUserId = personal.Id;
     }
 
     /// <summary>Полных лет на указанную дату (UTC); null, если даты рождения нет (служебный аккаунт).</summary>

@@ -66,7 +66,10 @@ public static class JwtAuthenticationExtensions
                 };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorization(options => Policies.Register(options));
+        services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ChatAccessHandler>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<SkillSwap.Application.Moderation.IRequestInfo, HttpRequestInfo>();
         return services;
     }
 }

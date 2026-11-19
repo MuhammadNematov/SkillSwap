@@ -164,6 +164,392 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DetailsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Action", "CreatedAt");
+
+                    b.HasIndex("ActorId", "CreatedAt");
+
+                    b.HasIndex("TargetType", "TargetId", "CreatedAt");
+
+                    b.ToTable("AuditLogs", (string)null);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.BanRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DecidedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("RequestedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseId");
+
+                    b.HasIndex("DecidedById");
+
+                    b.HasIndex("RequestedById");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("BanRequests", (string)null);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Case", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgainstUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AlsoWarned")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Decision")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("DecisionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExchangeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("FromCall")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ModeratorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OpenedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResponseDeadlineAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReviewId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WasAppealed")
+                        .HasColumnType("boolean");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModeratorId");
+
+                    b.HasIndex("ResolvedAt")
+                        .HasFilter("\"Status\" = 'Resolved'");
+
+                    b.HasIndex("ResponseDeadlineAt")
+                        .HasFilter("\"Status\" = 'WaitingResponse'");
+
+                    b.HasIndex("ReviewId");
+
+                    b.HasIndex("AgainstUserId", "CreatedAt");
+
+                    b.HasIndex("ExchangeId", "Status");
+
+                    b.HasIndex("OpenedById", "CreatedAt");
+
+                    b.HasIndex("Status", "Priority", "DueAt");
+
+                    b.ToTable("Cases", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Cases_NotSelf", "\"OpenedById\" <> \"AgainstUserId\"");
+                        });
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.CaseAppeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppellantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FinalDecision")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ReviewerConclusion")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid?>("ReviewerModeratorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminId");
+
+                    b.HasIndex("AppellantId");
+
+                    b.HasIndex("CaseId")
+                        .IsUnique();
+
+                    b.HasIndex("ReviewerModeratorId");
+
+                    b.ToTable("CaseAppeals", (string)null);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.CaseEvidence", b =>
+                {
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("CaseId", "MessageId");
+
+                    b.HasIndex("MessageId");
+
+                    b.ToTable("CaseEvidence", (string)null);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.CaseMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("InReplyToId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecipientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InReplyToId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("CaseId", "CreatedAt");
+
+                    b.HasIndex("RecipientId", "CaseId");
+
+                    b.ToTable("CaseMessages", (string)null);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.ChatAccessGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExchangeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ModeratorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExchangeId");
+
+                    b.HasIndex("CaseId", "ModeratorId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ChatAccessGrants_OneActivePerCaseAndModerator")
+                        .HasFilter("\"RevokedAt\" IS NULL");
+
+                    b.HasIndex("ModeratorId", "ExchangeId")
+                        .HasFilter("\"RevokedAt\" IS NULL");
+
+                    b.ToTable("ChatAccessGrants", (string)null);
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.DataExport", b =>
                 {
                     b.Property<Guid>("Id")
@@ -709,6 +1095,80 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "SessionId");
 
                     b.ToTable("RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Review", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExchangeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsFullExchange")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ScoreExplaining")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ScoreKnowledge")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ScorePoliteness")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ScorePunctuality")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ExchangeId", "AuthorId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("TargetId", "Status");
+
+                    b.ToTable("Reviews", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Reviews_NotSelf", "\"AuthorId\" <> \"TargetId\"");
+
+                            t.HasCheckConstraint("CK_Reviews_Scores", "\"ScoreKnowledge\" BETWEEN 1 AND 5 AND \"ScoreExplaining\" BETWEEN 1 AND 5 AND \"ScorePunctuality\" BETWEEN 1 AND 5 AND \"ScorePoliteness\" BETWEEN 1 AND 5");
+                        });
                 });
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.SessionAttendance", b =>
@@ -1627,6 +2087,49 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("UserSkills", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Warning", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("IssuedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseId");
+
+                    b.HasIndex("IssuedById");
+
+                    b.HasIndex("UserId", "ExpiresAt");
+
+                    b.ToTable("Warnings", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.HasOne("SkillSwap.Domain.Entities.User", null)
@@ -1666,6 +2169,148 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.BanRequest", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Case", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("DecidedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Case", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AgainstUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Exchange", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ModeratorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("OpenedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Review", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.CaseAppeal", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AppellantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Case", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewerModeratorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.CaseEvidence", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Case", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Message", null)
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.CaseMessage", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Case", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.CaseMessage", null)
+                        .WithMany()
+                        .HasForeignKey("InReplyToId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.ChatAccessGrant", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Case", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Exchange", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ModeratorId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -1804,6 +2449,27 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Review", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.Exchange", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("TargetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.SessionAttendance", b =>
                 {
                     b.HasOne("SkillSwap.Domain.Entities.LessonSession", null)
@@ -1911,6 +2577,27 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.Warning", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.Case", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("IssuedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.SkillCategory", b =>

@@ -49,17 +49,21 @@ public class SuperadminFlowTests
         Assert.Empty(_factory.Mail.To(ApiFactory.SuperadminEmail));          // и никаких писем
     }
 
+    private Task<int> CountSuperadminsAsync() => _factory.QueryAsync(db => db.Set<User>().CountAsync(u => u.Role == UserRole.SuperAdmin));
+
     [Fact]
     public async Task Seeding_again_does_not_create_a_second_superadmin_or_touch_the_first_one()
     {
         var before = await FindSuperadminAsync();
+        var adminsBefore = await CountSuperadminsAsync();
         var seeder = _factory.Services.GetServices<IHostedService>().OfType<SuperadminSeeder>().Single();
 
         await seeder.StartAsync(CancellationToken.None);   // повторный старт приложения
 
-        var admins = await _factory.QueryAsync(db => db.Set<User>().CountAsync(u => u.Role == UserRole.SuperAdmin));
+        // Другие тесты общей БД заводят свои служебные аккаунты (в том числе с ролью SuperAdmin): считаем, сколько их стало от запуска сидера, а не «ровно один».
+        Assert.Equal(adminsBefore, await CountSuperadminsAsync());
+        Assert.Equal(1, await _factory.QueryAsync(db => db.Set<User>().CountAsync(u => u.Email == ApiFactory.SuperadminEmail)));
         var after = await FindSuperadminAsync();
-        Assert.Equal(1, admins);
         Assert.Equal(before.Id, after.Id);
         Assert.Equal(before.PasswordHash, after.PasswordHash);
     }
@@ -85,9 +89,11 @@ public class SuperadminFlowTests
             Microsoft.Extensions.Options.Options.Create(new SuperadminOptions()),
             NullLogger<SuperadminSeeder>.Instance);
 
+        var adminsBefore = await CountSuperadminsAsync();
+
         await seeder.StartAsync(CancellationToken.None);   // не бросает
 
-        Assert.Equal(1, await _factory.QueryAsync(db => db.Set<User>().CountAsync(u => u.Role == UserRole.SuperAdmin)));
+        Assert.Equal(adminsBefore, await CountSuperadminsAsync());   // сидер без переменных ничего не создаёт
     }
 
     [Fact]

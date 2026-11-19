@@ -26,6 +26,15 @@ public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyC
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<LessonSession> Sessions => Set<LessonSession>();
     public DbSet<SessionAttendance> SessionAttendances => Set<SessionAttendance>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<Case> Cases => Set<Case>();
+    public DbSet<CaseEvidence> CaseEvidence => Set<CaseEvidence>();
+    public DbSet<CaseMessage> CaseMessages => Set<CaseMessage>();
+    public DbSet<CaseAppeal> CaseAppeals => Set<CaseAppeal>();
+    public DbSet<ChatAccessGrant> ChatAccessGrants => Set<ChatAccessGrant>();
+    public DbSet<Warning> Warnings => Set<Warning>();
+    public DbSet<BanRequest> BanRequests => Set<BanRequest>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<DataExport> DataExports => Set<DataExport>();
     public DbSet<MessageRevision> MessageRevisions => Set<MessageRevision>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
