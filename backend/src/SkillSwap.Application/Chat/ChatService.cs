@@ -335,10 +335,10 @@ public sealed class ChatService
 
     // ---------- курсор истории: время и id последнего сообщения страницы ----------
 
-    private static string EncodeCursor(Message m) =>
+    internal static string EncodeCursor(Message m) =>
         Base64Url.EncodeToString(Encoding.UTF8.GetBytes($"{m.CreatedAt.Ticks.ToString(CultureInfo.InvariantCulture)}:{m.Id:N}"));
 
-    private static (DateTime CreatedAt, Guid Id) DecodeCursor(string cursor)
+    internal static (DateTime CreatedAt, Guid Id) DecodeCursor(string cursor)
     {
         try
         {

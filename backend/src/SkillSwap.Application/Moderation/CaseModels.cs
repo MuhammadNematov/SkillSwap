@@ -97,5 +97,15 @@ public interface ICaseStore
 
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetEvidenceIdsAsync(IReadOnlyCollection<Guid> caseIds, CancellationToken ct);
 
+    /// <summary>
+    /// Обращения для модератора. <see cref="ModeratorScope.Queue"/>: не взятые, сначала высокий приоритет, затем ближайший срок; <see cref="ModeratorScope.Mine"/>: взятые им и не закрытые.
+    /// Обращения, где участвует кто-то из <paramref name="excludedUsers"/> (конфликт интересов), не возвращаются.
+    /// </summary>
+    Task<(IReadOnlyList<Case> Items, int Total)> ListForModeratorAsync(
+        ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct);
+
+    /// <summary>Личный аккаунт сотрудника и все, с кем он когда-либо вёл обмен (конфликт интересов, раздел 3 ТЗ).</summary>
+    Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct);
+
     Task SaveAsync(CancellationToken ct);
 }

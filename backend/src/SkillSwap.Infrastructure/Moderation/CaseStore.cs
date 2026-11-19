@@ -62,5 +62,43 @@ public sealed class CaseStore : ICaseStore
         return rows.GroupBy(r => r.CaseId).ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(r => r.MessageId).ToList());
     }
 
+    public async Task<(IReadOnlyList<Case> Items, int Total)> ListForModeratorAsync(
+        ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct)
+    {
+        var query = _db.Cases.AsNoTracking().AsQueryable();
+        query = scope == ModeratorScope.Queue
+            ? query.Where(c => c.Status == CaseStatus.Open)
+            : query.Where(c => c.ModeratorId == moderatorId && c.Status != CaseStatus.Closed && c.Status != CaseStatus.Withdrawn);
+        if (excludedUsers.Count > 0)
+        {
+            query = query.Where(c => !excludedUsers.Contains(c.OpenedById) && !excludedUsers.Contains(c.AgainstUserId));
+        }
+
+        if (type is { } t)
+        {
+            query = query.Where(c => c.Type == t);
+        }
+
+        if (priority is { } p)
+        {
+            query = query.Where(c => c.Priority == p);
+        }
+
+        var total = await query.CountAsync(ct);
+        var items = await query.OrderBy(c => c.Priority == CasePriority.High ? 0 : 1).ThenBy(c => c.DueAt).ThenBy(c => c.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return (items, total);
+    }
+
+    public async Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct)
+    {
+        var partners = await _db.Exchanges.AsNoTracking()
+            .Where(e => e.UserAId == personalUserId || e.UserBId == personalUserId)
+            .Select(e => e.UserAId == personalUserId ? e.UserBId : e.UserAId)
+            .Distinct().ToListAsync(ct);
+        partners.Add(personalUserId);
+        return partners;
+    }
+
     public Task SaveAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
 }

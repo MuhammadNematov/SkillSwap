@@ -14,7 +14,7 @@ public sealed class NullRequestInfo : IRequestInfo
 
 public sealed class AuditLogWriter : IAuditLog
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
 
     private readonly AppDbContext _db;
     private readonly TimeProvider _clock;

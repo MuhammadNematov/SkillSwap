@@ -123,6 +123,9 @@ public enum NotificationType
 
     /// <summary>Обмен разморожен (обращение отозвано или решено в пользу продолжения). В данных: exchangeId.</summary>
     ExchangeUnfrozen,
+
+    /// <summary>Модератор взял обращение в работу и получил доступ к переписке этого обмена (одно уведомление каждому из двоих). В данных: caseId, exchangeId, role (Opener или Against).</summary>
+    CaseTaken,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

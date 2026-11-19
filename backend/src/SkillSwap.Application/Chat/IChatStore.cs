@@ -13,6 +13,9 @@ public interface IMessageStore
 
     Task SaveAsync(CancellationToken ct);
 
+    /// <summary>Прежние версии сообщений (до правки или удаления) по возрастанию времени: для модератора.</summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<MessageRevision>>> ListRevisionsAsync(IReadOnlyCollection<Guid> messageIds, CancellationToken ct);
+
     /// <summary>Какие из перечисленных сообщений есть в чате этого обмена (удалённые тоже: на них можно сослаться в обращении).</summary>
     Task<IReadOnlySet<Guid>> ListIdsInExchangeAsync(Guid exchangeId, IReadOnlyCollection<Guid> ids, CancellationToken ct);
 
