@@ -1,13 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { errorMessage } from '../../api/errors'
 import { acceptRequest, declineRequest, getExchangeRequests, getExchanges, withdrawRequest } from '../../api/exchanges'
 import type { ExchangeRequest, ExchangeStatus, RequestStatus } from '../../api/types'
 import Avatar from '../../components/Avatar'
 import SkillChip from '../../components/SkillChip'
+import Select from '../../components/Select'
 import Spinner from '../../components/Spinner'
+import { getUserProfile } from '../../api/users'
 import { useInvalidateAll } from '../../hooks/useSessionActions'
 import { formatDateTime } from '../../utils/dates'
 
@@ -34,7 +36,10 @@ export default function Exchanges() {
   const lang = i18n.resolvedLanguage ?? 'ru'
   const navigate = useNavigate()
   const invalidate = useInvalidateAll()
-  const [tab, setTab] = useState<Tab>('exchanges')
+  const [params] = useSearchParams()
+  const initialTab = params.get('tab')
+  const [tab, setTab] = useState<Tab>(initialTab === 'incoming' || initialTab === 'outgoing' ? initialTab : 'exchanges')
+  const [pickedSkill, setPickedSkill] = useState<Record<string, string>>({}) // requestId → навык партнёра
 
   const exchanges = useQuery({ queryKey: ['exchanges'], queryFn: getExchanges })
   const incoming = useQuery({ queryKey: ['requests', 'in'], queryFn: () => getExchangeRequests('in') })
@@ -82,7 +87,16 @@ export default function Exchanges() {
             {t('exchanges.iTeach')}: {r.mySkill ? <SkillChip name={r.mySkill} /> : <em>{t('exchanges.inMessage')}</em>}
           </span>
           <span className="flex items-center gap-1.5">
-            {t('exchanges.iLearn')}: <SkillChip name={r.partnerSkill} tone="green" />
+            {t('exchanges.iLearn')}:{' '}
+            {r.needsPartnerSkill ? (
+              pending && r.direction === 'in' ? (
+                <PartnerSkillSelect partnerId={r.partner.id} value={pickedSkill[r.id] ?? ''} onChange={(v) => setPickedSkill({ ...pickedSkill, [r.id]: v })} />
+              ) : (
+                <em>{t('exchanges.inMessage')}</em>
+              )
+            ) : (
+              <SkillChip name={r.partnerSkill} tone="green" />
+            )}
           </span>
         </div>
 
@@ -92,7 +106,7 @@ export default function Exchanges() {
           <div className="mt-4 flex gap-2">
             {r.direction === 'in' ? (
               <>
-                <button className="btn-primary px-5" disabled={accept.isPending} onClick={() => accept.mutate(r.id)}>
+                <button className="btn-primary px-5" disabled={accept.isPending || (r.needsPartnerSkill && !pickedSkill[r.id])} onClick={() => accept.mutate({ id: r.id, fromTeachesSkillId: r.needsPartnerSkill ? pickedSkill[r.id] : undefined })}>
                   {t('exchanges.accept')}
                 </button>
                 <button className="btn-secondary px-5" disabled={decline.isPending} onClick={() => decline.mutate(r.id)}>
@@ -196,5 +210,20 @@ export default function Exchanges() {
 
       {renderList()}
     </div>
+  )
+}
+
+// Отправитель не указал свой навык: получатель выбирает из его «Умею» при принятии
+function PartnerSkillSelect({ partnerId, value, onChange }: { partnerId: string; value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation()
+  const { data } = useQuery({ queryKey: ['profile', partnerId], queryFn: () => getUserProfile(partnerId) })
+  return (
+    <Select
+      className="w-56"
+      value={value}
+      ariaLabel={t('exchanges.pickSkill')}
+      onChange={onChange}
+      options={[{ value: '', label: t('exchanges.pickSkill') }, ...(data?.teach ?? []).map((x) => ({ value: x.skillId, label: x.name }))]}
+    />
   )
 }

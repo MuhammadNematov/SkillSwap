@@ -1,8 +1,10 @@
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { errorMessage } from '../api/errors'
 import type { LessonSession, SessionStatus } from '../api/types'
-import { useSessionActions } from '../hooks/useSessionActions'
+import { confirmSessionManual } from '../api/exchanges'
+import { useInvalidateAll, useSessionActions } from '../hooks/useSessionActions'
 import { formatDateTime, formatInZone, isJoinWindowOpen, utcOffsetLabel } from '../utils/dates'
 import Icon from './Icon'
 
@@ -33,10 +35,12 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? 'ru'
   const { confirm, decline } = useSessionActions()
+  const invalidateAll = useInvalidateAll()
+  const happened = useMutation({ mutationFn: confirmSessionManual, onSuccess: invalidateAll })
 
   const canJoin = (session.status === 'Scheduled' || session.status === 'InProgress') && isJoinWindowOpen(session.startAt)
   const incomingProposal = session.status === 'Proposed' && !session.proposedByMe
-  const error = confirm.error ?? decline.error
+  const error = confirm.error ?? decline.error ?? happened.error
 
   return (
     <li className="rounded-xl border border-white/70 bg-white/50 p-4">
@@ -87,6 +91,14 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
             {t('session.withdraw')}
           </button>
         )}
+        {session.status === 'Unconfirmed' &&
+          (session.confirmedByMe ? (
+            <span className="text-sm text-slate-500">{t('session.waitingConfirm')}</span>
+          ) : (
+            <button className="btn-primary px-4 py-2" disabled={happened.isPending} onClick={() => happened.mutate(session.id)}>
+              {t('session.happened')}
+            </button>
+          ))}
         {incomingProposal && (
           <>
             <button className="btn-primary px-4 py-2" disabled={confirm.isPending} onClick={() => confirm.mutate(session.id)}>

@@ -15,7 +15,7 @@ import SessionProposalModal from './SessionProposalModal'
 export default function Chat({ exchange }: { exchange: Exchange }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? 'ru'
-  const readOnly = exchange.status !== 'Active'
+  const readOnly = exchange.chat ? exchange.chat.mode !== 'ReadWrite' : exchange.status !== 'Active'
 
   const { data: messages = [] } = useQuery({
     queryKey: ['messages', exchange.id],
@@ -122,7 +122,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
     } else {
       body = (
         <div className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm ${mine ? 'rounded-br-md bg-brand-600 text-white' : 'rounded-bl-md bg-white/80 text-slate-800'}`}>
-          {m.text}
+          {m.deleted ? <em className="opacity-70">{t('chat.deleted')}</em> : m.text}
         </div>
       )
     }
@@ -131,7 +131,11 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
     return (
       <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
         <div className="max-w-[85%]">{body}</div>
-        <span className="mt-0.5 px-1 text-[11px] text-slate-400">{formatTime(m.createdAt, lang)}</span>
+        {m.paymentWarning && <p className="mt-1 max-w-[85%] rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">{t('chat.paymentWarning')}</p>}
+        <span className="mt-0.5 px-1 text-[11px] text-slate-400">
+          {formatTime(m.createdAt, lang)}
+          {mine && m.readAt ? ` · ${t('chat.read')}` : ''}
+        </span>
       </div>
     )
   }
@@ -195,7 +199,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
       )}
 
       {proposing && (
-        <SessionProposalModal exchangeId={exchange.id} partnerName={exchange.partner.name} onClose={() => setProposing(false)} />
+        <SessionProposalModal exchangeId={exchange.id} partnerId={exchange.partner.id} partnerName={exchange.partner.name} onClose={() => setProposing(false)} />
       )}
     </div>
   )

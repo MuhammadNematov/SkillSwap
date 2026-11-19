@@ -335,6 +335,14 @@ export async function mockCancelSession(id: string): Promise<void> {
   s.status = new Date(s.startAt).getTime() - Date.now() < 2 * HOUR ? 'LateCancelled' : 'Cancelled'
 }
 
+export async function mockConfirmManual(id: string): Promise<void> {
+  await sleep()
+  const s = find(sessions, id)
+  if (s.status !== 'Unconfirmed') throw new ApiError('INVALID_STATE_TRANSITION', 409)
+  s.confirmedByMe = true
+  s.status = 'Completed'
+}
+
 // ───────── Чат ─────────
 
 export async function mockGetMessages(exchangeId: string): Promise<ChatMessage[]> {

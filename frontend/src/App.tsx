@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Admin from './pages/Admin'
@@ -25,6 +25,12 @@ import Profile from './pages/Profile'
 import Register from './pages/Register'
 
 // Разделы личного кабинета: пока заглушки, настоящие страницы делаем по шагам
+// Ссылки из писем бэкенда: /requests и /exchanges/{id} ведут в раздел приложения
+function ExchangeLink() {
+  const { id } = useParams()
+  return <Navigate to={`/app/exchanges/${id}`} replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -35,6 +41,8 @@ export default function App() {
       <Route path="/confirm-email" element={<ConfirmEmail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/staff-invitation/:token" element={<StaffInvitation />} />
+      <Route path="/requests" element={<Navigate to="/app/exchanges?tab=incoming" replace />} />
+      <Route path="/exchanges/:id" element={<ExchangeLink />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Защита по ролям (раздел 11.2 ТЗ) */}

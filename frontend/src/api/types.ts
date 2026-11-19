@@ -122,7 +122,11 @@ export interface ExchangeRequest {
   status: RequestStatus
   createdAt: string
   expiresAt: string
+  exchangeId?: string | null // после принятия
+  needsPartnerSkill?: boolean // отправитель не указал навык: при принятии выбираем из его «Умею»
 }
+
+export type ChatMode = 'ReadWrite' | 'ReadOnly' | 'Archived'
 
 export interface Exchange {
   id: string
@@ -138,6 +142,14 @@ export interface Exchange {
   completedByMe: boolean
   completedByPartner: boolean
   abortReason?: string
+  abortedBy?: 'me' | 'partner' | null // null у закрытого системой (блокировка, модератор)
+  closedAt?: string | null
+  frozenAt?: string | null
+  myExtensionAccepted?: boolean
+  partnerExtensionAccepted?: boolean
+  showBalanceReminder?: boolean // разница уроков больше 3
+  unreadMessages?: number
+  chat?: { mode: ChatMode; readOnlyReason?: string | null; readableUntil?: string | null }
   // Состояние отзыва по этому обмену (поле уточним по Swagger)
   review?: { canWrite: boolean; submitted: boolean; deadlineAt?: string }
 }
@@ -153,6 +165,10 @@ export interface LessonSession {
   topic?: string
   status: SessionStatus
   proposedByMe: boolean
+  endAt?: string
+  confirmedByMe?: boolean // нажал «Урок состоялся»
+  confirmDeadlineAt?: string | null
+  previousStartAt?: string | null
 }
 
 export interface ChatMessage {
@@ -165,6 +181,10 @@ export interface ChatMessage {
   sessionId?: string // для карточки слота
   fileName?: string
   durationSec?: number // для голосовых
+  attachmentId?: string
+  paymentWarning?: boolean // в тексте карта или призыв к оплате: показываем предупреждение
+  readAt?: string | null
+  deleted?: boolean
 }
 
 export interface Conversation {

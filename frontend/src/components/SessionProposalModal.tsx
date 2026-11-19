@@ -20,10 +20,12 @@ interface FormValues {
 // Ограничения (не меньше чем за час, не позже конца обмена, конфликты) проверяет сервер.
 export default function SessionProposalModal({
   exchangeId,
+  partnerId,
   partnerName,
   onClose,
 }: {
   exchangeId: string
+  partnerId: string
   partnerName: string
   onClose: () => void
 }) {
@@ -40,6 +42,7 @@ export default function SessionProposalModal({
     mutationFn: (v: FormValues) =>
       proposeSession({
         exchangeId,
+        partnerId,
         // Дата и время вводятся в часовом поясе пользователя, на сервер уходит UTC
         startAt: new Date(`${v.date}T${v.time}`).toISOString(),
         teacherIsMe: v.teacher === 'me',

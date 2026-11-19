@@ -45,7 +45,10 @@ export function errorMessage(t: TFunction, e: unknown): string {
     if (first) return t([`errors.validation.${first}`, 'errors.codes.validation_failed'])
   }
 
-  const keys = [code, code.toUpperCase(), code.toLowerCase()].map((c) => `errors.codes.${c}`)
+  // Уточнение стороны: exchange_limit_reached_you / _partner, slot_overlap_you / _partner
+  const side = [err.data.limitReachedFor, err.data.conflictFor].find((v) => typeof v === 'string') as string | undefined
+  const base = [code, code.toUpperCase(), code.toLowerCase()]
+  const keys = [...(side ? base.map((c) => `${c}_${side}`) : []), ...base].map((c) => `errors.codes.${c}`)
   return t(keys, { defaultValue: t('errors.codes.UNKNOWN') })
 }
 
