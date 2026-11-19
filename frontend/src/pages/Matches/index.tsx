@@ -145,7 +145,7 @@ export default function Matches() {
                 className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
                   tab === tb.key
                     ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25'
-                    : 'border-white/70 bg-white/50 text-slate-600 backdrop-blur-md hover:bg-white/80'
+                    : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
                 }`}
               >
                 {tb.label}

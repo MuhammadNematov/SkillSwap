@@ -207,9 +207,22 @@ export default function Login() {
             </button>
           ))}
 
-        <button className="btn-primary w-full" disabled={isSubmitting}>
+        <button className="btn-primary h-12 w-full rounded-2xl text-[15px]" disabled={isSubmitting}>
           {isSubmitting ? t('common.loading') : t('loginPage.submit')}
         </button>
+
+        {USE_MOCKS && (
+          <button
+            type="button"
+            className="h-11 w-full rounded-2xl border border-dashed border-brand-300 bg-[#F6F3FF] text-[13px] font-semibold text-brand-600 hover:bg-brand-100"
+            onClick={() => {
+              credentialsForm.setValue('email', 'user@test.com')
+              credentialsForm.setValue('password', 'Test1234')
+            }}
+          >
+            {t('loginPage.fillDemo')}
+          </button>
+        )}
 
         <p className="text-center text-sm">
           <Link to="/forgot-password" className="font-medium text-brand-600 hover:underline">

@@ -43,7 +43,7 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
   const error = confirm.error ?? decline.error ?? happened.error
 
   return (
-    <li className="rounded-xl border border-white/70 bg-white/50 p-4">
+    <li className="rounded-xl border border-ink-line bg-brand-50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-semibold text-slate-900">
           <Icon name="calendar" className="h-4 w-4 text-brand-600" />

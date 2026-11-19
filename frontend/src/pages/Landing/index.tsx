@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import HeroBook, { HeroParticles } from '../../components/HeroBook'
 import Icon, { type IconName } from '../../components/Icon'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
 import Logo from '../../components/Logo'
@@ -30,6 +29,33 @@ const FEATURES: { key: 'f1' | 'f2' | 'f3' | 'f4'; icon: IconName }[] = [
 const FACTS = ['languages', 'lesson', 'free'] as const
 const FAQ = ['q1', 'q2', 'q3', 'q4'] as const
 
+// Карточка-иллюстрация: двое обмениваются навыками (имена не показываем — только буквы и навыки)
+function SkillCard({ letter, teach, learn }: { letter: string; teach: string; learn: string }) {
+  const { t } = useTranslation()
+  return (
+    <div className="card w-56 space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
+          {letter}
+        </span>
+        <div className="h-2.5 w-20 rounded-full bg-slate-100" />
+      </div>
+      <div>
+        <div className="text-xs text-slate-400">{t('landing.hero.teach')}</div>
+        <span className="mt-1 inline-block rounded-lg bg-brand-50 px-2.5 py-1 text-sm font-semibold text-brand-700">
+          {teach}
+        </span>
+      </div>
+      <div>
+        <div className="text-xs text-slate-400">{t('landing.hero.learn')}</div>
+        <span className="mt-1 inline-block rounded-lg bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-700">
+          {learn}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export default function Landing() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -37,7 +63,7 @@ export default function Landing() {
 
   return (
     <div id="top">
-      <header className="sticky top-0 z-20 border-b border-white/60 bg-white/50 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 border-b border-ink-line bg-brand-50">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <a href="#top">
             <Logo />
@@ -72,9 +98,8 @@ export default function Landing() {
       </header>
 
       {/* Герой */}
-      <section className="relative overflow-hidden">
-        <HeroParticles />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 md:grid-cols-2 md:py-24">
+      <section>
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 md:grid-cols-2 md:py-24">
           <div>
             <h1 className="text-4xl font-extrabold leading-tight text-slate-900 sm:text-5xl">
               {t('landing.title1')}
@@ -94,12 +119,17 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* 3D-книга: прилетает, открывается и бесконечно покачивается */}
-          <HeroBook />
+          <div className="relative flex items-center justify-center gap-4">
+            <SkillCard letter="A" teach="C#" learn="English" />
+            <span className="absolute left-1/2 top-1/2 z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg">
+              <Icon name="swap" />
+            </span>
+            <SkillCard letter="S" teach="English" learn="C#" />
+          </div>
         </div>
 
         {/* Факты из ТЗ вместо выдуманной статистики */}
-        <div className="relative mx-auto grid max-w-4xl gap-4 px-4 pb-14 sm:grid-cols-3 sm:px-6">
+        <div className="mx-auto grid max-w-4xl gap-4 px-4 pb-14 sm:grid-cols-3 sm:px-6">
           {FACTS.map((f) => (
             <div key={f} className="glass rounded-xl2 p-5 text-center">
               <div className="text-2xl font-extrabold text-brand-700">{t(`landing.facts.${f}.value`)}</div>
@@ -163,7 +193,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-white/60 py-8 text-center text-sm text-slate-500">
+      <footer className="border-t border-ink-line py-8 text-center text-sm text-slate-500">
         © {year} {t('common.appName')}
       </footer>
     </div>

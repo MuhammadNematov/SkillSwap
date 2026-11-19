@@ -129,7 +129,7 @@ export default function SkillPicker({ excludeIds, onPick, onClose }: Props) {
             {items.map((s) => (
               <li key={s.id}>
                 <button
-                  className="w-full rounded-xl bg-white/50 px-3 py-2 text-left text-sm font-medium text-slate-800 transition hover:bg-brand-100/70"
+                  className="w-full rounded-xl bg-brand-50 px-3 py-2 text-left text-sm font-medium text-slate-800 transition hover:bg-brand-100/70"
                   onClick={() => onPick(s)}
                 >
                   {pickName(s.names, lang)}

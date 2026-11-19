@@ -40,7 +40,7 @@ export default function Admin() {
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           <span className="hidden text-sm text-slate-600 sm:inline">{user?.name}</span>
-          <button className="rounded-lg p-2 text-slate-500 hover:bg-white/60" aria-label={t('common.logout')} title={t('common.logout')} onClick={logout}>
+          <button className="rounded-lg p-2 text-slate-500 hover:bg-brand-50" aria-label={t('common.logout')} title={t('common.logout')} onClick={logout}>
             <Icon name="logout" />
           </button>
         </div>
@@ -53,7 +53,7 @@ export default function Admin() {
               key={k}
               onClick={() => setTab(k)}
               className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                tab === k ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25' : 'border-white/70 bg-white/50 text-slate-600 backdrop-blur-md hover:bg-white/80'
+                tab === k ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-white'
               }`}
             >
               {t(`admin.tab_${k}`)}
@@ -88,7 +88,7 @@ function CategoriesTab() {
       {(remove.error || toggle.error) && <p className={errorBox}>{errorMessage(t, remove.error ?? toggle.error)}</p>}
       <ul className="space-y-2">
         {data.map((c) => (
-          <li key={c.id} className={`flex flex-wrap items-center gap-3 rounded-xl bg-white/50 px-3 py-2.5 ${c.isActive ? '' : 'opacity-60'}`}>
+          <li key={c.id} className={`flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5 ${c.isActive ? '' : 'opacity-60'}`}>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-slate-900">
                 {c.nameRu} <span className="font-normal text-slate-400">· {c.nameEn} · {c.nameTg}</span>
@@ -245,7 +245,7 @@ function SkillsTab() {
       ) : (
         <ul className="space-y-2">
           {list.data!.items.map((s) => (
-            <li key={s.id} className={`flex flex-wrap items-center gap-3 rounded-xl bg-white/50 px-3 py-2.5 ${s.isActive ? '' : 'opacity-60'}`}>
+            <li key={s.id} className={`flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5 ${s.isActive ? '' : 'opacity-60'}`}>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-900">
                   {s.nameRu} <span className="font-normal text-slate-400">· {s.nameEn} · {s.nameTg}</span>
@@ -419,7 +419,7 @@ function StaffTab() {
       ) : (
         <ul className="space-y-2">
           {(list.data ?? []).map((m) => (
-            <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-white/50 px-3 py-2.5">
+            <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-900">{m.name}</div>
                 <div className="text-xs text-slate-400">
