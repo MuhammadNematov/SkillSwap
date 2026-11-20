@@ -20,6 +20,7 @@ builder.Services.AddControllers()
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
 builder.Services.Configure<SkillSwap.Application.Options.LessonTimingOptions>(builder.Configuration.GetSection(SkillSwap.Application.Options.LessonTimingOptions.SectionName));
+builder.Services.Configure<SkillSwap.Application.Options.CaseTimingOptions>(builder.Configuration.GetSection(SkillSwap.Application.Options.CaseTimingOptions.SectionName));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
@@ -57,6 +58,7 @@ builder.Services.AddOpenApi(options =>
 var app = builder.Build();
 
 SkillSwap.Api.LessonTimingSetup.Apply(app.Services, app.Environment);
+SkillSwap.Api.CaseTimingSetup.Apply(app.Services, app.Environment);
 
 app.UseExceptionHandler();
 
@@ -67,6 +69,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
     app.MapLiveKitDevTools();   // тестовая страница и выдача токена: только в Development
     app.MapLessonSeedDevTools();   // данные для ручной проверки видеокомнаты: только в Development
+    app.MapCaseSeedDevTools();   // служебные аккаунты и обращения на любой стадии для ручной проверки модерации: только в Development
 }
 
 // В Development LiveKit (в Docker) шлёт webhook по обычному http на localhost; редирект на https с самоподписанным

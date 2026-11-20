@@ -97,6 +97,11 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         settings["Lessons:MinJointMinutes"] = "30";
         settings["Lessons:DurationMinutes"] = "45";
         settings["Lessons:ManualConfirmMinutes"] = "1440";
+        settings["Cases:HighSlaMinutes"] = "1440";
+        settings["Cases:NormalSlaMinutes"] = "4320";
+        settings["Cases:ExplanationWindowMinutes"] = "2880";
+        settings["Cases:ExplanationReminderBeforeMinutes"] = "360";
+        settings["Cases:AppealWindowMinutes"] = "10080";
 
         // Фоновые задачи в тестах выполняются сразу, в процессе (без Hangfire и его таблиц): письма видны сразу после запроса.
         settings["Hangfire:Enabled"] = "false";

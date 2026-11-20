@@ -17,16 +17,16 @@ public static class CaseRules
     public static readonly TimeSpan ConductWindow = TimeSpan.FromDays(90);
 
     /// <summary>Срок реакции на обращение высокого приоритета.</summary>
-    public static readonly TimeSpan HighPrioritySla = TimeSpan.FromHours(24);
+    public static TimeSpan HighPrioritySla => CaseTiming.Current.HighPrioritySla;
 
     /// <summary>Срок реакции на обращение обычного приоритета.</summary>
-    public static readonly TimeSpan NormalPrioritySla = TimeSpan.FromHours(72);
+    public static TimeSpan NormalPrioritySla => CaseTiming.Current.NormalPrioritySla;
 
     /// <summary>На ответ по запросу модератора даётся 48 часов.</summary>
-    public static readonly TimeSpan ExplanationWindow = TimeSpan.FromHours(48);
+    public static TimeSpan ExplanationWindow => CaseTiming.Current.ExplanationWindow;
 
     /// <summary>Апелляция — один раз, в течение 7 дней после решения; без неё обращение закрывается через те же 7 дней.</summary>
-    public static readonly TimeSpan AppealWindow = TimeSpan.FromDays(7);
+    public static TimeSpan AppealWindow => CaseTiming.Current.AppealWindow;
 
     public const int DescriptionMinLength = 20;
     public const int DescriptionMaxLength = 2000;
@@ -137,7 +137,7 @@ public class Case : BaseEntity
     public DateTime? ExplanationReminderSentAt { get; private set; }
 
     /// <summary>За сколько до конца срока ответа приходит напоминание.</summary>
-    public static readonly TimeSpan ExplanationReminderBefore = TimeSpan.FromHours(6);
+    public static TimeSpan ExplanationReminderBefore => CaseTiming.Current.ExplanationReminderBefore;
 
     /// <summary>Отмечает отправку напоминания. Повторный вызов ничего не меняет.</summary>
     /// <returns>true, если отмечено этим вызовом (напоминание нужно разослать).</returns>
