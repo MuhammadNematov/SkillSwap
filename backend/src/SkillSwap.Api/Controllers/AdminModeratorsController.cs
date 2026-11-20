@@ -52,5 +52,19 @@ public class AdminModeratorsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Remove(Guid id, [FromBody] RemoveModeratorRequest request, CancellationToken ct) => Ok(await _moderators.RemoveAsync(AdminId(), id, request, ct));
 
+    /// <summary>
+    /// Снять админа (только суперадмин): тело `{ reason, confirmation }` (причина 10–500 символов в аудит, пароль и код 2FA). Последствия те же, что у модератора, а апелляции, которые вёл
+    /// админ, возвращаются в общую очередь админов. Себя и суперадмина снять нельзя. 400 `removal_reason_too_short`/`_too_long` и ошибки подтверждения; 403 `staff_role_not_allowed`
+    /// (вы не суперадмин или цель суперадмин), `cannot_change_own_rights`; 404 `admin_not_found`; 409 `not_an_admin`, `staff_already_removed`.
+    /// </summary>
+    [HttpPost("~/api/v1/admin/staff/admins/{id:guid}/remove")]
+    [ProducesResponseType<RemoveAdminResultDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemoveAdmin(Guid id, [FromBody] RemoveModeratorRequest request, CancellationToken ct) => Ok(await _moderators.RemoveAdminAsync(AdminId(), id, request, ct));
+
     private Guid AdminId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

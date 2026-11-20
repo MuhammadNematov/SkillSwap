@@ -175,6 +175,9 @@ public sealed class CaseStore : ICaseStore
         return await query.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id).ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<CaseAppeal>> FindUndecidedAppealsOfAdminAsync(Guid adminId, CancellationToken ct) =>
+        await _db.CaseAppeals.Where(a => a.AdminId == adminId && a.Outcome == null).ToListAsync(ct);
+
     public async Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct) =>
         await _db.BanRequests.Where(b => b.UserId == userId && b.Status == BanRequestStatus.Pending).ToListAsync(ct);
 

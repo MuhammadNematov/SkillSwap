@@ -114,7 +114,7 @@ public sealed class AppealService
             found.EndAppealReview();
             await _moderation.RevokeChatAccessAsync(caseId, moderatorId, token);
             _audit.Add(new AuditEntry(moderatorId, AuditActions.AppealConcluded, "Case", caseId));
-            if (appeal.AdminId is { } admin)
+            foreach (var admin in appeal.AdminId is { } leading ? [leading] : await _cases.ListActiveAdminIdsAsync(token))   // ведущего админа сняли: заключение видят все
             {
                 _notify.Add(admin, NotificationType.AppealConclusionReady, new { caseId });
             }

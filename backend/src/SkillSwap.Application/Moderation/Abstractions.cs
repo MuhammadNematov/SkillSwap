@@ -56,6 +56,7 @@ public static class AuditActions
     public const string ReviewHidden = "ReviewHidden";
     public const string ReviewRestored = "ReviewRestored";
     public const string CaseReleased = "CaseReleased";
+    public const string AppealAdminReleased = "AppealAdminReleased";
     public const string AppealReviewReleased = "AppealReviewReleased";
 }
 

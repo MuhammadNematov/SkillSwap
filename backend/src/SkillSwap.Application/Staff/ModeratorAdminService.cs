@@ -28,6 +28,9 @@ public sealed record RemoveModeratorRequest(string? Reason, StepUpConfirmation? 
 /// <param name="PersonalUnlinked">Снята ли привязка личного аккаунта.</param>
 public sealed record RemoveModeratorResultDto(ModeratorDto Moderator, int CasesReturned, int AppealReviewsReturned, bool PersonalUnlinked);
 
+/// <param name="AppealsReturned">Сколько апелляций, которые вёл админ, вернулось в общую очередь админов.</param>
+public sealed record RemoveAdminResultDto(Guid Id, string Name, bool Removed, int AppealsReturned, bool PersonalUnlinked);
+
 /// <summary>Выборки панели модераторов.</summary>
 public interface IModeratorStore
 {
@@ -102,46 +105,81 @@ public sealed class ModeratorAdminService
     /// </summary>
     public async Task<RemoveModeratorResultDto> RemoveAsync(Guid adminId, Guid moderatorId, RemoveModeratorRequest request, CancellationToken ct)
     {
-        var admin = await RequireAdminAsync(adminId, ct);
-        var target = await FindModeratorAsync(moderatorId, ct, anyRole: true);
-        StaffRules.RequireNotSelf(adminId, moderatorId);
-        StaffRules.RequireCanManage(admin.Role, target.Role);
-        if (target.Role != UserRole.Moderator)
+        var (summary, _, unlinked) = await RemoveCoreAsync(adminId, moderatorId, request, UserRole.Moderator, ct);
+        return new RemoveModeratorResultDto(await GetAsync(adminId, moderatorId, ct), summary.Returned, summary.AppealsReturned, unlinked);
+    }
+
+    /// <summary>
+    /// Снять админа (раздел 3 ТЗ, правило 4): только суперадмин, пароль и код 2FA, причина 10–500 символов. Последствия те же, что у модератора (аккаунт перестаёт действовать, сеансы
+    /// отзываются, соединения разрываются, привязка снимается), а апелляции, которые вёл админ, возвращаются в общую очередь админов. Себя и суперадмина снять нельзя.
+    /// 403 <c>staff_role_not_allowed</c> (вы не суперадмин или цель суперадмин), <c>cannot_change_own_rights</c>; 404 <c>admin_not_found</c>; 409 <c>not_an_admin</c>, <c>staff_already_removed</c>.
+    /// </summary>
+    public async Task<RemoveAdminResultDto> RemoveAdminAsync(Guid actorId, Guid adminId, RemoveModeratorRequest request, CancellationToken ct)
+    {
+        var (_, appeals, unlinked) = await RemoveCoreAsync(actorId, adminId, request, UserRole.Admin, ct);
+        var user = (await _profiles.FindUserAsync(adminId, ct))!;
+        return new RemoveAdminResultDto(user.Id, user.Name, user.Status != UserStatus.Active, appeals, unlinked);
+    }
+
+    private async Task<(ReleaseSummary Summary, int AdminAppeals, bool Unlinked)> RemoveCoreAsync(
+        Guid actorId, Guid targetId, RemoveModeratorRequest request, UserRole expected, CancellationToken ct)
+    {
+        var actor = await RequireAdminAsync(actorId, ct);
+        var notFound = expected == UserRole.Admin ? "admin_not_found" : "moderator_not_found";
+        var target = await _profiles.FindUserAsync(targetId, ct);
+        if (target is null || target.IsRegular || target.Role == UserRole.User)
         {
-            throw new ConflictException("not_a_moderator", "Здесь снимают только модераторов.");
+            throw new NotFoundException(notFound, "Сотрудник не найден.");
+        }
+
+        StaffRules.RequireNotSelf(actorId, targetId);
+        StaffRules.RequireCanManage(actor.Role, target.Role);   // суперадмина не снимает никто, админа только суперадмин
+        if (target.Role != expected)
+        {
+            throw new ConflictException(expected == UserRole.Admin ? "not_an_admin" : "not_a_moderator", expected == UserRole.Admin ? "Здесь снимают только админов." : "Здесь снимают только модераторов.");
         }
 
         if (target.Status != UserStatus.Active)
         {
-            throw new ConflictException("staff_already_removed", "Модератор уже снят.");
+            throw new ConflictException("staff_already_removed", "Сотрудник уже снят.");
         }
 
         var reason = Case.CleanText(request.Reason, 10, 500, "removal_reason");
-        await _stepUp.RequireAsync(adminId, request.Confirmation, ct);
+        await _stepUp.RequireAsync(actorId, request.Confirmation, ct);
 
         ReleaseSummary summary = new(0, 0);
+        var adminAppeals = 0;
         var unlinked = false;
         await _uow.ExecuteAsync(async t =>
         {
-            var lockIds = (await _releaser.UsersToLockAsync(moderatorId, t)).Append(adminId).ToList();
+            var lockIds = (await _releaser.UsersToLockAsync(targetId, t)).Append(actorId).ToList();
             if (target.LinkedUserId is { } personal)
             {
                 lockIds.Add(personal);
             }
 
             await _uow.LockUsersAsync(lockIds, t);
-            var staff = await _profiles.FindUserForUpdateAsync(moderatorId, t) ?? throw new NotFoundException("moderator_not_found", "Модератор не найден.");
+            var staff = await _profiles.FindUserForUpdateAsync(targetId, t) ?? throw new NotFoundException(notFound, "Сотрудник не найден.");
             staff.RemoveFromStaff();   // уже снят (гонка двух админов): 400 staff_not_active
             var now = Now();
-            await _refreshTokens.RevokeAllForUserAsync(moderatorId, now, t);
-            summary = await _releaser.ReleaseAsync(adminId, moderatorId, null, ModeratorCaseReleaser.StaffRemovedReason, t);
-            unlinked = await _links.UnlinkForRemovalAsync(admin, moderatorId, t);
-            _audit.Add(new AuditEntry(adminId, StaffAuditActions.StaffRemoved, "User", moderatorId, new
+            await _refreshTokens.RevokeAllForUserAsync(targetId, now, t);
+            if (expected == UserRole.Admin)
+            {
+                adminAppeals = await _releaser.ReleaseAdminAppealsAsync(actorId, targetId, t);
+            }
+            else
+            {
+                summary = await _releaser.ReleaseAsync(actorId, targetId, null, ModeratorCaseReleaser.StaffRemovedReason, t);
+            }
+
+            unlinked = await _links.UnlinkForRemovalAsync(actor, targetId, t);
+            _audit.Add(new AuditEntry(actorId, StaffAuditActions.StaffRemoved, "User", targetId, new
             {
                 reason,
                 role = staff.Role,
                 casesReturned = summary.Returned,
                 appealReviewsReturned = summary.AppealsReturned,
+                appealsReturnedToAdmins = adminAppeals,
                 personalUnlinked = unlinked,
             }));
             await _cases.SaveAsync(t);
@@ -149,8 +187,8 @@ public sealed class ModeratorAdminService
         }, ct);
 
         _notify.Dispatch();
-        await _disconnector.DisconnectUserAsync(moderatorId, ct);
-        return new RemoveModeratorResultDto(await GetAsync(adminId, moderatorId, ct), summary.Returned, summary.AppealsReturned, unlinked);
+        await _disconnector.DisconnectUserAsync(targetId, ct);
+        return (summary, adminAppeals, unlinked);
     }
 
     // ---------- внутреннее ----------
@@ -162,10 +200,10 @@ public sealed class ModeratorAdminService
             u.Id, u.Name, u.Email, u.Status != UserStatus.Active, u.CreatedAt, u.LinkedUserId is not null, load.GetValueOrDefault(u.Id) ?? new ModeratorLoadDto(0, 0, 0, 0))).ToList();
     }
 
-    private async Task<User> FindModeratorAsync(Guid id, CancellationToken ct, bool anyRole = false)
+    private async Task<User> FindModeratorAsync(Guid id, CancellationToken ct)
     {
         var user = await _profiles.FindUserAsync(id, ct);
-        if (user is null || user.IsRegular || user.Role == UserRole.User || (!anyRole && user.Role != UserRole.Moderator))
+        if (user is null || user.IsRegular || user.Role != UserRole.Moderator)
         {
             throw new NotFoundException("moderator_not_found", "Модератор не найден.");
         }

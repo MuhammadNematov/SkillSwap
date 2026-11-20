@@ -89,6 +89,20 @@ public class CaseReleaseTests
     }
 
     [Fact]
+    public void The_admin_who_led_an_appeal_can_be_released_until_the_final_decision()
+    {
+        var admin = Guid.NewGuid();
+        var appeal = CaseAppeal.Create(Guid.NewGuid(), Opener, "Не согласен с решением: переписка вырвана из контекста.");
+        appeal.AssignReviewer(admin, Guid.NewGuid());
+
+        Assert.Throws<InvalidStateTransitionException>(() => appeal.ReleaseAdmin(Guid.NewGuid()));   // чужую апелляцию не освободить
+        appeal.ReleaseAdmin(admin);
+
+        Assert.Null(appeal.AdminId);
+        Assert.Throws<InvalidStateTransitionException>(() => appeal.ReleaseAdmin(admin));   // повторно нечего освобождать
+    }
+
+    [Fact]
     public void Removing_a_staff_member_deactivates_the_account_and_keeps_the_role()
     {
         var moderator = User.CreateStaff("m@example.com", "Модератор", UserRole.Moderator);

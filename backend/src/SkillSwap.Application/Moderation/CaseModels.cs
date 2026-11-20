@@ -147,6 +147,9 @@ public interface ICaseStore
     /// </summary>
     Task<IReadOnlyList<Case>> FindHeldByModeratorAsync(Guid moderatorId, IReadOnlyCollection<Guid>? conflictUsers, bool tracked, CancellationToken ct);
 
+    /// <summary>Апелляции без окончательного решения, которые ведёт этот админ (с отслеживанием).</summary>
+    Task<IReadOnlyList<CaseAppeal>> FindUndecidedAppealsOfAdminAsync(Guid adminId, CancellationToken ct);
+
     /// <summary>Необработанные запросы на бан по пользователю (с отслеживанием).</summary>
     Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct);
 

@@ -39,6 +39,33 @@ public sealed class ModeratorCaseReleaser
         _notify = notify;
     }
 
+    /// <summary>
+    /// Снят админ: апелляции без окончательного решения, которые он вёл, возвращаются в общую очередь админов (`AdminId` очищается). Те, что ждут решения (`Appealed`),
+    /// заново объявляются остальным админам уведомлением `CaseAppealed`; идущие на повторной проверке объявятся, когда проверяющий напишет заключение.
+    /// Внутри транзакции вызывающего.
+    /// </summary>
+    public async Task<int> ReleaseAdminAppealsAsync(Guid actorId, Guid adminId, CancellationToken ct)
+    {
+        var appeals = await _cases.FindUndecidedAppealsOfAdminAsync(adminId, ct);
+        IReadOnlyList<Guid>? others = null;
+        foreach (var appeal in appeals)
+        {
+            appeal.ReleaseAdmin(adminId);
+            _audit.Add(new AuditEntry(actorId, AuditActions.AppealAdminReleased, "Case", appeal.CaseId, new { adminId, reason = StaffRemovedReason }));
+            var found = await _cases.FindAsync(appeal.CaseId, tracked: false, ct);
+            if (found?.Status == CaseStatus.Appealed)
+            {
+                others ??= (await _cases.ListActiveAdminIdsAsync(ct)).Where(a => a != actorId && a != adminId).ToList();
+                foreach (var admin in others)
+                {
+                    _notify.Add(admin, NotificationType.CaseAppealed, new { caseId = found.Id, exchangeId = found.ExchangeId });
+                }
+            }
+        }
+
+        return appeals.Count;
+    }
+
     /// <summary>Кого заблокировать в транзакции: модератора и участников всех обращений, которые он держит.</summary>
     public async Task<IReadOnlyList<Guid>> UsersToLockAsync(Guid moderatorId, CancellationToken ct)
     {
