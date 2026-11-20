@@ -1,27 +1,39 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { errorMessage } from '../api/errors'
-import { createReview } from '../api/reviews'
-import type { Exchange, ReviewScores } from '../api/types'
+import { saveReview } from '../api/reviews'
+import type { Exchange, MyReview, ReviewScores } from '../api/types'
 import { useInvalidateAll } from '../hooks/useSessionActions'
 import Modal from './Modal'
 import StarRating from './StarRating'
 
 const CRITERIA: (keyof ReviewScores)[] = ['knowledge', 'explaining', 'punctuality', 'politeness']
 
-// Отзыв: 4 критерия по 1–5 и текст 20–1000 символов (ТЗ 8.1). После отправки править нельзя.
-export default function ReviewModal({ exchange, onClose }: { exchange: Exchange; onClose: () => void }) {
+// Отзыв: 4 критерия по 1–5 и текст 20–1000 символов (ТЗ 8.1). Править можно, пока отзыв не опубликован.
+export default function ReviewModal({
+  exchange,
+  existing,
+  oneSided,
+  onClose,
+}: {
+  exchange: Pick<Exchange, 'id'> & { partner: { name: string } }
+  existing?: MyReview | null // правка своего ещё не опубликованного отзыва
+  oneSided?: boolean // отзыв опубликуется сразу
+  onClose: () => void
+}) {
   const { t } = useTranslation()
   const invalidate = useInvalidateAll()
-  const [scores, setScores] = useState<ReviewScores>({ knowledge: 0, explaining: 0, punctuality: 0, politeness: 0 })
-  const [text, setText] = useState('')
+  const qc = useQueryClient()
+  const [scores, setScores] = useState<ReviewScores>(existing?.scores ?? { knowledge: 0, explaining: 0, punctuality: 0, politeness: 0 })
+  const [text, setText] = useState(existing?.text ?? '')
   const [formError, setFormError] = useState<string | null>(null)
 
   const send = useMutation({
-    mutationFn: createReview,
+    mutationFn: saveReview,
     onSuccess: () => {
       invalidate()
+      qc.invalidateQueries({ queryKey: ['exchangeReviews'] })
       onClose()
     },
   })
@@ -31,7 +43,7 @@ export default function ReviewModal({ exchange, onClose }: { exchange: Exchange;
     if (Object.values(scores).some((v) => v === 0)) return setFormError(t('reviews.needScores'))
     if (len < 20 || len > 1000) return setFormError(t('reviews.textLength'))
     setFormError(null)
-    send.mutate({ exchangeId: exchange.id, ...scores, text: text.trim() })
+    send.mutate({ exchangeId: exchange.id, update: !!existing, ...scores, text: text.trim() })
   }
 
   return (
@@ -54,7 +66,7 @@ export default function ReviewModal({ exchange, onClose }: { exchange: Exchange;
           />
           <div className="mt-1 text-right text-xs text-slate-400">{text.trim().length}/1000</div>
         </div>
-        <p className="text-xs text-slate-500">{t('reviews.blindHint')}</p>
+        <p className="text-xs text-slate-500">{oneSided ? t('reviews.oneSidedHint') : existing ? t('reviews.editHint') : t('reviews.blindHint')}</p>
         {(formError || send.isError) && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError ?? errorMessage(t, send.error)}</p>
         )}
@@ -63,7 +75,7 @@ export default function ReviewModal({ exchange, onClose }: { exchange: Exchange;
             {t('common.cancel')}
           </button>
           <button className="btn-primary" disabled={send.isPending} onClick={submit}>
-            {send.isPending ? t('common.loading') : t('reviews.send')}
+            {send.isPending ? t('common.loading') : existing ? t('reviews.saveChanges') : t('reviews.send')}
           </button>
         </div>
       </div>

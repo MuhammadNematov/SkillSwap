@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAttachmentUrl } from '../api/attachments'
 import { errorMessage } from '../api/errors'
-import { getMessages, getSessions, markMessagesRead, sendFile, sendMessage, sendVoice, sendTyping, toMessage } from '../api/exchanges'
+import { deleteMessage, editMessage, getMessages, getSessions, markMessagesRead, sendFile, sendMessage, sendVoice, sendTyping, toMessage } from '../api/exchanges'
 import { USE_MOCKS } from '../api/config'
 import { getChatHub, startHub } from '../api/realtime'
 import type { ChatMessage, Exchange, LessonSession } from '../api/types'
@@ -53,6 +53,23 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
     },
   })
   const [typing, setTyping] = useState(false)
+  const [editing, setEditing] = useState<ChatMessage | null>(null)
+  const edit = useMutation({
+    mutationFn: editMessage,
+    onSuccess: (msg) => {
+      setEditing(null)
+      setText('')
+      if (USE_MOCKS) invalidate()
+      else upsert(msg)
+    },
+  })
+  const remove = useMutation({
+    mutationFn: deleteMessage,
+    onSuccess: (_d, v) => {
+      if (USE_MOCKS) invalidate()
+      else qc.setQueryData<ChatMessage[]>(msgKey, (old = []) => old.map((x) => (x.id === v.messageId ? { ...x, deleted: true, text: undefined } : x)))
+    },
+  })
   const lastTypingSent = useRef(0)
   const upload = useMutation({ mutationFn: sendFile, onSuccess: invalidate })
   const [recording, setRecording] = useState(false)
@@ -77,11 +94,13 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
         old.map((x) => (x.id === d.messageId ? { ...x, deleted: true, text: undefined } : x)),
       )
     }
-    const onRead = (d: { exchangeId: string; readerId: string; readAt: string }) => {
+    // «Прочитано до сообщения включительно»: отмечаем только мои сообщения не новее него (null — все)
+    const onRead = (d: { exchangeId: string; readerId: string; upToMessageId: string | null; readAt: string }) => {
       if (!mine(d)) return
-      qc.setQueryData<ChatMessage[]>(msgKey, (old = []) =>
-        old.map((x) => (x.senderIsMe && !x.readAt ? { ...x, readAt: d.readAt } : x)),
-      )
+      qc.setQueryData<ChatMessage[]>(msgKey, (old = []) => {
+        const upTo = d.upToMessageId ? old.find((x) => x.id === d.upToMessageId)?.createdAt : undefined
+        return old.map((x) => (x.senderIsMe && !x.readAt && (!upTo || x.createdAt <= upTo) ? { ...x, readAt: d.readAt } : x))
+      })
     }
     const onTyping = (d: { exchangeId: string }) => {
       if (!mine(d)) return
@@ -130,12 +149,13 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
     e.preventDefault()
     const value = text.trim()
     if (!value || readOnly) return
-    send.mutate({ exchangeId: exchange.id, text: value })
+    if (editing) edit.mutate({ exchangeId: exchange.id, messageId: editing.id, text: value })
+    else send.mutate({ exchangeId: exchange.id, text: value })
   }
 
   const sessionById = (id?: string): LessonSession | undefined => sessions.find((s) => s.id === id)
   const [fileError, setFileError] = useState<string | null>(null)
-  const error = send.error ?? upload.error ?? voice.error ?? confirm.error ?? decline.error
+  const error = send.error ?? edit.error ?? remove.error ?? upload.error ?? voice.error ?? confirm.error ?? decline.error
 
   // Ссылка на файл временная, поэтому запрашиваем её в момент клика
   async function openAttachment(id?: string) {
@@ -183,6 +203,15 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
     )
   }
 
+  // Свои сообщения можно менять и удалять 15 минут (проверяет и сервер)
+  const canChange = (m: ChatMessage) =>
+    m.senderIsMe && !m.deleted && !readOnly && m.type !== 'SessionCard' && Date.now() - new Date(m.createdAt).getTime() < 15 * 60_000
+  function startEdit(m: ChatMessage) {
+    if (m.type !== 'Text') return
+    setEditing(m)
+    setText(m.text ?? '')
+  }
+
   function renderMessage(m: ChatMessage) {
     if (m.type === 'System') {
       return (
@@ -224,9 +253,26 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
       <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
         <div className="max-w-[85%]">{body}</div>
         {m.paymentWarning && <p className="mt-1 max-w-[85%] rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">{t('chat.paymentWarning')}</p>}
-        <span className="mt-0.5 px-1 text-[11px] text-slate-400">
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 px-1 text-[11px] text-slate-400">
           {formatTime(m.createdAt, lang)}
-          {mine && m.readAt ? ` · ${t('chat.read')}` : ''}
+          {m.editedAt && !m.deleted && <span>· {t('chat.edited')}</span>}
+          {mine && m.readAt ? <span>· {t('chat.read')}</span> : null}
+          {canChange(m) && (
+            <>
+              {m.type === 'Text' && (
+                <button type="button" className="underline-offset-2 hover:text-brand-700 hover:underline" onClick={() => startEdit(m)}>
+                  {t('chat.edit')}
+                </button>
+              )}
+              <button
+                type="button"
+                className="underline-offset-2 hover:text-red-600 hover:underline"
+                onClick={() => window.confirm(t('chat.deleteConfirm')) && remove.mutate({ exchangeId: exchange.id, messageId: m.id })}
+              >
+                {t('chat.delete')}
+              </button>
+            </>
+          )}
         </span>
       </div>
     )
@@ -244,6 +290,24 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
       </div>
 
       {(error || fileError) && <p className="border-t border-ink-line px-4 py-2 text-xs text-red-600">{error ? errorMessage(t, error) : fileError}</p>}
+
+      {editing && (
+        <div className="flex items-center justify-between gap-2 border-t border-ink-line bg-brand-50 px-4 py-2 text-xs text-slate-600">
+          <span className="truncate">
+            {t('chat.editing')}: {editing.text}
+          </span>
+          <button
+            type="button"
+            className="shrink-0 font-semibold text-brand-700 hover:underline"
+            onClick={() => {
+              setEditing(null)
+              setText('')
+            }}
+          >
+            {t('chat.cancelEdit')}
+          </button>
+        </div>
+      )}
 
       {readOnly ? (
         <div className="border-t border-ink-line px-4 py-3 text-center text-sm text-slate-500">{t('exchange.readOnly')}</div>
@@ -290,7 +354,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
           <input
             className={`input ${recording ? 'hidden' : ''}`}
             value={text}
-            maxLength={2000}
+            maxLength={4000}
             placeholder={t('chat.placeholder')}
             onChange={(e) => {
               setText(e.target.value)
@@ -300,7 +364,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
               }
             }}
           />
-          <button className={`btn-primary px-3 ${recording ? 'hidden' : ''}`} disabled={!text.trim() || send.isPending} aria-label={t('chat.send')}>
+          <button className={`btn-primary px-3 ${recording ? 'hidden' : ''}`} disabled={!text.trim() || send.isPending || edit.isPending} aria-label={editing ? t('chat.save') : t('chat.send')}>
             <Icon name="send" />
           </button>
         </form>

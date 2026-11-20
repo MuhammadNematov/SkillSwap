@@ -68,7 +68,10 @@ export interface MatchFilters {
 export interface Review {
   id: string
   authorName: string
+  authorAvatarUrl?: string | null
+  authorDeleted?: boolean
   score: number // среднее по четырём критериям
+  scores?: ReviewScores
   text: string
   createdAt: string
   isFullExchange: boolean
@@ -150,6 +153,10 @@ export interface Exchange {
   showBalanceReminder?: boolean // разница уроков больше 3
   unreadMessages?: number
   chat?: { mode: ChatMode; readOnlyReason?: string | null; readableUntil?: string | null }
+  lastMessage?: LastMessage | null
+  partnerNoShows?: number // окончательные неявки партнёра в этом обмене
+  canAbortForNoShow?: boolean // можно выйти без последствий (три неявки)
+  abortedForNoShow?: boolean
   // Состояние отзыва по этому обмену (поле уточним по Swagger)
   review?: { canWrite: boolean; submitted: boolean; deadlineAt?: string }
 }
@@ -171,6 +178,7 @@ export interface LessonSession {
   previousStartAt?: string | null
   noShowIsMe?: boolean | null // неявка: я не пришёл (true), партнёр не пришёл (false), нет неявки (null)
   lateJoinMinutes?: number | null // на сколько минут опоздал второй участник, если урок засчитан
+  partnerInRoom?: boolean // партнёр сейчас в видеокомнате
 }
 
 export interface ChatMessage {
@@ -186,12 +194,23 @@ export interface ChatMessage {
   attachmentId?: string
   paymentWarning?: boolean // в тексте карта или призыв к оплате: показываем предупреждение
   readAt?: string | null
+  editedAt?: string | null
   deleted?: boolean
+}
+
+// Последнее сообщение для списка чатов (lastMessage в карточке обмена)
+export interface LastMessage {
+  id: string
+  type: MessageType
+  preview: string | null // только у текста; для остальных подпись строит фронтенд
+  createdAt: string
+  senderIsMe: boolean
+  isDeleted: boolean
 }
 
 export interface Conversation {
   exchange: Exchange
-  last?: ChatMessage
+  last?: LastMessage | null
 }
 
 // ───────── Анкета и каталог навыков (формы ответов уточним по Swagger) ─────────
@@ -328,4 +347,40 @@ export interface AppNotification {
   payload: Record<string, string | number | undefined> // partnerName, exchangeId, startAt…
   isRead: boolean
   createdAt: string
+}
+
+// ───────── Отзывы: состояние по обмену (GET /exchanges/{id}/reviews) ─────────
+export type ReviewStatus = 'Pending' | 'Published' | 'Hidden' | 'Frozen'
+
+export interface MyReview {
+  id: string
+  scores: ReviewScores
+  score: number // среднее из четырёх
+  text: string
+  status: ReviewStatus
+  isFullExchange: boolean
+  createdAt: string
+  publishedAt?: string | null
+  publishAt?: string | null // когда опубликуется сам, если партнёр не напишет
+}
+
+export interface ExchangeReviews {
+  exchangeId: string
+  canWrite: boolean
+  unavailableReason?: string | null // exchange_not_closed, partner_deleted, no_counted_sessions, review_window_closed, review_already_exists
+  isFullExchange: boolean
+  oneSided: boolean // право только у меня: отзыв опубликуется сразу
+  deadlineAt?: string | null
+  canEdit: boolean
+  myReview?: MyReview | null
+  reviewAboutMe?: Review | null // только после публикации
+}
+
+export interface ReviewsPage {
+  items: Review[]
+  page: number
+  totalCount: number
+  ratingAvg: number | null
+  ratingCount: number
+  isNewcomer: boolean
 }

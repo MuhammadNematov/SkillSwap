@@ -62,6 +62,12 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
           {showPartner && `${session.partnerName} · `}
           {t('session.teacher', { name: session.teacherIsMe ? t('session.you') : session.partnerName })}
         </div>
+        {session.partnerInRoom && ['Scheduled', 'InProgress', 'NoShow', 'Missed'].includes(session.status) && (
+          <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            {t('session.partnerInRoom', { name: session.partnerName })}
+          </div>
+        )}
         {session.status === 'NoShow' && session.noShowIsMe !== null && session.noShowIsMe !== undefined && (
           <div className="text-xs text-amber-700">{session.noShowIsMe ? t('session.noShowMe') : t('session.noShowPartner', { name: session.partnerName })}</div>
         )}

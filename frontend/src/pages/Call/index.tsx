@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getJoinToken } from '../../api/calls'
+import { getSessionExchangeId } from '../../api/exchanges'
 import { errorMessage, toApiError } from '../../api/errors'
 import { formatDateTime } from '../../utils/dates'
 import CallRoom from '../../components/CallRoom'
+import CaseModal from '../../components/CaseModal'
 import Spinner from '../../components/Spinner'
 
 const FIVE_MIN = 5 * 60_000
@@ -24,6 +26,8 @@ export default function Call() {
   const [now, setNow] = useState(() => Date.now())
 
   const [exited, setExited] = useState(false)
+  const [complaining, setComplaining] = useState(false)
+  const exchangeId = useQuery({ queryKey: ['sessionExchange', sessionId], queryFn: () => getSessionExchangeId(sessionId), staleTime: Infinity })
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['joinToken', sessionId],
     queryFn: () => getJoinToken(sessionId),
@@ -62,9 +66,16 @@ export default function Call() {
     <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold text-ink">{t('call.title')}</h1>
-        <span className="rounded-full bg-brand-100 px-4 py-1.5 text-sm font-bold text-brand-700">
-          {left > 0 ? t('call.timeLeft', { time: fmt(left) }) : t('call.overtime')}
-        </span>
+        <div className="flex items-center gap-2">
+          {exchangeId.data && !closed && (
+            <button className="btn-secondary px-3 py-1.5" onClick={() => setComplaining(true)}>
+              {t('cases.complainCall')}
+            </button>
+          )}
+          <span className="rounded-full bg-brand-100 px-4 py-1.5 text-sm font-bold text-brand-700">
+            {left > 0 ? t('call.timeLeft', { time: fmt(left) }) : t('call.overtime')}
+          </span>
+        </div>
       </div>
 
       {left > 0 && left <= FIVE_MIN && (
@@ -98,6 +109,9 @@ export default function Call() {
         </div>
       ) : (
         <CallRoom data={data} onLeave={() => setExited(true)} />
+      )}
+      {complaining && exchangeId.data && (
+        <CaseModal exchangeId={exchangeId.data} partnerName="" fixed={{ type: 'Conduct' }} fromCall onClose={() => setComplaining(false)} />
       )}
     </div>
   )

@@ -7,7 +7,7 @@ import { getMyId } from './identity'
 import { getChatHub, startHub } from './realtime'
 import { getUserProfile } from './users'
 import { pickName } from '../utils/localized'
-import type { ChatMessage, Conversation, Exchange, ExchangeRequest, ExchangeStatus, LessonSession, RequestStatus, SessionStatus } from './types'
+import type { ChatMessage, Conversation, Exchange, LastMessage, ExchangeRequest, ExchangeStatus, LessonSession, RequestStatus, SessionStatus } from './types'
 
 // ───────── DTO бэкенда и адаптеры ─────────
 interface SkillDto {
@@ -55,6 +55,17 @@ interface ExchangeDto {
   balance: { myLessons: number; partnerLessons: number; showReminder: boolean }
   chat: { mode: 'ReadWrite' | 'ReadOnly' | 'Archived'; readOnlyReason: string | null; readableUntil: string | null }
   unreadMessages: number
+  partnerNoShows?: number
+  canAbortForNoShow?: boolean
+  abortedForNoShow?: boolean
+  lastMessage?: {
+    id: string
+    type: ChatMessage['type']
+    preview: string | null
+    createdAt: string
+    senderId: string | null
+    isDeleted: boolean
+  } | null
 }
 interface Page<T> {
   items: T[]
@@ -85,6 +96,11 @@ function toRequest(r: RequestDto): ExchangeRequest {
   }
 }
 
+function toLast(l: ExchangeDto['lastMessage']): LastMessage | null {
+  if (!l) return null
+  return { id: l.id, type: l.type, preview: l.preview, createdAt: l.createdAt, senderIsMe: l.senderId === getMyId(), isDeleted: l.isDeleted }
+}
+
 function toExchange(e: ExchangeDto): Exchange {
   return {
     id: e.id,
@@ -108,6 +124,10 @@ function toExchange(e: ExchangeDto): Exchange {
     frozenAt: e.frozenAt,
     unreadMessages: e.unreadMessages,
     chat: e.chat,
+    partnerNoShows: e.partnerNoShows ?? 0,
+    canAbortForNoShow: e.canAbortForNoShow ?? false,
+    abortedForNoShow: e.abortedForNoShow ?? false,
+    lastMessage: toLast(e.lastMessage),
   }
 }
 
@@ -188,6 +208,7 @@ interface SessionDto {
   confirmDeadlineAt: string | null
   noShowUserId?: string | null
   lateJoinMinutes?: number | null
+  participantsInRoom?: string[]
 }
 interface Partner {
   name: string
@@ -213,6 +234,7 @@ function toSession(d: SessionDto, partner: Partner): LessonSession {
     previousStartAt: d.previousStartAt,
     noShowIsMe: d.noShowUserId ? d.noShowUserId === me : null,
     lateJoinMinutes: d.lateJoinMinutes ?? null,
+    partnerInRoom: (d.participantsInRoom ?? []).some((id) => id !== me),
   }
 }
 
@@ -247,6 +269,12 @@ export const getMySessions = async (): Promise<LessonSession[]> => {
   const ids = [...new Set(list.map((x) => x.partner.id))]
   const infos = new Map(await Promise.all(ids.map(async (id) => [id, await partnerInfo(id, list.find((x) => x.partner.id === id)!.partner.name)] as const)))
   return list.map((x) => toSession(x.session, infos.get(x.partner.id)!))
+}
+
+// Обмен, к которому относится урок (для жалобы из видеозвонка)
+export const getSessionExchangeId = async (id: string): Promise<string> => {
+  if (USE_MOCKS) return m.mockGetSessionExchangeId(id)
+  return (await http(api.get<SessionDto>(`/sessions/${id}`))).exchangeId
 }
 
 export interface ProposeSessionInput {
@@ -305,6 +333,7 @@ interface MessageDto {
   createdAt: string
   deletedAt: string | null
   readAt: string | null
+  editedAt?: string | null
   attachment?: { fileName: string; durationSeconds: number | null } | null
 }
 
@@ -322,6 +351,7 @@ export function toMessage(d: MessageDto): ChatMessage {
     durationSec: d.attachment?.durationSeconds ?? undefined,
     paymentWarning: d.paymentWarning,
     readAt: d.readAt,
+    editedAt: d.editedAt ?? null,
     deleted: !!d.deletedAt,
   }
 }
@@ -337,7 +367,7 @@ export const getMessages = async (exchangeId: string): Promise<ChatMessage[]> =>
 // Код ошибки хаба лежит в тексте исключения: "...chat_read_only..."
 function hubError(e: unknown): ApiError {
   const msg = e instanceof Error ? e.message : ''
-  const m = /(chat_read_only|chat_archived|chat_rate_limited|message_empty|message_too_long|exchange_not_found|message_not_found|not_message_author|edit_window_expired|message_deleted)/.exec(msg)
+  const m = /(chat_read_only|chat_archived|chat_rate_limited|message_empty|message_too_long|exchange_not_found|message_not_found|not_message_author|edit_window_expired|message_deleted|message_not_editable)/.exec(msg)
   return new ApiError(m ? m[1] : 'NETWORK_ERROR', m ? 400 : 0)
 }
 
@@ -357,6 +387,17 @@ export const sendMessage = async ({ exchangeId, text }: { exchangeId: string; te
     return (await m.mockGetMessages(exchangeId)).at(-1) as ChatMessage
   }
   return toMessage(await hubInvoke<MessageDto>('Send', exchangeId, text))
+}
+
+// Изменить своё сообщение (15 минут). Сервер вернёт его целиком, остальным уйдёт событие messageEdited
+export const editMessage = async ({ messageId, text, exchangeId }: { messageId: string; text: string; exchangeId: string }): Promise<ChatMessage> => {
+  if (USE_MOCKS) return m.mockEditMessage(exchangeId, messageId, text)
+  return toMessage(await hubInvoke<MessageDto>('Edit', messageId, text))
+}
+
+export const deleteMessage = async ({ messageId, exchangeId }: { messageId: string; exchangeId: string }): Promise<void> => {
+  if (USE_MOCKS) return m.mockDeleteMessage(exchangeId, messageId)
+  await hubInvoke('Delete', messageId)
 }
 
 export const sendTyping = (exchangeId: string): void => {
@@ -390,5 +431,7 @@ export const sendVoice = async ({ exchangeId, blob, durationSec }: { exchangeId:
 export const getConversations = async (): Promise<Conversation[]> => {
   if (USE_MOCKS) return m.mockGetConversations()
   const exchanges = await getExchanges()
-  return exchanges.map((exchange) => ({ exchange }))
+  return exchanges
+    .map((exchange) => ({ exchange, last: exchange.lastMessage ?? null }))
+    .sort((a, b) => (b.last?.createdAt ?? '').localeCompare(a.last?.createdAt ?? ''))
 }
