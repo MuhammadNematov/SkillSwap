@@ -7,7 +7,7 @@ using SkillSwap.Application.Staff;
 namespace SkillSwap.Api.Controllers;
 
 /// <summary>
-/// Привязка личного аккаунта к служебному (раздел 3 ТЗ, правило 3). Со стороны сотрудника (модератор, админ, суперадмин): состояние, запрос, отмена и снятие привязки.
+/// Привязка личного аккаунта к служебному (раздел 3 ТЗ, правило 3). Со стороны сотрудника (модератор, админ, суперадмин): состояние, запрос на привязку, его отмена и запрос на снятие (сам снять привязку сотрудник не может).
 /// Со стороны владельца личного аккаунта (обычный аккаунт, вошедший в систему): просмотр запроса из письма, подтверждение и отказ.
 /// </summary>
 [ApiController]
@@ -22,7 +22,7 @@ public class PersonalLinkController : ControllerBase
         _links = links;
     }
 
-    /// <summary>Привязан ли личный аккаунт (`linked`: `userId`, `name`, `email`) и есть ли действующий запрос (`pending`: `id`, `personalEmail`, `expiresAt`).</summary>
+    /// <summary>Привязан ли личный аккаунт (`linked`: `userId`, `name`, `email`), есть ли действующий запрос на привязку (`pending`: `id`, `personalEmail`, `expiresAt`) и запрос на снятие (`unlinkRequest`: `id`, `reason`, `createdAt`).</summary>
     [HttpGet("me/staff-link")]
     [Authorize(Policy = Policies.Staff)]
     [ProducesResponseType<StaffLinkStateDto>(StatusCodes.Status200OK)]
@@ -55,16 +55,20 @@ public class PersonalLinkController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Cancel(CancellationToken ct) => Ok(await _links.CancelRequestAsync(UserId(), ct));
 
-    /// <summary>Снять привязку; тело `{ confirmation }`. Привязки нет: 409 `not_linked`. После снятия конфликт интересов по личному аккаунту больше не проверяется.</summary>
-    [HttpPost("me/staff-link/unlink")]
+    /// <summary>
+    /// Попросить снять привязку: `reason` 10–500 символов. **Сам сотрудник привязку снять не может** (иначе можно снять её, взять обращение своего личного аккаунта и привязать
+    /// обратно): решает админ (модераторов) или суперадмин (админов) с подтверждением паролем и кодом 2FA. Админы, которые вправе решить, получают `PersonalUnlinkRequested`.
+    /// 400 `unlink_reason_too_short`/`_too_long`; 409 `not_linked`, `unlink_request_already_pending`.
+    /// </summary>
+    [HttpPost("me/staff-link/unlink-request")]
     [Authorize(Policy = Policies.Staff)]
     [ProducesResponseType<StaffLinkStateDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Unlink([FromBody] StaffActionRequest request, CancellationToken ct) =>
-        Ok(await _links.UnlinkAsync(UserId(), request, ct));
+    public async Task<IActionResult> RequestUnlink([FromBody] RequestUnlinkRequest request, CancellationToken ct) =>
+        Ok(await _links.RequestUnlinkAsync(UserId(), request, ct));
 
     /// <summary>
     /// Что за запрос из письма: `staffName`, `staffRole`, `expiresAt`. Только вошедший личный аккаунт, которому он адресован (чужой или неизвестный токен: 404 `link_request_not_found`);

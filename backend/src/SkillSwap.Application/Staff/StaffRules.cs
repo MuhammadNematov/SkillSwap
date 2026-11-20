@@ -36,6 +36,17 @@ public static class StaffRules
         }
     }
 
+    /// <summary>
+    /// Кто вправе снимать привязку личного аккаунта: админ только у модераторов, суперадмин у модераторов, админов и других суперадминов. Сотрудник сам себе привязку снять не может
+    /// (это проверяет <see cref="RequireNotSelf"/>).
+    /// </summary>
+    public static bool CanUnlinkPersonal(UserRole actor, UserRole target) => (actor, target) switch
+    {
+        (UserRole.Admin or UserRole.SuperAdmin, UserRole.Moderator) => true,
+        (UserRole.SuperAdmin, UserRole.Admin or UserRole.SuperAdmin) => true,
+        _ => false,
+    };
+
     /// <summary>Никто не меняет права самому себе: 403 <c>cannot_change_own_rights</c>.</summary>
     public static void RequireNotSelf(Guid actorId, Guid targetId)
     {

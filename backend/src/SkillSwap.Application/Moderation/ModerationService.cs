@@ -207,7 +207,7 @@ public sealed class ModerationService
     /// Без привязанного личного аккаунта конфликта нет.
     /// </summary>
     private async Task<IReadOnlyCollection<Guid>> ConflictUsersAsync(User moderator, CancellationToken ct) =>
-        moderator.LinkedUserId is { } personal ? await _cases.GetConflictUserIdsAsync(personal, ct) : [];
+        await _cases.GetConflictUserIdsForStaffAsync(moderator.Id, ct);
 
     private static bool HasConflict(IReadOnlyCollection<Guid> conflictUsers, Case value) =>
         conflictUsers.Contains(value.OpenedById) || conflictUsers.Contains(value.AgainstUserId);

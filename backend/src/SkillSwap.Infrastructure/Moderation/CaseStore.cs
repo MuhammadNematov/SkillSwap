@@ -93,14 +93,24 @@ public sealed class CaseStore : ICaseStore
         return (items, total);
     }
 
-    public async Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct)
+    public async Task<IReadOnlyCollection<Guid>> GetConflictUserIdsForStaffAsync(Guid staffId, CancellationToken ct)
     {
+        var personal = await _db.StaffPersonalLinks.AsNoTracking().Where(l => l.StaffId == staffId).Select(l => l.PersonalUserId).ToListAsync(ct);
+        if (await _db.Users.AsNoTracking().Where(u => u.Id == staffId).Select(u => u.LinkedUserId).FirstOrDefaultAsync(ct) is { } current && !personal.Contains(current))
+        {
+            personal.Add(current);   // привязка, сделанная без записи в историю (старые данные, разработка)
+        }
+
+        if (personal.Count == 0)
+        {
+            return [];
+        }
+
         var partners = await _db.Exchanges.AsNoTracking()
-            .Where(e => e.UserAId == personalUserId || e.UserBId == personalUserId)
-            .Select(e => e.UserAId == personalUserId ? e.UserBId : e.UserAId)
+            .Where(e => personal.Contains(e.UserAId) || personal.Contains(e.UserBId))
+            .Select(e => personal.Contains(e.UserAId) ? e.UserBId : e.UserAId)
             .Distinct().ToListAsync(ct);
-        partners.Add(personalUserId);
-        return partners;
+        return personal.Concat(partners).Distinct().ToList();
     }
 
     public Task<int> CountActiveConflictsAsync(Guid moderatorId, IReadOnlyCollection<Guid> conflictUsers, CancellationToken ct) =>

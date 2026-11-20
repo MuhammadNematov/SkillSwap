@@ -110,8 +110,11 @@ public interface ICaseStore
     Task<(IReadOnlyList<Case> Items, int Total)> ListForModeratorAsync(
         ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct);
 
-    /// <summary>Личный аккаунт сотрудника и все, с кем он когда-либо вёл обмен (конфликт интересов, раздел 3 ТЗ).</summary>
-    Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct);
+    /// <summary>
+    /// Все, с кем у сотрудника конфликт интересов (раздел 3 ТЗ, правило 3): **все** личные аккаунты, когда-либо привязанные к нему (история привязок, а также текущая привязка),
+    /// и все, с кем эти личные аккаунты когда-либо вели обмен. Снятие привязки конфликт не снимает.
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> GetConflictUserIdsForStaffAsync(Guid staffId, CancellationToken ct);
 
     void AddAppeal(CaseAppeal appeal);
 

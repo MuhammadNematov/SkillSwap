@@ -174,6 +174,12 @@ public enum NotificationType
 
     /// <summary>Сотруднику: владелец личного аккаунта отказался от привязки. В данных: userId, userName.</summary>
     PersonalLinkDeclined,
+
+    /// <summary>Админам, которые вправе решить: сотрудник просит снять привязку личного аккаунта. В данных: requestId, staffId, staffName.</summary>
+    PersonalUnlinkRequested,
+
+    /// <summary>Сотруднику: решение по запросу на снятие привязки (или привязку сняли без запроса). В данных: requestId (может быть пустым), approved.</summary>
+    PersonalUnlinkDecided,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

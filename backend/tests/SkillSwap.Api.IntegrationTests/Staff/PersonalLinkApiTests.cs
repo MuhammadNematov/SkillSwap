@@ -162,7 +162,7 @@ public partial class PersonalLinkApiTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(null, HttpMethod.Get, "/me/staff-link")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(token, HttpMethod.Get, "/me/staff-link")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(token, HttpMethod.Post, "/me/staff-link/request", new { email = person.Email })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(token, HttpMethod.Post, "/me/staff-link/unlink", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(token, HttpMethod.Post, "/me/staff-link/unlink-request", new { reason = "Причина для снятия привязки." })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(token, HttpMethod.Post, "/me/staff-link/cancel")).StatusCode);
     }
 
@@ -351,34 +351,6 @@ public partial class PersonalLinkApiTests
 
     private sealed record MatchPersonRef(Guid Id, string Token);
 
-    [Fact]
-    public async Task After_linking_the_moderator_cannot_take_cases_with_their_personal_account_and_after_unlinking_they_can()
-    {
-        var moderator = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
-        var (exchangeId, caseId, a) = await CaseOfAsync();
-        var personal = await UserAsync(a.Id);
-        var token = await RequestedAsync(moderator, personal);
-
-        // Пока привязки нет, конфликта нет (обращение можно взять).
-        var before = await SendAsync(moderator.Token, HttpMethod.Get, $"/moderation/cases/{caseId}");
-        Assert.Equal(HttpStatusCode.OK, before.StatusCode);
-
-        Assert.Equal(HttpStatusCode.NoContent, (await SendAsync(a.Token, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(token)}/confirm")).StatusCode);
-
-        var hidden = await SendAsync(moderator.Token, HttpMethod.Get, $"/moderation/cases/{caseId}");
-        var take = await SendAsync(moderator.Token, HttpMethod.Post, $"/moderation/cases/{caseId}/take");
-        Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);   // обращение больше не видно модератору
-        Assert.Equal(HttpStatusCode.Forbidden, take.StatusCode);
-        Assert.Equal("conflict_of_interest", await CodeAsync(take));
-
-        var unlink = await SendAsync(moderator.Token, HttpMethod.Post, "/me/staff-link/unlink", new { confirmation = moderator.Confirm() });
-        Assert.Equal(HttpStatusCode.OK, unlink.StatusCode);
-        Assert.Equal(JsonValueKind.Null, (await JsonAsync(unlink)).GetProperty("linked").ValueKind);
-        Assert.Null((await UserAsync(moderator.Id)).LinkedUserId);
-        Assert.Equal(HttpStatusCode.OK, (await SendAsync(moderator.Token, HttpMethod.Post, $"/moderation/cases/{caseId}/take")).StatusCode);
-        Assert.Equal(1, await AuditCountAsync("PersonalAccountUnlinked", personal.Id, moderator.Id));
-        Assert.NotEqual(Guid.Empty, exchangeId);
-    }
 
     [Fact]
     public async Task The_staff_member_is_told_how_many_of_their_cases_in_work_now_conflict()
@@ -397,35 +369,293 @@ public partial class PersonalLinkApiTests
 
     // ======================= снятие =======================
 
-    [Fact]
-    public async Task Unlinking_needs_the_confirmation_and_a_link()
+    // ======================= снятие привязки: только админ, история навсегда =======================
+
+    private async Task<HttpResponseMessage> AdminUnlinkAsync(StaffActor admin, StaffActor staff, object? confirmation = null) =>
+        await SendAsync(admin.Token, HttpMethod.Post, $"/admin/staff/{staff.Id}/personal-link/unlink", new { confirmation = confirmation ?? admin.Confirm() });
+
+    private async Task<(Guid RequestId, JsonElement Dto)> UnlinkRequestedAsync(StaffActor staff, string reason = "Больше не нужна привязка этого аккаунта.")
     {
-        var staff = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
-        var (personal, personalToken) = await StaffActor.PersonalAsync(_factory);
+        var response = await SendAsync(staff.Token, HttpMethod.Post, "/me/staff-link/unlink-request", new { reason });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var state = await JsonAsync(response);
+        return (state.GetProperty("unlinkRequest").GetProperty("id").GetGuid(), state);
+    }
 
-        var notLinked = await SendAsync(staff.Token, HttpMethod.Post, "/me/staff-link/unlink", new { confirmation = staff.Confirm() });
-        Assert.Equal(HttpStatusCode.Conflict, notLinked.StatusCode);
-        Assert.Equal("not_linked", await CodeAsync(notLinked));
+    /// <summary>Модератор, привязанный к личному аккаунту A обмена, по которому подано обращение: возвращает всё нужное для проверок конфликта.</summary>
+    private async Task<(StaffActor Moderator, Guid CaseId, Guid PersonalId, string PersonalToken, Guid PartnerCaseId)> LinkedModeratorWithCasesAsync()
+    {
+        var moderator = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
+        var x = await ModerationTestData.ExchangeAsync(_factory, _client);
+        await _factory.QueryAsync(async db =>
+        {
+            await db.Users.Where(u => u.Id == x.A.Id).ExecuteUpdateAsync(s => s.SetProperty(u => u.NormalizedEmail, u => u.Email!.ToUpper()).SetProperty(u => u.NormalizedUserName, u => u.Email!.ToUpper()));
+            return 0;
+        });
+        var body = new { type = "Conduct", category = "Insults", exchangeId = x.ExchangeId, description = "Собеседник регулярно оскорбляет меня в чате и срывает договорённости." };
+        var byA = await SendAsync(x.A.Token, HttpMethod.Post, "/cases", body);
+        var byB = await SendAsync(x.B.Token, HttpMethod.Post, "/cases", body);   // обращение партнёра A: тоже конфликт (бывший партнёр личного аккаунта)
+        var personal = await UserAsync(x.A.Id);
+        var token = await RequestedAsync(moderator, personal);
+        Assert.Equal(HttpStatusCode.NoContent, (await SendAsync(x.A.Token, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(token)}/confirm")).StatusCode);
+        return (moderator, (await JsonAsync(byA)).GetProperty("id").GetGuid(), x.A.Id, x.A.Token, (await JsonAsync(byB)).GetProperty("id").GetGuid());
+    }
 
-        var token = await RequestedAsync(staff, personal);
-        await SendAsync(personalToken, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(token)}/confirm");
-        var noConfirmation = await SendAsync(staff.Token, HttpMethod.Post, "/me/staff-link/unlink", new { });
-        var wrong = await SendAsync(staff.Token, HttpMethod.Post, "/me/staff-link/unlink", new { confirmation = new { password = "wrong-password-1", code = staff.Recovery[9], isRecoveryCode = true } });
-
-        Assert.Equal("step_up_required", await CodeAsync(noConfirmation));
-        Assert.Equal("invalid_password", await CodeAsync(wrong));
-        Assert.Equal(personal.Id, (await UserAsync(staff.Id)).LinkedUserId);   // отказы привязку не сняли
+    private async Task AssertConflictAsync(StaffActor moderator, params Guid[] caseIds)
+    {
+        foreach (var id in caseIds)
+        {
+            Assert.Equal(HttpStatusCode.NotFound, (await SendAsync(moderator.Token, HttpMethod.Get, $"/moderation/cases/{id}")).StatusCode);   // из очереди пропало
+            var take = await SendAsync(moderator.Token, HttpMethod.Post, $"/moderation/cases/{id}/take");
+            Assert.Equal(HttpStatusCode.Forbidden, take.StatusCode);
+            Assert.Equal("conflict_of_interest", await CodeAsync(take));
+        }
     }
 
     [Fact]
-    public async Task After_unlinking_the_personal_account_can_be_linked_to_another_staff_member()
+    public async Task After_linking_the_moderator_cannot_take_cases_with_their_personal_account_or_its_partners()
     {
+        var moderator = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
+        var x = await ModerationTestData.ExchangeAsync(_factory, _client);
+        await _factory.QueryAsync(async db =>
+        {
+            await db.Users.Where(u => u.Id == x.A.Id).ExecuteUpdateAsync(s => s.SetProperty(u => u.NormalizedEmail, u => u.Email!.ToUpper()).SetProperty(u => u.NormalizedUserName, u => u.Email!.ToUpper()));
+            return 0;
+        });
+        var body = new { type = "Conduct", category = "Insults", exchangeId = x.ExchangeId, description = "Собеседник регулярно оскорбляет меня в чате и срывает договорённости." };
+        var caseId = (await JsonAsync(await SendAsync(x.A.Token, HttpMethod.Post, "/cases", body))).GetProperty("id").GetGuid();
+        var token = await RequestedAsync(moderator, await UserAsync(x.A.Id));
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(moderator.Token, HttpMethod.Get, $"/moderation/cases/{caseId}")).StatusCode);   // пока привязки нет, конфликта нет
+
+        await SendAsync(x.A.Token, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(token)}/confirm");
+
+        await AssertConflictAsync(moderator, caseId);
+    }
+
+    [Fact]
+    public async Task The_staff_member_cannot_unlink_alone_the_old_route_is_gone_and_a_request_is_only_a_request()
+    {
+        var (moderator, caseId, personalId, _, partnerCaseId) = await LinkedModeratorWithCasesAsync();
+
+        var oldRoute = await SendAsync(moderator.Token, HttpMethod.Post, "/me/staff-link/unlink", new { confirmation = moderator.Confirm() });
+        var (_, state) = await UnlinkRequestedAsync(moderator);
+
+        Assert.True(oldRoute.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed);
+        Assert.Equal(personalId, state.GetProperty("linked").GetProperty("userId").GetGuid());   // привязка на месте
+        Assert.Equal(personalId, (await UserAsync(moderator.Id)).LinkedUserId);
+        await AssertConflictAsync(moderator, caseId, partnerCaseId);
+    }
+
+    [Fact]
+    public async Task The_loophole_is_closed_after_an_admin_unlinks_the_former_personal_account_and_its_partners_still_conflict()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var (moderator, caseId, personalId, personalToken, partnerCaseId) = await LinkedModeratorWithCasesAsync();
+
+        var unlink = await AdminUnlinkAsync(admin, moderator);
+
+        Assert.Equal(HttpStatusCode.OK, unlink.StatusCode);
+        Assert.Null((await UserAsync(moderator.Id)).LinkedUserId);
+        await AssertConflictAsync(moderator, caseId, partnerCaseId);   // сняли привязку, а обращения бывшего личного аккаунта и его партнёра всё равно недоступны
+
+        // Привязать обратно или другой аккаунт: история остаётся, конфликт тоже.
+        var (other, otherToken) = await StaffActor.PersonalAsync(_factory);
+        var otherLink = await RequestedAsync(moderator, other);
+        Assert.Equal(HttpStatusCode.NoContent, (await SendAsync(otherToken, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(otherLink)}/confirm")).StatusCode);
+        await AssertConflictAsync(moderator, caseId, partnerCaseId);
+        var history = await JsonAsync(await SendAsync(admin.Token, HttpMethod.Get, $"/admin/staff/{moderator.Id}/personal-links"));
+        Assert.Equal(2, history.GetArrayLength());
+        Assert.Contains(history.EnumerateArray(), h => h.GetProperty("personal").GetProperty("userId").GetGuid() == personalId && h.GetProperty("unlinkedAt").ValueKind != JsonValueKind.Null);
+        Assert.Contains(history.EnumerateArray(), h => h.GetProperty("personal").GetProperty("userId").GetGuid() == other.Id && h.GetProperty("isActive").GetBoolean());
+        Assert.NotEqual(Guid.Empty, personalId);
+        Assert.NotNull(personalToken);
+    }
+
+    [Fact]
+    public async Task Linking_the_same_personal_account_back_changes_nothing_for_conflicts()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var (moderator, caseId, personalId, personalToken, _) = await LinkedModeratorWithCasesAsync();
+        await AdminUnlinkAsync(admin, moderator);
+
+        var token = await RequestedAsync(moderator, await UserAsync(personalId));
+        var confirm = await SendAsync(personalToken, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(token)}/confirm");
+
+        Assert.Equal(HttpStatusCode.NoContent, confirm.StatusCode);
+        await AssertConflictAsync(moderator, caseId);
+        var history = await JsonAsync(await SendAsync(admin.Token, HttpMethod.Get, $"/admin/staff/{moderator.Id}/personal-links"));
+        Assert.Equal(2, history.GetArrayLength());   // две записи: прежняя снята, новая действует
+    }
+
+    [Fact]
+    public async Task A_link_made_before_the_history_existed_still_conflicts_and_unlinking_writes_it_into_the_history()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var x = await ModerationTestData.ExchangeAsync(_factory, _client);
+        var moderatorRow = await ModerationTestData.StaffAsync(_factory, UserRole.Moderator, x.A);   // привязка записана напрямую, без истории
+        var body = new { type = "Conduct", category = "Insults", exchangeId = x.ExchangeId, description = "Собеседник регулярно оскорбляет меня в чате и срывает договорённости." };
+        var caseId = (await JsonAsync(await SendAsync(x.A.Token, HttpMethod.Post, "/cases", body))).GetProperty("id").GetGuid();
+        var fake = new StaffActor { User = moderatorRow.User, Token = moderatorRow.Token, Key = string.Empty, Recovery = [] };
+        await AssertConflictAsync(fake, caseId);
+        Assert.Equal(0, await _factory.QueryAsync(db => db.StaffPersonalLinks.CountAsync(l => l.StaffId == moderatorRow.Id)));
+
+        var unlink = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/staff/{moderatorRow.Id}/personal-link/unlink", new { confirmation = admin.Confirm() });
+
+        Assert.Equal(HttpStatusCode.OK, unlink.StatusCode);
+        var row = await _factory.QueryAsync(db => db.StaffPersonalLinks.AsNoTracking().SingleAsync(l => l.StaffId == moderatorRow.Id));
+        Assert.Equal(x.A.Id, row.PersonalUserId);
+        Assert.Equal(admin.Id, row.UnlinkedById);
+        await AssertConflictAsync(fake, caseId);   // конфликт сохранился
+    }
+
+    [Fact]
+    public async Task A_request_to_unlink_needs_a_reason_a_link_and_is_one_at_a_time_and_admins_are_told()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var superAdmin = await StaffActor.CreateAsync(_factory, UserRole.SuperAdmin);
+        var (moderator, _, _, _, _) = await LinkedModeratorWithCasesAsync();
+        var notLinked = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
+
+        var none = await SendAsync(notLinked.Token, HttpMethod.Post, "/me/staff-link/unlink-request", new { reason = "Больше не нужна привязка этого аккаунта." });
+        var shortReason = await SendAsync(moderator.Token, HttpMethod.Post, "/me/staff-link/unlink-request", new { reason = "мало" });
+        var noReason = await SendAsync(moderator.Token, HttpMethod.Post, "/me/staff-link/unlink-request", new { reason = (string?)null });
+        var (requestId, state) = await UnlinkRequestedAsync(moderator);
+        var twice = await SendAsync(moderator.Token, HttpMethod.Post, "/me/staff-link/unlink-request", new { reason = "Ещё одна причина для снятия." });
+
+        Assert.Equal("not_linked", await CodeAsync(none));
+        Assert.Equal("unlink_reason_too_short", await CodeAsync(shortReason));
+        Assert.Equal("unlink_reason_too_short", await CodeAsync(noReason));
+        Assert.Equal("unlink_request_already_pending", await CodeAsync(twice));
+        Assert.Equal("Больше не нужна привязка этого аккаунта.", state.GetProperty("unlinkRequest").GetProperty("reason").GetString());
+        Assert.Contains(await NotificationsAsync(admin.Token, "PersonalUnlinkRequested"), n => n.GetProperty("payload").GetProperty("requestId").GetGuid() == requestId);
+        Assert.Contains(await NotificationsAsync(superAdmin.Token, "PersonalUnlinkRequested"), n => n.GetProperty("payload").GetProperty("requestId").GetGuid() == requestId);
+        Assert.Equal(1, await AuditCountAsync("PersonalUnlinkRequested", moderator.Id, moderator.Id));
+    }
+
+    [Fact]
+    public async Task An_admin_approves_with_the_confirmation_and_the_link_is_removed_audited_and_the_staff_member_is_told()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var (moderator, _, personalId, _, _) = await LinkedModeratorWithCasesAsync();
+        var (requestId, _) = await UnlinkRequestedAsync(moderator);
+
+        var noConfirmation = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/personal-unlink-requests/{requestId}/approve", new { });
+        var response = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/personal-unlink-requests/{requestId}/approve", new { confirmation = admin.Confirm() });
+        var again = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/personal-unlink-requests/{requestId}/approve", new { confirmation = admin.Confirm() });
+
+        Assert.Equal("step_up_required", await CodeAsync(noConfirmation));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var dto = await JsonAsync(response);
+        Assert.Equal("Approved", dto.GetProperty("status").GetString());
+        Assert.Equal(admin.Id, dto.GetProperty("decidedById").GetGuid());
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Equal("invalid_state_transition", await CodeAsync(again));
+        Assert.Null((await UserAsync(moderator.Id)).LinkedUserId);
+        var audit = await _factory.QueryAsync(db => db.AuditLogs.AsNoTracking().SingleAsync(a => a.Action == "PersonalAccountUnlinked" && a.TargetId == moderator.Id));
+        Assert.Equal(admin.Id, audit.ActorId);   // исполнитель — админ, а не сам сотрудник
+        Assert.Contains(personalId.ToString(), audit.DetailsJson);
+        var note = Assert.Single(await NotificationsAsync(moderator.Token, "PersonalUnlinkDecided")).GetProperty("payload");
+        Assert.True(note.GetProperty("approved").GetBoolean());
+        var state = await JsonAsync(await SendAsync(moderator.Token, HttpMethod.Get, "/me/staff-link"));
+        Assert.Equal(JsonValueKind.Null, state.GetProperty("linked").ValueKind);
+        Assert.Equal(JsonValueKind.Null, state.GetProperty("unlinkRequest").ValueKind);
+    }
+
+    [Fact]
+    public async Task A_rejected_request_keeps_the_link_and_the_staff_member_may_ask_again()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var (moderator, _, personalId, _, _) = await LinkedModeratorWithCasesAsync();
+        var (requestId, _) = await UnlinkRequestedAsync(moderator);
+
+        var response = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/personal-unlink-requests/{requestId}/reject", new { comment = "Причина не убедительна" });
+        var again = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/personal-unlink-requests/{requestId}/reject", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Rejected", (await JsonAsync(response)).GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Equal(personalId, (await UserAsync(moderator.Id)).LinkedUserId);
+        var note = Assert.Single(await NotificationsAsync(moderator.Token, "PersonalUnlinkDecided")).GetProperty("payload");
+        Assert.False(note.GetProperty("approved").GetBoolean());
+        await UnlinkRequestedAsync(moderator, "Новая причина: личный аккаунт закрыт.");   // после отказа можно просить снова
+    }
+
+    [Fact]
+    public async Task Admins_decide_for_moderators_only_and_superadmins_for_the_rest_and_nobody_for_themselves()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var superAdmin = await StaffActor.CreateAsync(_factory, UserRole.SuperAdmin);
+        var otherSuper = await StaffActor.CreateAsync(_factory, UserRole.SuperAdmin);
+        var moderator = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
+        var userToken = (await StaffActor.PersonalAsync(_factory)).Token;
+        var (adminPersonal, adminPersonalToken) = await StaffActor.PersonalAsync(_factory);
+        var (superPersonal, superPersonalToken) = await StaffActor.PersonalAsync(_factory);
+        var adminLink = await RequestedAsync(admin, adminPersonal);
+        await SendAsync(adminPersonalToken, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(adminLink)}/confirm");
+        var superLink = await RequestedAsync(otherSuper, superPersonal);
+        await SendAsync(superPersonalToken, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(superLink)}/confirm");
+        var (adminRequest, _) = await UnlinkRequestedAsync(admin);
+
+        var byAdminForAdmin = await AdminUnlinkAsync(admin, admin);          // себе никто
+        var byAdminForSuper = await AdminUnlinkAsync(admin, otherSuper);     // админ суперадмину не может
+        var approveByAdmin = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/personal-unlink-requests/{adminRequest}/approve", new { confirmation = admin.Confirm() });
+        var bySuperForSelf = await AdminUnlinkAsync(otherSuper, otherSuper);
+        var listForAdmin = await JsonAsync(await SendAsync(admin.Token, HttpMethod.Get, "/admin/personal-unlink-requests?pageSize=50"));
+        var listForSuper = await JsonAsync(await SendAsync(superAdmin.Token, HttpMethod.Get, "/admin/personal-unlink-requests?pageSize=50"));
+
+        Assert.Equal("cannot_change_own_rights", await CodeAsync(byAdminForAdmin));
+        Assert.Equal("staff_role_not_allowed", await CodeAsync(byAdminForSuper));
+        Assert.Equal("cannot_change_own_rights", await CodeAsync(approveByAdmin));   // свой запрос сам не решить
+        Assert.Equal("cannot_change_own_rights", await CodeAsync(bySuperForSelf));
+        Assert.DoesNotContain(listForAdmin.GetProperty("items").EnumerateArray(), i => i.GetProperty("id").GetGuid() == adminRequest);   // запросы админов админ не видит
+        Assert.Contains(listForSuper.GetProperty("items").EnumerateArray(), i => i.GetProperty("id").GetGuid() == adminRequest);
+        Assert.Equal(HttpStatusCode.OK, (await AdminUnlinkAsync(superAdmin, admin)).StatusCode);   // суперадмин снимает админу
+        Assert.Equal(HttpStatusCode.OK, (await AdminUnlinkAsync(superAdmin, otherSuper)).StatusCode);   // и другому суперадмину
+        Assert.Null((await UserAsync(admin.Id)).LinkedUserId);
+        Assert.Null((await UserAsync(otherSuper.Id)).LinkedUserId);
+
+        // Остальные роли к админским маршрутам не допущены.
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(moderator.Token, HttpMethod.Get, "/admin/personal-unlink-requests")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(userToken, HttpMethod.Get, "/admin/personal-unlink-requests")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(moderator.Token, HttpMethod.Post, $"/admin/staff/{admin.Id}/personal-link/unlink", new { confirmation = moderator.Confirm() })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(null, HttpMethod.Get, "/admin/personal-unlink-requests")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Unlinking_directly_closes_a_pending_request_needs_the_confirmation_and_a_link()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var (moderator, _, _, _, _) = await LinkedModeratorWithCasesAsync();
+        var notLinked = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
+        var (requestId, _) = await UnlinkRequestedAsync(moderator);
+
+        var none = await SendAsync(admin.Token, HttpMethod.Post, $"/admin/staff/{moderator.Id}/personal-link/unlink", new { });
+        var wrong = await AdminUnlinkAsync(admin, moderator, new { password = "wrong-password-1", code = admin.Recovery[9], isRecoveryCode = true });
+        Assert.Equal("step_up_required", await CodeAsync(none));
+        Assert.Equal("invalid_password", await CodeAsync(wrong));
+        Assert.NotNull((await UserAsync(moderator.Id)).LinkedUserId);   // отказы привязку не сняли
+
+        Assert.Equal(HttpStatusCode.OK, (await AdminUnlinkAsync(admin, moderator)).StatusCode);
+        var request = await _factory.QueryAsync(db => db.PersonalUnlinkRequests.AsNoTracking().SingleAsync(r => r.Id == requestId));
+        var again = await AdminUnlinkAsync(admin, moderator);
+        var neverLinked = await AdminUnlinkAsync(admin, notLinked);
+
+        Assert.Equal(UnlinkRequestStatus.Approved, request.Status);
+        Assert.Equal("not_linked", await CodeAsync(again));
+        Assert.Equal("not_linked", await CodeAsync(neverLinked));
+        Assert.Equal(HttpStatusCode.NotFound, (await SendAsync(admin.Token, HttpMethod.Post, $"/admin/staff/{Guid.NewGuid()}/personal-link/unlink", new { confirmation = admin.Confirm() })).StatusCode);
+    }
+
+    [Fact]
+    public async Task After_an_admin_unlinks_the_personal_account_can_be_linked_to_another_staff_member_who_has_no_conflict_with_it_yet()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
         var first = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
-        var second = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var second = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
         var (personal, personalToken) = await StaffActor.PersonalAsync(_factory);
         var token = await RequestedAsync(first, personal);
         await SendAsync(personalToken, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(token)}/confirm");
-        await SendAsync(first.Token, HttpMethod.Post, "/me/staff-link/unlink", new { confirmation = first.Confirm() });
+        await AdminUnlinkAsync(admin, first);
 
         var secondToken = await RequestedAsync(second, personal);
         var confirm = await SendAsync(personalToken, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(secondToken)}/confirm");
@@ -433,5 +663,18 @@ public partial class PersonalLinkApiTests
         Assert.Equal(HttpStatusCode.NoContent, confirm.StatusCode);
         Assert.Equal(personal.Id, (await UserAsync(second.Id)).LinkedUserId);
         Assert.Null((await UserAsync(first.Id)).LinkedUserId);
+    }
+
+    [Fact]
+    public async Task The_history_is_visible_to_admins_with_rights_and_a_missing_staff_member_is_not_found()
+    {
+        var admin = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+        var other = await StaffActor.CreateAsync(_factory, UserRole.Admin);
+
+        var forbidden = await SendAsync(admin.Token, HttpMethod.Get, $"/admin/staff/{other.Id}/personal-links");
+        var missing = await SendAsync(admin.Token, HttpMethod.Get, $"/admin/staff/{Guid.NewGuid()}/personal-links");
+
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
     }
 }

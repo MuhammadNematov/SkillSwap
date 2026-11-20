@@ -19,8 +19,26 @@ public sealed record LinkedAccountDto(Guid UserId, string Name, string? Email);
 
 public sealed record PendingLinkDto(Guid Id, string PersonalEmail, DateTime ExpiresAt);
 
-/// <summary>Состояние привязки глазами сотрудника: привязанный личный аккаунт и действующий запрос на привязку (если есть).</summary>
-public sealed record StaffLinkStateDto(LinkedAccountDto? Linked, PendingLinkDto? Pending);
+/// <summary>Действующий запрос сотрудника на снятие привязки (ждёт решения админа).</summary>
+public sealed record UnlinkRequestSummaryDto(Guid Id, string Reason, DateTime CreatedAt);
+
+/// <summary>Состояние привязки глазами сотрудника: привязанный личный аккаунт, действующий запрос на привязку и действующий запрос на снятие (если есть). Снять привязку сам сотрудник не может.</summary>
+public sealed record StaffLinkStateDto(LinkedAccountDto? Linked, PendingLinkDto? Pending, UnlinkRequestSummaryDto? UnlinkRequest);
+
+/// <summary>Запрос на снятие привязки: <c>reason</c> 10–500 символов (зачем снять).</summary>
+public sealed record RequestUnlinkRequest(string? Reason);
+
+/// <summary>Решение по запросу на снятие: комментарий необязателен, пишется в аудит.</summary>
+public sealed record DecideUnlinkRequest(string? Comment);
+
+/// <summary>Запрос на снятие привязки глазами админа.</summary>
+public sealed record UnlinkRequestDto(
+    Guid Id, StaffPersonDto Staff, UserRole StaffRole, LinkedAccountDto? Personal, string Reason, UnlinkRequestStatus Status, DateTime CreatedAt, Guid? DecidedById, DateTime? DecidedAt);
+
+public sealed record UnlinkRequestListDto(IReadOnlyList<UnlinkRequestDto> Items, int Page, int PageSize, int TotalCount);
+
+/// <summary>Одна привязка из истории сотрудника: личный аккаунт, когда привязан, когда и кем снят. Конфликт интересов учитывает все записи, снятые тоже.</summary>
+public sealed record StaffLinkHistoryDto(LinkedAccountDto Personal, DateTime LinkedAt, DateTime? UnlinkedAt, Guid? UnlinkedById, bool IsActive);
 
 /// <summary>Что видит владелец личного аккаунта, прежде чем подтвердить: кто просит и до какого времени действует запрос.</summary>
 public sealed record LinkPreviewDto(string StaffName, UserRole StaffRole, DateTime ExpiresAt);
@@ -41,6 +59,23 @@ public interface IPersonalLinkStore
 
     /// <summary>Служебный аккаунт, к которому уже привязан этот личный; null, если не привязан.</summary>
     Task<Guid?> FindStaffLinkedToAsync(Guid personalUserId, CancellationToken ct);
+
+    /// <summary>Запись в историю привязок (при подтверждении).</summary>
+    void AddLink(StaffPersonalLink link);
+
+    /// <summary>Действующая запись истории сотрудника (с отслеживанием); null, если её нет.</summary>
+    Task<StaffPersonalLink?> FindActiveLinkAsync(Guid staffId, CancellationToken ct);
+
+    /// <summary>Вся история привязок сотрудника, новые сверху.</summary>
+    Task<IReadOnlyList<StaffPersonalLink>> ListLinksAsync(Guid staffId, CancellationToken ct);
+
+    void AddUnlinkRequest(PersonalUnlinkRequest request);
+
+    Task<PersonalUnlinkRequest?> FindUnlinkRequestAsync(Guid id, bool tracked, CancellationToken ct);
+
+    Task<PersonalUnlinkRequest?> FindPendingUnlinkRequestAsync(Guid staffId, bool tracked, CancellationToken ct);
+
+    Task<(IReadOnlyList<PersonalUnlinkRequest> Items, int Total)> ListUnlinkRequestsAsync(UnlinkRequestStatus? status, int page, int pageSize, CancellationToken ct);
 
     Task SaveAsync(CancellationToken ct);
 }
@@ -162,28 +197,225 @@ public sealed class PersonalLinkService
         return await StateAsync(staff, ct);
     }
 
-    /// <summary>Снять привязку (пароль и код 2FA). Привязки нет: 409 <c>not_linked</c>. Конфликт интересов после этого проверяться перестаёт.</summary>
-    public async Task<StaffLinkStateDto> UnlinkAsync(Guid staffId, StaffActionRequest request, CancellationToken ct)
+    /// <summary>
+    /// Попросить снять привязку. Сам сотрудник привязку снять не может (иначе можно снять привязку, взять обращение своего личного аккаунта и привязать обратно): он описывает
+    /// причину (`reason`, 10–500 символов), решает админ (модераторов) или суперадмин (админов и суперадминов) с подтверждением паролем и кодом 2FA. Привязки нет: 409 `not_linked`;
+    /// запрос уже ждёт решения: 409 `unlink_request_already_pending`. Админы, которые вправе решить, получают уведомление `PersonalUnlinkRequested`.
+    /// </summary>
+    public async Task<StaffLinkStateDto> RequestUnlinkAsync(Guid staffId, RequestUnlinkRequest request, CancellationToken ct)
     {
-        await RequireStaffAsync(staffId, ct);
-        await _stepUp.RequireAsync(staffId, request.Confirmation, ct);
-
+        var staff = await RequireStaffAsync(staffId, ct);
+        var admins = await ResolversAsync(staff, ct);
+        PersonalUnlinkRequest created = null!;
         await _uow.ExecuteAsync(async t =>
         {
-            var staff = await _profiles.FindUserForUpdateAsync(staffId, t) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
-            var personalId = staff.LinkedUserId;
-            await _uow.LockUsersAsync(personalId is { } id ? [staffId, id] : [staffId], t);
-            if (!staff.UnlinkPersonalAccount())
+            await _uow.LockUsersAsync([staffId], t);
+            var current = await _profiles.FindUserAsync(staffId, t) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
+            if (current.LinkedUserId is null)
             {
                 throw new ConflictException("not_linked", "Личный аккаунт не привязан.");
             }
 
-            _audit.Add(new AuditEntry(staffId, StaffAuditActions.PersonalAccountUnlinked, "User", personalId, null));
+            if (await _links.FindPendingUnlinkRequestAsync(staffId, tracked: false, t) is not null)
+            {
+                throw new ConflictException("unlink_request_already_pending", "Запрос на снятие уже ждёт решения админа.");
+            }
+
+            created = PersonalUnlinkRequest.Create(staffId, request.Reason);   // короткая или длинная причина: 400
+            _links.AddUnlinkRequest(created);
+            _audit.Add(new AuditEntry(staffId, StaffAuditActions.PersonalUnlinkRequested, "User", staffId, new { requestId = created.Id }));
+            foreach (var admin in admins)
+            {
+                _notify.Add(admin, NotificationType.PersonalUnlinkRequested, new { requestId = created.Id, staffId, staffName = staff.Name });
+            }
+
             await _links.SaveAsync(t);
             return 0;
         }, ct);
 
+        _notify.Dispatch();
+        return await StateAsync(staff, ct);
+    }
+
+    // ---------- админ ----------
+
+    /// <summary>Запросы на снятие привязки (новые сверху, фильтр по статусу): админ видит запросы модераторов, суперадмин все.</summary>
+    public async Task<UnlinkRequestListDto> ListUnlinkRequestsAsync(Guid adminId, UnlinkRequestStatus? status, int page, int pageSize, CancellationToken ct)
+    {
+        Paging.Validate(page, pageSize);
+        var admin = await RequireAdminAsync(adminId, ct);
+        var (items, total) = await _links.ListUnlinkRequestsAsync(status, page, pageSize, ct);
+        var dtos = new List<UnlinkRequestDto>();
+        var people = await _profiles.FindUsersAsync(items.Select(i => i.StaffId).Distinct().ToList(), ct);
+        foreach (var item in items)
+        {
+            if (!people.TryGetValue(item.StaffId, out var staff) || !StaffRules.CanUnlinkPersonal(admin.Role, staff.Role))
+            {
+                total--;   // чужие по уровню запросы не показываем (и не считаем)
+                continue;
+            }
+
+            LinkedAccountDto? personal = null;
+            if (staff.LinkedUserId is { } id && await _profiles.FindUserAsync(id, ct) is { } p)
+            {
+                personal = new LinkedAccountDto(p.Id, p.Name, p.Email);
+            }
+
+            dtos.Add(new UnlinkRequestDto(item.Id, new StaffPersonDto(staff.Id, staff.Name), staff.Role, personal, item.Reason, item.Status, item.CreatedAt, item.DecidedById, item.DecidedAt));
+        }
+
+        return new UnlinkRequestListDto(dtos, page, pageSize, Math.Max(total, dtos.Count));
+    }
+
+    /// <summary>
+    /// Одобрить запрос: привязка снимается (пароль и код 2FA админа). Конфликт интересов по этому личному аккаунту и его бывшим партнёрам остаётся навсегда (история привязок).
+    /// Сотруднику приходит `PersonalUnlinkDecided`.
+    /// </summary>
+    public async Task<UnlinkRequestDto> ApproveUnlinkAsync(Guid adminId, Guid requestId, StaffActionRequest request, CancellationToken ct)
+    {
+        var admin = await RequireAdminAsync(adminId, ct);
+        var peek = await _links.FindUnlinkRequestAsync(requestId, tracked: false, ct) ?? throw new NotFoundException("unlink_request_not_found", "Запрос не найден.");
+        if (peek.Status != UnlinkRequestStatus.Pending)
+        {
+            throw new Domain.Exceptions.InvalidStateTransitionException(nameof(PersonalUnlinkRequest), peek.Status.ToString(), nameof(UnlinkRequestStatus.Approved));
+        }
+
+        var target = await RequireStaffAsync(peek.StaffId, ct);
+        RequireCanUnlink(admin, target);
+        await _stepUp.RequireAsync(adminId, request.Confirmation, ct);
+        await UnlinkCoreAsync(admin, target.Id, requestId, ct);
+        return await UnlinkRequestDtoAsync(requestId, ct);
+    }
+
+    /// <summary>Отклонить запрос: привязка остаётся, сотруднику приходит `PersonalUnlinkDecided` (`approved: false`). Подтверждение паролем не нужно: привязка не меняется.</summary>
+    public async Task<UnlinkRequestDto> RejectUnlinkAsync(Guid adminId, Guid requestId, DecideUnlinkRequest? request, CancellationToken ct)
+    {
+        var admin = await RequireAdminAsync(adminId, ct);
+        var peek = await _links.FindUnlinkRequestAsync(requestId, tracked: false, ct) ?? throw new NotFoundException("unlink_request_not_found", "Запрос не найден.");
+        var target = await RequireStaffAsync(peek.StaffId, ct);
+        RequireCanUnlink(admin, target);
+
+        await _uow.ExecuteAsync(async t =>
+        {
+            await _uow.LockUsersAsync([adminId, target.Id], t);
+            var found = await _links.FindUnlinkRequestAsync(requestId, tracked: true, t) ?? throw new NotFoundException("unlink_request_not_found", "Запрос не найден.");
+            found.Reject(adminId, Now());   // уже решён: 409 invalid_state_transition
+            _audit.Add(new AuditEntry(adminId, StaffAuditActions.PersonalUnlinkRejected, "User", target.Id, new { requestId, comment = request?.Comment }));
+            _notify.Add(target.Id, NotificationType.PersonalUnlinkDecided, new { requestId, approved = false });
+            await _links.SaveAsync(t);
+            return 0;
+        }, ct);
+
+        _notify.Dispatch();
+        return await UnlinkRequestDtoAsync(requestId, ct);
+    }
+
+    /// <summary>
+    /// Снять привязку сотруднику без запроса (например, при снятии модератора): админ снимает модераторам, суперадмин модераторам, админам и другим суперадминам, себе никто.
+    /// Пароль и код 2FA, аудит, необработанный запрос сотрудника закрывается как одобренный. 409 `not_linked`.
+    /// </summary>
+    public async Task<StaffLinkStateDto> UnlinkStaffAsync(Guid adminId, Guid staffId, StaffActionRequest request, CancellationToken ct)
+    {
+        var admin = await RequireAdminAsync(adminId, ct);
+        var target = await RequireStaffAsync(staffId, ct);
+        RequireCanUnlink(admin, target);
+        await _stepUp.RequireAsync(adminId, request.Confirmation, ct);
+        await UnlinkCoreAsync(admin, staffId, requestId: null, ct);
         return await StateAsync((await _profiles.FindUserAsync(staffId, ct))!, ct);
+    }
+
+    /// <summary>Вся история привязок сотрудника (личные аккаунты, когда привязаны, когда и кем сняты): ею пользуется проверка конфликта интересов.</summary>
+    public async Task<IReadOnlyList<StaffLinkHistoryDto>> HistoryAsync(Guid adminId, Guid staffId, CancellationToken ct)
+    {
+        var admin = await RequireAdminAsync(adminId, ct);
+        var target = await RequireStaffAsync(staffId, ct);
+        if (!StaffRules.CanUnlinkPersonal(admin.Role, target.Role) && adminId != staffId)
+        {
+            throw new ForbiddenException("staff_role_not_allowed", "У вас нет прав на этого сотрудника.");
+        }
+
+        var links = await _links.ListLinksAsync(staffId, ct);
+        var people = await _profiles.FindUsersAsync(links.Select(l => l.PersonalUserId).Distinct().ToList(), ct);
+        return links.Select(l => new StaffLinkHistoryDto(
+            new LinkedAccountDto(l.PersonalUserId, people.TryGetValue(l.PersonalUserId, out var p) ? p.Name : "—", people.GetValueOrDefault(l.PersonalUserId)?.Email),
+            l.LinkedAt, l.UnlinkedAt, l.UnlinkedById, l.IsActive)).ToList();
+    }
+
+    private async Task UnlinkCoreAsync(User admin, Guid staffId, Guid? requestId, CancellationToken ct)
+    {
+        await _uow.ExecuteAsync(async t =>
+        {
+            var staff = await _profiles.FindUserForUpdateAsync(staffId, t) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
+            var personalId = staff.LinkedUserId ?? throw new ConflictException("not_linked", "Личный аккаунт не привязан.");
+            await _uow.LockUsersAsync([admin.Id, staffId, personalId], t);
+            var now = Now();
+
+            // Запись истории: если привязка создана в обход подтверждения (старые данные, разработка), историю дописываем, чтобы конфликт не потерялся.
+            var link = await _links.FindActiveLinkAsync(staffId, t);
+            if (link is null)
+            {
+                link = StaffPersonalLink.Create(staffId, personalId, now);
+                _links.AddLink(link);
+            }
+
+            staff.UnlinkPersonalAccount();
+            link.Unlink(admin.Id, now);
+
+            PersonalUnlinkRequest? pending = requestId is { } id
+                ? await _links.FindUnlinkRequestAsync(id, tracked: true, t)
+                : await _links.FindPendingUnlinkRequestAsync(staffId, tracked: true, t);
+            pending?.Approve(admin.Id, now);   // уже решён: 409 invalid_state_transition
+
+            _audit.Add(new AuditEntry(admin.Id, StaffAuditActions.PersonalAccountUnlinked, "User", staffId, new { personalUserId = personalId, requestId = pending?.Id }));
+            _notify.Add(staffId, NotificationType.PersonalUnlinkDecided, new { requestId = pending?.Id, approved = true });
+            await _links.SaveAsync(t);
+            return 0;
+        }, ct);
+
+        _notify.Dispatch();
+    }
+
+    private static void RequireCanUnlink(User admin, User target)
+    {
+        StaffRules.RequireNotSelf(admin.Id, target.Id);
+        if (!StaffRules.CanUnlinkPersonal(admin.Role, target.Role))
+        {
+            throw new ForbiddenException("staff_role_not_allowed", target.Role == UserRole.Moderator
+                ? "У вас нет прав на этого сотрудника."
+                : "Привязку админов и суперадминов снимает только суперадмин.");
+        }
+    }
+
+    /// <summary>Админы и суперадмины, которые вправе решать запрос этого сотрудника.</summary>
+    private async Task<IReadOnlyList<Guid>> ResolversAsync(User staff, CancellationToken ct)
+    {
+        var ids = (await _cases.ListActiveAdminIdsAsync(ct)).Where(id => id != staff.Id).ToList();
+        var people = await _profiles.FindUsersAsync(ids, ct);
+        return ids.Where(id => people.TryGetValue(id, out var p) && StaffRules.CanUnlinkPersonal(p.Role, staff.Role)).ToList();
+    }
+
+    private async Task<UnlinkRequestDto> UnlinkRequestDtoAsync(Guid requestId, CancellationToken ct)
+    {
+        var item = (await _links.FindUnlinkRequestAsync(requestId, tracked: false, ct))!;
+        var staff = (await _profiles.FindUserAsync(item.StaffId, ct))!;
+        LinkedAccountDto? personal = null;
+        if (staff.LinkedUserId is { } id && await _profiles.FindUserAsync(id, ct) is { } p)
+        {
+            personal = new LinkedAccountDto(p.Id, p.Name, p.Email);
+        }
+
+        return new UnlinkRequestDto(item.Id, new StaffPersonDto(staff.Id, staff.Name), staff.Role, personal, item.Reason, item.Status, item.CreatedAt, item.DecidedById, item.DecidedAt);
+    }
+
+    private async Task<User> RequireAdminAsync(Guid adminId, CancellationToken ct)
+    {
+        var user = await _profiles.FindUserAsync(adminId, ct) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
+        if (user.Role is not (UserRole.Admin or UserRole.SuperAdmin) || user.IsRegular || user.Status != UserStatus.Active)
+        {
+            throw new ForbiddenException("admin_required", "Доступно только администратору.");
+        }
+
+        return user;
     }
 
     // ---------- владелец личного аккаунта ----------
@@ -233,8 +465,10 @@ public sealed class PersonalLinkService
 
             var now = Now();
             staff.LinkPersonalAccount(personal);
+            _links.AddLink(StaffPersonalLink.Create(staff.Id, personalUserId, now));   // история привязок: конфликт интересов учитывает и снятые
             request.Confirm(now);
-            var conflicts = await _cases.CountActiveConflictsAsync(staff.Id, await _cases.GetConflictUserIdsAsync(personalUserId, t), t);
+            await _links.SaveAsync(t);
+            var conflicts = await _cases.CountActiveConflictsAsync(staff.Id, await _cases.GetConflictUserIdsForStaffAsync(staff.Id, t), t);
             _audit.Add(new AuditEntry(personalUserId, StaffAuditActions.PersonalAccountLinked, "User", staff.Id, new { requestId = request.Id, conflictingCases = conflicts }));
             _notify.Add(staff.Id, NotificationType.PersonalLinkConfirmed, new { userId = personalUserId, userName = personal.Name, conflictingCases = conflicts });
             await _links.SaveAsync(t);
@@ -280,7 +514,8 @@ public sealed class PersonalLinkService
             pending = new PendingLinkDto(open.Id, target.Email ?? string.Empty, open.ExpiresAt);
         }
 
-        return new StaffLinkStateDto(linked, pending);
+        var unlink = await _links.FindPendingUnlinkRequestAsync(staff.Id, tracked: false, ct);
+        return new StaffLinkStateDto(linked, pending, unlink is null ? null : new UnlinkRequestSummaryDto(unlink.Id, unlink.Reason, unlink.CreatedAt));
     }
 
     private async Task<PersonalLinkRequest> FindOwnAsync(Guid personalUserId, string? token, bool forUpdate, CancellationToken ct)

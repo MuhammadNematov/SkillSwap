@@ -37,6 +37,8 @@ public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyC
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<StaffInvitation> StaffInvitations => Set<StaffInvitation>();
     public DbSet<PersonalLinkRequest> PersonalLinkRequests => Set<PersonalLinkRequest>();
+    public DbSet<StaffPersonalLink> StaffPersonalLinks => Set<StaffPersonalLink>();
+    public DbSet<PersonalUnlinkRequest> PersonalUnlinkRequests => Set<PersonalUnlinkRequest>();
     public DbSet<DataExport> DataExports => Set<DataExport>();
     public DbSet<MessageRevision> MessageRevisions => Set<MessageRevision>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();

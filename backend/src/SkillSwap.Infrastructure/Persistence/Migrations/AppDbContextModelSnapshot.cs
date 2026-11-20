@@ -1106,6 +1106,57 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("PersonalLinkRequests", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.PersonalUnlinkRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DecidedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("StaffId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DecidedById");
+
+                    b.HasIndex("StaffId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PersonalUnlinkRequests_Pending_Staff")
+                        .HasFilter("\"Status\" = 'Pending'");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("PersonalUnlinkRequests", (string)null);
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1884,6 +1935,56 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.ToTable("StaffInvitations", (string)null);
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.StaffPersonalLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LinkedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PersonalUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StaffId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UnlinkedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UnlinkedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonalUserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_StaffPersonalLinks_Active_Personal")
+                        .HasFilter("\"UnlinkedAt\" IS NULL");
+
+                    b.HasIndex("StaffId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_StaffPersonalLinks_Active_Staff")
+                        .HasFilter("\"UnlinkedAt\" IS NULL");
+
+                    b.HasIndex("UnlinkedById");
+
+                    b.ToTable("StaffPersonalLinks", (string)null);
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.SystemSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -2594,6 +2695,20 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SkillSwap.Domain.Entities.PersonalUnlinkRequest", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("DecidedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SkillSwap.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("SkillSwap.Domain.Entities.User", null)
@@ -2687,6 +2802,26 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .HasForeignKey("InvitedById")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SkillSwap.Domain.Entities.StaffPersonalLink", b =>
+                {
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("PersonalUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SkillSwap.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UnlinkedById")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SkillSwap.Domain.Entities.TwoFactorRecoveryCode", b =>

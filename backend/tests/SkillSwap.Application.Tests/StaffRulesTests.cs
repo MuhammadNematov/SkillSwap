@@ -67,4 +67,18 @@ public class StaffRulesTests
             StaffRules.RequireNotLastSuperAdmin(target, activeSuperAdmins);
         }
     }
+
+    [Theory]
+    [InlineData(UserRole.Admin, UserRole.Moderator, true)]
+    [InlineData(UserRole.SuperAdmin, UserRole.Moderator, true)]
+    [InlineData(UserRole.SuperAdmin, UserRole.Admin, true)]
+    [InlineData(UserRole.SuperAdmin, UserRole.SuperAdmin, true)]
+    [InlineData(UserRole.Admin, UserRole.Admin, false)]
+    [InlineData(UserRole.Admin, UserRole.SuperAdmin, false)]
+    [InlineData(UserRole.Moderator, UserRole.Moderator, false)]
+    [InlineData(UserRole.User, UserRole.Moderator, false)]
+    public void Who_may_unlink_a_personal_account(UserRole actor, UserRole target, bool allowed)
+    {
+        Assert.Equal(allowed, StaffRules.CanUnlinkPersonal(actor, target));
+    }
 }
