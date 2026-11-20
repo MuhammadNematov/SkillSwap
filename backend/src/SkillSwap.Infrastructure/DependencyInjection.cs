@@ -143,6 +143,7 @@ public static class DependencyInjection
         services.AddScoped<ISkillCatalogReader, SkillCatalogReader>();
         services.AddScoped<ISkillCatalogRepository, SkillCatalogRepository>();
         services.AddScoped<ISkillSuggestionStore, SkillSuggestionStore>();
+        services.AddScoped<ISkillSuggestionAdminStore, SkillSuggestionAdminStore>();
         services.AddScoped<IProfileStore, ProfileStore>();
         services.AddScoped<IUserSkillStore, UserSkillStore>();
         services.AddScoped<IUserBlockStore, UserBlockStore>();

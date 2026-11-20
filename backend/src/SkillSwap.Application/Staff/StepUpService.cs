@@ -35,6 +35,15 @@ public static class StaffAuditActions
     public const string WarningRevokedManually = "WarningRevokedManually";
     public const string SettingChanged = "SettingChanged";
     public const string StepUpFailed = "StepUpFailed";
+    public const string SkillSuggestionApproved = "SkillSuggestionApproved";
+    public const string SkillSuggestionMerged = "SkillSuggestionMerged";
+    public const string SkillSuggestionRejected = "SkillSuggestionRejected";
+    public const string CategoryCreated = "CategoryCreated";
+    public const string CategoryUpdated = "CategoryUpdated";
+    public const string CategoryDeleted = "CategoryDeleted";
+    public const string SkillCreated = "SkillCreated";
+    public const string SkillUpdated = "SkillUpdated";
+    public const string SkillDeleted = "SkillDeleted";
 }
 
 /// <summary>

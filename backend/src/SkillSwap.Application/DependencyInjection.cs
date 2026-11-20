@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<SessionService>();
         services.AddScoped<SkillCatalogService>();
         services.AddScoped<SkillCatalogAdminService>();
+        services.AddScoped<SkillSuggestionAdminService>();
         services.AddScoped<ProfileService>();
         services.AddScoped<MySkillsService>();
         services.AddScoped<UserBlockService>();

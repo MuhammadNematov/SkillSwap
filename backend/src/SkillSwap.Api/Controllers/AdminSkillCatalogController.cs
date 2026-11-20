@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SkillSwap.Application.Common;
@@ -43,7 +44,7 @@ public class AdminSkillCatalogController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateCategory([FromBody] CategoryCreateRequest request, CancellationToken ct)
     {
-        var created = await _catalog.CreateCategoryAsync(request, ct);
+        var created = await _catalog.CreateCategoryAsync(AdminId(), request, ct);
         return CreatedAtAction(nameof(GetCategory), new { id = created.Id }, created);
     }
 
@@ -54,7 +55,7 @@ public class AdminSkillCatalogController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] CategoryUpdateRequest request, CancellationToken ct) =>
-        Ok(await _catalog.UpdateCategoryAsync(id, request, ct));
+        Ok(await _catalog.UpdateCategoryAsync(AdminId(), id, request, ct));
 
     /// <summary>Удаляет пустую категорию. Если в ней есть навыки — 409 <c>category_not_empty</c>.</summary>
     [HttpDelete("skill-categories/{id:guid}")]
@@ -63,7 +64,7 @@ public class AdminSkillCatalogController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteCategory(Guid id, CancellationToken ct)
     {
-        await _catalog.DeleteCategoryAsync(id, ct);
+        await _catalog.DeleteCategoryAsync(AdminId(), id, ct);
         return NoContent();
     }
 
@@ -96,7 +97,7 @@ public class AdminSkillCatalogController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateSkill([FromBody] SkillCreateRequest request, CancellationToken ct)
     {
-        var created = await _catalog.CreateSkillAsync(request, ct);
+        var created = await _catalog.CreateSkillAsync(AdminId(), request, ct);
         return CreatedAtAction(nameof(GetSkill), new { id = created.Id }, created);
     }
 
@@ -107,7 +108,7 @@ public class AdminSkillCatalogController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateSkill(Guid id, [FromBody] SkillUpdateRequest request, CancellationToken ct) =>
-        Ok(await _catalog.UpdateSkillAsync(id, request, ct));
+        Ok(await _catalog.UpdateSkillAsync(AdminId(), id, request, ct));
 
     /// <summary>Удаляет навык. Если он указан в анкетах — 409 <c>skill_in_use</c>: тогда его выключают.</summary>
     [HttpDelete("skills/{id:guid}")]
@@ -116,7 +117,9 @@ public class AdminSkillCatalogController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteSkill(Guid id, CancellationToken ct)
     {
-        await _catalog.DeleteSkillAsync(id, ct);
+        await _catalog.DeleteSkillAsync(AdminId(), id, ct);
         return NoContent();
     }
+
+    private Guid AdminId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

@@ -20,7 +20,7 @@ public class AdminSkillCatalogTests
     {
         _factory = factory;
         _client = new AuthApi(factory).Client;
-        _admin = TestTokens.For(factory, UserRole.Admin);
+        _admin = ModerationTestData.StaffAsync(factory, UserRole.Admin).GetAwaiter().GetResult().Token;   // настоящий админ: сервис проверяет статус по базе
     }
 
     private static string Marker() => "T" + Guid.NewGuid().ToString("N")[..10];
