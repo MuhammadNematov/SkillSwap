@@ -8,6 +8,7 @@ import { errorMessage, toApiError } from '../../api/errors'
 import { formatDateTime } from '../../utils/dates'
 import CallRoom from '../../components/CallRoom'
 import CaseModal from '../../components/CaseModal'
+import PreJoin, { type JoinPrefs } from '../../components/PreJoin'
 import Spinner from '../../components/Spinner'
 
 const FIVE_MIN = 5 * 60_000
@@ -26,6 +27,8 @@ export default function Call() {
   const [now, setNow] = useState(() => Date.now())
 
   const [exited, setExited] = useState(false)
+  const [prefs, setPrefs] = useState<JoinPrefs | null>(null)
+  const [entering, setEntering] = useState(false)
   const [complaining, setComplaining] = useState(false)
   const exchangeId = useQuery({ queryKey: ['sessionExchange', sessionId], queryFn: () => getSessionExchangeId(sessionId), staleTime: Infinity })
   const { data, error, isLoading, isFetching, refetch } = useQuery({
@@ -40,6 +43,22 @@ export default function Call() {
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  // Токен короткий: если пока смотрели превью он истёк, берём новый
+  const enter = async (p: JoinPrefs) => {
+    setEntering(true)
+    try {
+      const expired = data?.expiresAt ? new Date(data.expiresAt).getTime() - Date.now() < 15_000 : false
+      if (expired) {
+        const r = await refetch()
+        if (!r.data) return
+      }
+      setPrefs(p)
+      setExited(false)
+    } finally {
+      setEntering(false)
+    }
+  }
 
   if (isLoading) return <Spinner />
 
@@ -86,7 +105,14 @@ export default function Call() {
       )}
 
       {closed ? (
-        <div className="card text-center text-sm text-ink-soft">{t('call.closed')}</div>
+        <div className="card space-y-3 text-center text-sm text-ink-soft">
+          <p>{t('call.closed')}</p>
+          {exchangeId.data && (
+            <Link to={`/app/exchanges/${exchangeId.data}`} className="btn-primary">
+              {t('call.toExchange')}
+            </Link>
+          )}
+        </div>
       ) : exited ? (
         // Вышли из комнаты или связь оборвалась: можно вернуться, для этого берём новый токен (пока окно входа открыто)
         <div className="card mx-auto w-full max-w-md space-y-4 text-center">
@@ -107,8 +133,10 @@ export default function Call() {
             </button>
           </div>
         </div>
+      ) : !prefs ? (
+        <PreJoin busy={entering} onJoin={enter} />
       ) : (
-        <CallRoom data={data} onLeave={() => setExited(true)} />
+        <CallRoom data={data} prefs={prefs} onLeave={() => setExited(true)} />
       )}
       {complaining && exchangeId.data && (
         <CaseModal exchangeId={exchangeId.data} partnerName="" fixed={{ type: 'Conduct' }} fromCall onClose={() => setComplaining(false)} />

@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { USE_MOCKS } from '../../api/config'
 import { getDashboard } from '../../api/dashboard'
 import Avatar from '../../components/Avatar'
 import Icon, { type IconName } from '../../components/Icon'
+import DevSeedLesson from '../../components/DevSeedLesson'
 import Spinner from '../../components/Spinner'
 import SwapStage from '../../components/SwapScene'
 import { useAuth } from '../../hooks/useAuth'
@@ -111,7 +113,7 @@ export default function AppHome() {
           )}
           {lesson && (
             <div className="mt-5">
-              {isJoinWindowOpen(lesson.startsAt) ? (
+              {USE_MOCKS || isJoinWindowOpen(lesson.startsAt) ? (
                 <Link to={`/app/call/${lesson.id}`} className="btn-primary">
                   <Icon name="video" className="h-4 w-4" />
                   {t('dashboard.join')}
@@ -160,6 +162,7 @@ export default function AppHome() {
           </ul>
         </section>
       </div>
+      {import.meta.env.DEV && !USE_MOCKS && <DevSeedLesson />}
     </div>
   )
 }

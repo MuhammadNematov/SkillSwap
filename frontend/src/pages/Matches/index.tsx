@@ -74,7 +74,7 @@ export default function Matches() {
 
   const visible = tab === 'all' ? matches : matches.filter((m) => m.matchType === tab)
   const tabs: { key: 'all' | MatchType; label: string }[] = [
-    { key: 'all', label: t('matches.tabAll', { count: matches.length }) },
+    { key: 'all', label: t('matches.tabAll') },
     { key: 'full', label: t('matches.tabFull') },
     { key: 'partial', label: t('matches.tabPartial') },
   ]
