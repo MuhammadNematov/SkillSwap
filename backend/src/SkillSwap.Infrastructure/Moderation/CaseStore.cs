@@ -162,6 +162,12 @@ public sealed class CaseStore : ICaseStore
     public async Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct) =>
         await _db.BanRequests.Where(b => b.CaseId == caseId).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct) =>
+        await _db.BanRequests.Where(b => b.UserId == userId && b.Status == BanRequestStatus.Pending).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<BanRequest>> ListBanRequestsForUserAsync(Guid userId, CancellationToken ct) =>
+        await _db.BanRequests.AsNoTracking().Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).ToListAsync(ct);
+
     public async Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct)
     {
         var query = _db.BanRequests.AsNoTracking().AsQueryable();

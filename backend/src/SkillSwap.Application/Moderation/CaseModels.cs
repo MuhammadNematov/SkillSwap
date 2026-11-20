@@ -141,6 +141,12 @@ public interface ICaseStore
     /// <summary>Запросы на бан, созданные по обращению (с отслеживанием).</summary>
     Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct);
 
+    /// <summary>Необработанные запросы на бан по пользователю (с отслеживанием).</summary>
+    Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Все запросы на бан по пользователю, новые сверху (только чтение).</summary>
+    Task<IReadOnlyList<BanRequest>> ListBanRequestsForUserAsync(Guid userId, CancellationToken ct);
+
     Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct);
 
     void AddWarning(Warning warning);

@@ -60,6 +60,8 @@ public static class DependencyInjection
         services.AddScoped<Staff.StepUpService>();
         services.AddScoped<Staff.StaffInvitationService>();
         services.AddScoped<Staff.PersonalLinkService>();
+        services.AddScoped<Staff.AccountBlocker>();
+        services.AddScoped<AdminUsers.AdminUserService>();
         services.AddScoped<Moderation.ChatCleanupJobs>();
         services.AddScoped<Moderation.CaseJobs>();
         services.AddScoped<Reviews.ReviewService>();

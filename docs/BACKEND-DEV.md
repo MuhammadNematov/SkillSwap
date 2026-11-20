@@ -849,6 +849,16 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 - `POST /dev/seed-staff`: один раз создаёт модератора `dev-moderator@example.com`, второго модератора `dev-moderator-2@example.com` и админа `dev-admin@example.com`; в ответе `accessToken` каждого (служебным вход требует 2FA, для разработки выдаются токены; пароль виден только при создании).
 - `POST /dev/seed-case` `{ type, stage, decision }` (все поля необязательны): двое новых пользователей (вход по почте и паролю, токены тоже есть), обмен с перепиской (последние два сообщения приложены как доказательства) и обращение, доведённое до стадии (`Open`, `Taken`, `Waiting`, `Resolved`, `Appealed`, `AppealReview`) **настоящими сервисами**: подача, взятие, вопросы, решение, апелляция, назначение проверяющего. Поэтому появляются настоящие уведомления, письма и фоновые задачи с сокращёнными сроками. Тип `ReviewDispute` создаёт закрытый обмен с засчитанным уроком и двумя опубликованными отзывами (урок и закрытие записываются напрямую, отзывы через сервис).
 
+## Пользователи админа и общая блокировка (этап 7, шаг 3): для бэкенда
+
+Контракт для фронтенда: `docs/FRONTEND-ADMIN.md`, раздел 4 (тег **Admin users**).
+
+- **Один путь блокировки.** `Staff/AccountBlocker` используют и одобрение запроса на бан (`BanRequestService.ApproveAsync`), и ручная блокировка (`AdminUserService.BlockAsync`), чтобы последствия не расходились. Порядок: `UsersToLockAsync` (пользователь и партнёры по его открытым обменам), блокировка их в транзакции, `ApplyAsync` (`User.Block`, отзыв refresh-токенов, ожидающие заявки в обе стороны в `Expired`, обмены в `Aborted` с `account_blocked`, партнёру `ExchangeAborted` с `partner_unavailable`, отмена уроков, аудит `UserBlocked` с источником `manual` или `ban_request`), после коммита `FinishAsync` (рассылка уведомлений, письмо, `IRealtimeDisconnector`, карточки уроков, приглашения на отзыв). Любое новое последствие блокировки добавляется только сюда.
+- **Ручная блокировка** дополнительно закрывает все необработанные запросы на бан по пользователю как одобренные админом (аудит `BanDecided`, `BanRequestDecided` запросившему) и блокирует в транзакции и запросивших. Служебные аккаунты и себя заблокировать нельзя.
+- **Разблокировка** (`User.Unblock`: Blocked → Active): обмены не возвращаются, аудит `UserUnblocked`, письмо `EmailTemplates.AccountUnblocked` (tg, ru, en).
+- **Снятие предупреждения** (`Warning.Revoke`): аудит `WarningRevokedManually`, `WarningRevoked` с `manual: true`, автоматический запрос на бан (`RequestedById == null`) отклоняется, если действующих меньше `Warning.BanThreshold`.
+- **Чтение.** `IAdminUserStore` (`Infrastructure/AdminUsers`): поиск `ILIKE` с экранированием спецсимволов, счётчики предупреждений и обращений одним запросом на страницу, события блокировки из `AuditLogs` (по `UserBlocked`, `UserUnblocked`). Миграции не нужны. Тесты: `AdminUsersApiTests` (13), `UserBlockTests`.
+
 ## Привязка личного аккаунта (этап 7, шаг 2): для бэкенда
 
 Контракт для фронтенда: `docs/FRONTEND-ADMIN.md`, раздел 3 (тег **Personal account link**). `PersonalLinkService`, сущность `PersonalLinkRequest` (таблица `PersonalLinkRequests`: `StaffId`, `PersonalUserId`, `TokenHash` (SHA-256, уникален), `ExpiresAt` (24 часа), `ConfirmedAt`, `DeclinedAt`, `CancelledAt`; состояние вычисляется).

@@ -135,6 +135,17 @@ public class User : IdentityUser<Guid>, ITimestamped
         LinkedUserId = personal.Id;
     }
 
+    /// <summary>Админ разблокировал аккаунт: Blocked → Active. Прерванные блокировкой обмены не возвращаются, сеансы заново не открываются (нужно войти).</summary>
+    public void Unblock()
+    {
+        if (Status != UserStatus.Blocked)
+        {
+            throw new Exceptions.DomainValidationException("user_not_blocked", "Разблокировать можно только заблокированный аккаунт.");
+        }
+
+        Status = UserStatus.Active;
+    }
+
     /// <summary>Снимает привязку личного аккаунта. Конфликт интересов после этого проверяться перестаёт.</summary>
     /// <returns>true, если привязка была и снята этим вызовом.</returns>
     public bool UnlinkPersonalAccount()

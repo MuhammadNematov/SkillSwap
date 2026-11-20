@@ -163,6 +163,7 @@ public static class DependencyInjection
         services.AddScoped<SkillSwap.Application.Moderation.IMaintenanceStore, Moderation.MaintenanceStore>();
         services.AddScoped<SkillSwap.Application.Staff.IStaffInvitationStore, Staff.StaffInvitationStore>();
         services.AddScoped<SkillSwap.Application.Staff.IPersonalLinkStore, Staff.PersonalLinkStore>();
+        services.AddScoped<SkillSwap.Application.AdminUsers.IAdminUserStore, AdminUsers.AdminUserStore>();
         services.AddScoped<SkillSwap.Application.Moderation.ICaseMessageStore, Moderation.CaseMessageStore>();
         services.AddScoped<IDashboardStore, DashboardStore>();
         services.AddScoped<IAccountStore, SkillSwap.Infrastructure.Account.AccountStore>();
