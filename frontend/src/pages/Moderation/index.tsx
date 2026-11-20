@@ -1,11 +1,16 @@
-import { useTranslation } from 'react-i18next'
+import { Route, Routes } from 'react-router-dom'
+import StaffShell from '../../components/StaffShell'
+import ModCaseDetail from './ModCaseDetail'
+import ModQueue from './ModQueue'
 
-// Заглушка. Панель модератора — позже.
+// Панель модератора: очередь обращений и карточка обращения
 export default function Moderation() {
-  const { t } = useTranslation()
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-3xl font-bold text-brand-700">{t('moderation.title')}</h1>
-    </div>
+    <StaffShell>
+      <Routes>
+        <Route index element={<ModQueue />} />
+        <Route path="cases/:id" element={<ModCaseDetail />} />
+      </Routes>
+    </StaffShell>
   )
 }

@@ -519,7 +519,97 @@
     }
   },
   "moderation": {
-    "title": "Moderation"
+    "title": "Moderation",
+    "back": "Back to the queue",
+    "moderator": "Moderator",
+    "openedBy": "Filed by",
+    "against": "Against",
+    "priorityHigh": "High priority",
+    "overdue": "Overdue",
+    "dueAt": "Take by {{time}}",
+    "pendingAnswers": "Waiting for answers: {{count}}",
+    "take": "Take into work",
+    "takeHint": "After you take it you get access to this exchange’s conversation and the other side is told about the case. Every read of the conversation is logged.",
+    "review": "Disputed review",
+    "reviewAverage": "Average",
+    "waitingUntil": "Waiting for answers until {{time}}",
+    "questionTo": "Question for {{name}}",
+    "answerFrom": "Answer from {{name}}",
+    "noAnswerYet": "no answer yet",
+    "reasonPlaceholder": "Reason (at least 20 characters)",
+    "reasonLength": "Reasoning: 20 to 2000 characters. The participants will see it.",
+    "resolveBlocked": "While explanations are awaited a decision cannot be made: wait for the answers or stop waiting.",
+    "scope": {
+      "Queue": "Queue",
+      "Mine": "My cases",
+      "Appeals": "Appeals to review"
+    },
+    "empty": {
+      "Queue": "No free cases",
+      "Mine": "You have no cases in progress",
+      "Appeals": "No appeals to review"
+    },
+    "ask": {
+      "title": "Ask for explanations",
+      "hint": "The participants get the question and 48 hours to answer. While you wait, a decision cannot be made.",
+      "both": "Both",
+      "placeholder": "Question (up to 2000 characters)",
+      "send": "Send the question"
+    },
+    "stop": {
+      "title": "Stop waiting",
+      "hint": "Late answers are no longer accepted and you can make a decision. The reason is logged.",
+      "send": "Stop waiting"
+    },
+    "freeze": {
+      "title": "Exchange",
+      "hint": "While the report is reviewed you can freeze the exchange: lessons are cancelled and the room is closed.",
+      "do": "Freeze the exchange",
+      "undo": "Unfreeze the exchange",
+      "frozen": "The exchange is frozen",
+      "unfrozen": "The exchange is unfrozen"
+    },
+    "resolve": {
+      "title": "Decision",
+      "alsoWarn": "Also issue a warning to the offender",
+      "reasonPlaceholder": "Reasoning for the decision (at least 20 characters)",
+      "send": "Make the decision"
+    },
+    "appeal": {
+      "filed": "Appeal filed {{time}}",
+      "reason": "Reason for the appeal",
+      "original": "Original decision",
+      "conclusion": "Reviewer’s conclusion",
+      "conclusionHint": "You are reviewing another moderator’s decision. Write a conclusion for the administrator, who makes the final decision. After you send it, access to the conversation closes.",
+      "conclusionPlaceholder": "Conclusion (at least 20 characters)",
+      "conclusionLength": "Conclusion: 20 to 4000 characters",
+      "send": "Send the conclusion"
+    },
+    "chat": {
+      "title": "Exchange conversation",
+      "audit": "Every time you open the conversation it is logged. Read only what you need for the decision.",
+      "older": "Show earlier",
+      "empty": "No messages",
+      "system": "System",
+      "sessionCard": "Lesson card",
+      "voice": "Voice message",
+      "file": "File",
+      "kb": "KB",
+      "evidence": "Evidence",
+      "deleted": "Deleted {{time}}",
+      "edited": "edited",
+      "paymentWarning": "Looks like payment outside the platform",
+      "showRevisions": "Earlier versions ({{count}})",
+      "hideRevisions": "Hide earlier versions"
+    },
+    "decisionHint": {
+      "ReviewKept": "The review stays published.",
+      "ReviewHidden": "The review is hidden and the rating is recalculated.",
+      "Warning": "The offender gets a warning.",
+      "ExchangeEnded": "The exchange ends early.",
+      "FrozenBanRequested": "The exchange is frozen and a ban request goes to the administrator.",
+      "NoViolation": "No violation, the case is closed without consequences."
+    }
   },
   "admin": {
     "title": "Admin panel",
@@ -1103,7 +1193,8 @@
       "WarningIssued": "You received a warning",
       "WarningRevoked": "The warning was revoked",
       "ExchangeFrozen": "The exchange was frozen after a report",
-      "ExchangeUnfrozen": "The exchange was unfrozen"
+      "ExchangeUnfrozen": "The exchange was unfrozen",
+      "CaseOverdue": "A case is overdue: no moderator took it in time"
     }
   },
   "settings": {
