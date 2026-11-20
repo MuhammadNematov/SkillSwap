@@ -19,4 +19,10 @@ public interface IBackgroundJobs
 
     /// <summary>Выполнить не раньше указанного момента.</summary>
     void Schedule<T>(Expression<Func<T, Task>> job, DateTimeOffset runAt) where T : notnull;
+
+    /// <summary>
+    /// Повторять по расписанию (cron, UTC). Повторная регистрация с тем же <paramref name="id"/> обновляет расписание, а не плодит копии. Такие задачи — страховка
+    /// для разовых: они сверяются с состоянием и делают то, что разовая задача не успела (например, Hangfire был выключен в нужный момент).
+    /// </summary>
+    void Recurring<T>(string id, Expression<Func<T, Task>> job, string cron) where T : notnull;
 }

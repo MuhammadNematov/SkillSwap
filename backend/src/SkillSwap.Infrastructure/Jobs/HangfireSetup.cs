@@ -125,6 +125,7 @@ public sealed class HangfireServerHostedService : IHostedService, IDisposable
                 ServerName = $"skillswap-{Environment.MachineName}-{Guid.NewGuid():N}",
             },
             _services.GetRequiredService<JobStorage>());
+        SkillSwap.Application.Moderation.RecurringCatalog.Register(_services.GetRequiredService<SkillSwap.Application.Abstractions.IBackgroundJobs>());
         return Task.CompletedTask;
     }
 

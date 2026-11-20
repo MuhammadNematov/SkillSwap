@@ -240,9 +240,11 @@ public sealed class CaseJobs
     private readonly TimeProvider _clock;
     private readonly ICaseMessageStore _messages;
     private readonly INotificationPublisher _notify;
+    private readonly IBackgroundJobs _jobs;
 
-    public CaseJobs(ICaseStore cases, IUnitOfWork uow, IAuditLog audit, TimeProvider clock, ICaseMessageStore messages, INotificationPublisher notify)
+    public CaseJobs(ICaseStore cases, IUnitOfWork uow, IAuditLog audit, TimeProvider clock, ICaseMessageStore messages, INotificationPublisher notify, IBackgroundJobs jobs)
     {
+        _jobs = jobs;
         _messages = messages;
         _notify = notify;
         _cases = cases;
@@ -285,6 +287,7 @@ public sealed class CaseJobs
     /// <summary>Прошло 7 дней после решения без апелляции: обращение закрывается (Resolved → Closed). Обращение с апелляцией и повторный запуск не трогаются.</summary>
     public async Task CloseIfDueAsync(Guid caseId)
     {
+        var closed = false;
         var peek = await _cases.FindAsync(caseId, tracked: false, CancellationToken.None);
         if (peek is null || peek.Status != CaseStatus.Resolved || peek.ModeratorId is null)
         {
@@ -299,10 +302,16 @@ public sealed class CaseJobs
             {
                 _audit.Add(new AuditEntry(null, AuditActions.CaseClosed, "Case", caseId));
                 await _cases.SaveAsync(ct);
+                closed = true;
             }
 
             return 0;
         }, CancellationToken.None);
+
+        if (closed)
+        {
+            _jobs.Enqueue<CaseMaintenanceJobs>(j => j.ReleaseHoldsAsync(caseId));   // обращение закрыто: отложенное стирание данных удалившихся сторон
+        }
     }
 
     /// <summary>За 6 часов до конца срока напоминает тем, кто ещё не ответил (по одному напоминанию на круг пояснений). Уже вернувшееся в работу и повтор не трогаются.</summary>

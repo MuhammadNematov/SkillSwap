@@ -320,6 +320,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OpenedById")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("OverdueMarkedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -614,6 +617,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("BlockedById")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ChatPurgedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -680,6 +686,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClosedAt")
+                        .HasFilter("\"ChatPurgedAt\" IS NULL AND \"ClosedAt\" IS NOT NULL");
 
                     b.HasIndex("RequestId")
                         .IsUnique();

@@ -49,6 +49,8 @@ public sealed record AdminCaseDto(
     string Description,
     bool FromCall,
     DateTime CreatedAt,
+    DateTime DueAt,
+    bool IsOverdue,
     Guid? ModeratorId,
     CaseDecision? Decision,
     bool AlsoWarned,

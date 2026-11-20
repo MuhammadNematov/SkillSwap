@@ -17,6 +17,8 @@ public class MailQueueTests
         public void Enqueue<T>(System.Linq.Expressions.Expression<Func<T, Task>> job) where T : notnull => Jobs.Add(job);
 
         public void Schedule<T>(System.Linq.Expressions.Expression<Func<T, Task>> job, DateTimeOffset runAt) where T : notnull => Jobs.Add(job);
+
+        public void Recurring<T>(string id, System.Linq.Expressions.Expression<Func<T, Task>> job, string cron) where T : notnull => Jobs.Add(job);
     }
 
     private sealed class RecordingTransport : IMailTransport

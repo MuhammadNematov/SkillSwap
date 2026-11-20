@@ -11720,6 +11720,8 @@
           "description",
           "fromCall",
           "createdAt",
+          "dueAt",
+          "isOverdue",
           "moderatorId",
           "decision",
           "alsoWarned",
@@ -11772,6 +11774,13 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isOverdue": {
+            "type": "boolean"
           },
           "moderatorId": {
             "type": [
@@ -14927,7 +14936,8 @@
           "AppealConclusionReady",
           "AppealDecided",
           "WarningRevoked",
-          "BanRequestDecided"
+          "BanRequestDecided",
+          "CaseOverdue"
         ],
         "type": "string"
       },

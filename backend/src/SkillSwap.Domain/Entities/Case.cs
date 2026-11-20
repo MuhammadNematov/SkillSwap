@@ -117,6 +117,22 @@ public class Case : BaseEntity
     /// <summary>До какого времени стороны должны ответить на вопрос модератора (WaitingResponse, 48 часов).</summary>
     public DateTime? ResponseDeadlineAt { get; private set; }
 
+    /// <summary>Когда обращение отмечено просроченным (срок реакции 24 или 72 часа вышел, а его не взяли) и админам ушло уведомление; один раз.</summary>
+    public DateTime? OverdueMarkedAt { get; private set; }
+
+    /// <summary>Отмечает просрочку срока реакции. Повторный вызов, взятое и ещё не просроченное обращения ничего не меняют.</summary>
+    /// <returns>true, если отмечено этим вызовом.</returns>
+    public bool MarkOverdue(DateTime now)
+    {
+        if (OverdueMarkedAt is not null || !IsOverdue(now))
+        {
+            return false;
+        }
+
+        OverdueMarkedAt = now;
+        return true;
+    }
+
     /// <summary>Когда участникам ушло напоминание «ответьте до конца срока» в этом круге пояснений (null — ещё не уходило).</summary>
     public DateTime? ExplanationReminderSentAt { get; private set; }
 

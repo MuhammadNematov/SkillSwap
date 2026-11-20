@@ -44,12 +44,14 @@ public sealed class CaseService
     private readonly TimeProvider _clock;
     private readonly ILogger<CaseService> _logger;
     private readonly ICaseMessageStore _caseMessages;
+    private readonly IBackgroundJobs _jobs;
 
     public CaseService(
         ICaseStore cases, IReviewStore reviews, ReviewService reviewService, IExchangeStore exchanges, IMessageStore messages, ILessonSessionStore sessions,
         LessonSessionService lessons, ILiveKitRoomService rooms, IProfileStore profiles, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify,
-        AvatarUrls avatars, TimeProvider clock, ILogger<CaseService> logger, ICaseMessageStore caseMessages)
+        AvatarUrls avatars, TimeProvider clock, ILogger<CaseService> logger, ICaseMessageStore caseMessages, IBackgroundJobs jobs)
     {
+        _jobs = jobs;
         _caseMessages = caseMessages;
         _cases = cases;
         _reviews = reviews;
@@ -213,6 +215,7 @@ public sealed class CaseService
         }, ct);
 
         _notify.Dispatch();
+        _jobs.Enqueue<CaseMaintenanceJobs>(j => j.ReleaseHoldsAsync(caseId));   // обращение отозвано: удержанные из-за него данные удалившейся стороны больше не нужны
         return await GetAsync(userId, caseId, ct);
     }
 
