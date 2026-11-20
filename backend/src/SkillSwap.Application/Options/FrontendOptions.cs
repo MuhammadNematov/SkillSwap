@@ -19,6 +19,11 @@ public sealed class FrontendOptions
     /// <summary>Страница обращения (ссылка в письме о решении); <c>{id}</c> заменяется на id обращения: <c>Frontend__CasePath</c>.</summary>
     public string CasePath { get; set; } = "/cases/{id}";
 
+    /// <summary>Страница приёма приглашения служебного аккаунта (ссылка в письме); <c>{token}</c> заменяется на токен приглашения: <c>Frontend__StaffInvitationPath</c>.</summary>
+    public string StaffInvitationPath { get; set; } = "/staff/invitation/{token}";
+
+    public string StaffInvitationUrl(string token) => Combine(StaffInvitationPath.Replace("{token}", Uri.EscapeDataString(token), StringComparison.Ordinal));
+
     public string CaseUrl(Guid caseId) => Combine(CasePath.Replace(IdPlaceholder, caseId.ToString(), StringComparison.Ordinal));
 
     public string RequestsUrl() => Combine(RequestsPath);

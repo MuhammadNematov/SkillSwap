@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SkillSwap.Application.Abstractions;
+using SkillSwap.Application.Auth;
 using SkillSwap.Application.Chat;
 using SkillSwap.Application.ExchangeRequests;
 using SkillSwap.Application.Moderation;
@@ -40,6 +41,9 @@ public enum SeedCaseStage
 /// <param name="Decision">Решение для стадий «решено» и дальше; по умолчанию <c>Warning</c> (для спора <c>ReviewHidden</c>).</param>
 public sealed record SeedCaseRequest(string? Type, string? Stage, string? Decision);
 
+/// <param name="Email">Адрес служебного аккаунта разработки (например, dev-admin@example.com).</param>
+public sealed record StaffCodeRequest(string? Email);
+
 /// <summary>
 /// Данные для ручной проверки обращений и модерации (только Development, как и <c>/dev/seed-lesson</c>): <c>POST /dev/seed-staff</c> создаёт (при первом вызове) модераторов и админа
 /// и выдаёт на них токены; <c>POST /dev/seed-case</c> создаёт двух пользователей, обмен с перепиской и обращение, доведённое до нужной стадии <b>через настоящие сервисы</b>
@@ -63,54 +67,126 @@ public static class CaseSeedDevTools
     public static IEndpointRouteBuilder MapCaseSeedDevTools(this IEndpointRouteBuilder app)
     {
         app.MapPost("/dev/seed-staff", SeedStaffAsync).ExcludeFromDescription();
+        app.MapPost("/dev/staff-code", StaffCodeAsync).ExcludeFromDescription();
         app.MapPost("/dev/seed-case", SeedCaseAsync).ExcludeFromDescription();
         return app;
     }
 
     // ---------- служебные аккаунты ----------
 
-    private static async Task<IResult> SeedStaffAsync(HttpContext http, UserManager<User> users, IAccessTokenGenerator tokens, CancellationToken ct)
+    /// <summary>Пароль служебных аккаунтов разработки: один для всех, чтобы экраны подтверждения действий можно было проверить в любой момент (маршрут существует только в Development).</summary>
+    public const string StaffPassword = "Dev-staff-pass-1";
+
+    private static async Task<IResult> SeedStaffAsync(HttpContext http, IAccessTokenGenerator tokens, TimeProvider clock, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
-        var moderator = await EnsureStaffAsync(users, ModeratorEmail, "Модератор (dev)", UserRole.Moderator);
-        var second = await EnsureStaffAsync(users, SecondModeratorEmail, "Модератор 2 (dev)", UserRole.Moderator);
-        var admin = await EnsureStaffAsync(users, AdminEmail, "Админ (dev)", UserRole.Admin);
-        return Results.Ok(new { moderator = Describe(moderator, tokens), secondModerator = Describe(second, tokens), admin = Describe(admin, tokens), hint = StaffHint });
+        var moderator = await EnsureStaffAsync(http, ModeratorEmail, "Модератор (dev)", UserRole.Moderator);
+        var second = await EnsureStaffAsync(http, SecondModeratorEmail, "Модератор 2 (dev)", UserRole.Moderator);
+        var admin = await EnsureStaffAsync(http, AdminEmail, "Админ (dev)", UserRole.Admin);
+        return Results.Ok(new
+        {
+            moderator = Describe(moderator, tokens, clock),
+            secondModerator = Describe(second, tokens, clock),
+            admin = Describe(admin, tokens, clock),
+            hint = StaffHint,
+        });
     }
 
     private const string StaffHint =
-        "Служебные аккаунты входят через 2FA, поэтому для разработки выданы access-токены (Authorization: Bearer ...). Пароль виден только при создании аккаунта; токены живут недолго: вызовите маршрут снова.";
+        "Служебные аккаунты входят через 2FA, поэтому для разработки выданы access-токены (Authorization: Bearer ...). У всех один пароль (поле password), 2FA включена с известным ключом "
+        + "(twoFactor.sharedKey): положите его в любое приложение-аутентификатор или берите код здесь. Подтверждение действия (confirmation: { password, code }) принимает код один раз, "
+        + "поэтому в ответе два кода: текущий и следующий (codes), для третьего подождите до 30 секунд или запросите заново: curl -X POST http://localhost:5023/dev/staff-code "
+        + "-H \"Content-Type: application/json\" -d '{\"email\":\"dev-admin@example.com\"}'. Резервные коды (recoveryCodes) показываются один раз, при включении 2FA. Токены живут недолго: вызовите маршрут снова.";
 
-    private sealed record Staff(User User, string? Password);
+    private sealed record Staff(User User, string Key, IReadOnlyList<string>? RecoveryCodes);
 
-    private static async Task<Staff> EnsureStaffAsync(UserManager<User> users, string email, string name, UserRole role)
+    /// <summary>Создаёт (или приводит в порядок) служебный аккаунт разработки: известный пароль, включённая 2FA с ключом, который можно прочитать.</summary>
+    private static async Task<Staff> EnsureStaffAsync(HttpContext http, string email, string name, UserRole role)
     {
-        if (await users.FindByEmailAsync(email) is { } existing)
+        var users = http.RequestServices.GetRequiredService<UserManager<User>>();
+        var recovery = http.RequestServices.GetRequiredService<IRecoveryCodeStore>();
+        var user = await users.FindByEmailAsync(email);
+        if (user is null)
         {
-            return new Staff(existing, null);
+            user = User.CreateStaff(email, name, role);
+            user.EmailConfirmed = true;
+            var created = await users.CreateAsync(user, StaffPassword);
+            if (!created.Succeeded)
+            {
+                throw new InvalidOperationException("Не удалось создать служебного пользователя: " + string.Join(", ", created.Errors.Select(e => e.Code)));
+            }
+        }
+        else if (!await users.CheckPasswordAsync(user, StaffPassword))
+        {
+            // Аккаунт создан прежней версией сидера со случайным паролем, которого никто не знает: приводим к известному.
+            if (await users.HasPasswordAsync(user))
+            {
+                await users.RemovePasswordAsync(user);
+            }
+
+            await users.AddPasswordAsync(user, StaffPassword);
         }
 
-        var password = $"Dev-{Guid.NewGuid():N}"[..16] + "1a";
-        var user = User.CreateStaff(email, name, role);
-        user.EmailConfirmed = true;
-        var result = await users.CreateAsync(user, password);
-        if (!result.Succeeded)
+        var key = await users.GetAuthenticatorKeyAsync(user);
+        if (string.IsNullOrEmpty(key))
         {
-            throw new InvalidOperationException("Не удалось создать служебного пользователя: " + string.Join(", ", result.Errors.Select(e => e.Code)));
+            await users.ResetAuthenticatorKeyAsync(user);
+            key = await users.GetAuthenticatorKeyAsync(user);
         }
 
-        return new Staff(user, password);
+        IReadOnlyList<string>? codes = null;
+        if (!user.TwoFactorEnabled)
+        {
+            await users.SetTwoFactorEnabledAsync(user, true);
+            codes = RecoveryCodes.Generate(8);
+            await recovery.ReplaceAsync(user.Id, codes.Select(RecoveryCodes.Hash).ToList());
+        }
+
+        return new Staff(user, key!, codes);
     }
 
-    private static object Describe(Staff staff, IAccessTokenGenerator tokens) => new
+    private static object Describe(Staff staff, IAccessTokenGenerator tokens, TimeProvider clock)
     {
-        userId = staff.User.Id,
-        email = staff.User.Email,
-        name = staff.User.Name,
-        role = staff.User.Role.ToString(),
-        password = staff.Password,
-        accessToken = tokens.Create(staff.User, Guid.NewGuid()).Value,
-    };
+        var now = clock.GetUtcNow();
+        var step = Totp.StepAt(now);
+        return new
+        {
+            userId = staff.User.Id,
+            email = staff.User.Email,
+            name = staff.User.Name,
+            role = staff.User.Role.ToString(),
+            password = StaffPassword,
+            twoFactor = new
+            {
+                sharedKey = staff.Key,
+                codes = new[] { Totp.Compute(staff.Key, step), Totp.Compute(staff.Key, step + 1) },
+                secondsLeft = Totp.StepSeconds - (int)(now.ToUnixTimeSeconds() % Totp.StepSeconds),
+                recoveryCodes = staff.RecoveryCodes,
+            },
+            accessToken = tokens.Create(staff.User, Guid.NewGuid()).Value,
+        };
+    }
+
+    /// <summary>Текущий и следующий код 2FA служебного аккаунта разработки (для подтверждения действия, когда приложения-аутентификатора под рукой нет).</summary>
+    private static async Task<IResult> StaffCodeAsync(HttpContext http, StaffCodeRequest? request, UserManager<User> users, TimeProvider clock)
+    {
+        http.Response.Headers.CacheControl = "no-store";
+        var user = string.IsNullOrWhiteSpace(request?.Email) ? null : await users.FindByEmailAsync(request.Email.Trim());
+        var key = user is { AccountType: AccountType.Staff } ? await users.GetAuthenticatorKeyAsync(user) : null;
+        if (user is null || string.IsNullOrEmpty(key) || !user.TwoFactorEnabled)
+        {
+            return Problem(StatusCodes.Status404NotFound, "staff_not_found", "Служебный аккаунт с включённой 2FA не найден: сначала POST /dev/seed-staff.");
+        }
+
+        var now = clock.GetUtcNow();
+        var step = Totp.StepAt(now);
+        return Results.Ok(new
+        {
+            email = user.Email,
+            codes = new[] { Totp.Compute(key, step), Totp.Compute(key, step + 1) },
+            secondsLeft = Totp.StepSeconds - (int)(now.ToUnixTimeSeconds() % Totp.StepSeconds),
+        });
+    }
 
     // ---------- обращение ----------
 
@@ -158,8 +234,8 @@ public static class CaseSeedDevTools
             return Problem(StatusCodes.Status409Conflict, "skill_catalog_empty", "В каталоге меньше двух навыков: сначала нужен стартовый каталог.");
         }
 
-        var moderator = await EnsureStaffAsync(users, ModeratorEmail, "Модератор (dev)", UserRole.Moderator);
-        var admin = await EnsureStaffAsync(users, AdminEmail, "Админ (dev)", UserRole.Admin);
+        var moderator = await EnsureStaffAsync(http, ModeratorEmail, "Модератор (dev)", UserRole.Moderator);
+        var admin = await EnsureStaffAsync(http, AdminEmail, "Админ (dev)", UserRole.Admin);
         var suffix = Guid.NewGuid().ToString("N")[..8];
         var opener = await LessonSeedDevTools.CreateUserAsync(users, db, $"dev-opener-{suffix}@example.com", "Заявитель (dev)", skills[0], skills[1], ct);
         var accused = await LessonSeedDevTools.CreateUserAsync(users, db, $"dev-accused-{suffix}@example.com", "Ответчик (dev)", skills[1], skills[0], ct);
@@ -185,7 +261,7 @@ public static class CaseSeedDevTools
             type == CaseType.ReviewDispute ? null : sent.TakeLast(2).ToList()), ct);
         var caseId = created.Id;
 
-        Guid? secondModeratorId = null;
+        Staff? secondStaff = null;
         if (stage >= SeedCaseStage.Taken)
         {
             await moderation.TakeAsync(moderator.User.Id, caseId, ct);
@@ -208,12 +284,10 @@ public static class CaseSeedDevTools
 
         if (stage >= SeedCaseStage.AppealReview)
         {
-            var second = await EnsureStaffAsync(users, SecondModeratorEmail, "Модератор 2 (dev)", UserRole.Moderator);
-            secondModeratorId = second.User.Id;
-            await admins.AssignReviewerAsync(admin.User.Id, caseId, new AssignReviewerRequest(second.User.Id), ct);
+            secondStaff = await EnsureStaffAsync(http, SecondModeratorEmail, "Модератор 2 (dev)", UserRole.Moderator);
+            await admins.AssignReviewerAsync(admin.User.Id, caseId, new AssignReviewerRequest(secondStaff.User.Id), ct);
         }
 
-        var secondStaff = secondModeratorId is { } id ? await users.FindByIdAsync(id.ToString()) : null;
         var settings = CaseTiming.Current;
         var baseUrl = frontend.Value.BaseUrl.TrimEnd('/');
         return Results.Ok(new
@@ -227,9 +301,9 @@ public static class CaseSeedDevTools
             caseUrl = $"{baseUrl}/cases/{caseId}",
             opener = Regular("opener", opener, tokens),
             accused = Regular("accused", accused, tokens),
-            moderator = Describe(moderator, tokens),
-            admin = Describe(admin, tokens),
-            secondModerator = secondStaff is null ? null : Describe(new Staff(secondStaff, null), tokens),
+            moderator = Describe(moderator, tokens, clock),
+            admin = Describe(admin, tokens, clock),
+            secondModerator = secondStaff is null ? null : Describe(secondStaff, tokens, clock),
             timers = new
             {
                 highSlaMinutes = settings.HighPrioritySla.TotalMinutes,

@@ -165,6 +165,9 @@ public enum NotificationType
 
     /// <summary>Админам: обращение просрочено, срок реакции вышел, а его никто не взял. В данных: caseId, priority, dueAt.</summary>
     CaseOverdue,
+
+    /// <summary>Пригласившему: приглашение принято, создан служебный аккаунт. В данных: invitationId, userId, userName, role.</summary>
+    StaffInvitationAccepted,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

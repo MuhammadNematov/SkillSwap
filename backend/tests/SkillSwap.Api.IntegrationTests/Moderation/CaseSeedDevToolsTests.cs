@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using SkillSwap.Api.IntegrationTests.Infrastructure;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -68,7 +69,10 @@ public class CaseSeedDevToolsTests
         foreach (var key in new[] { "moderator", "secondModerator", "admin" })
         {
             Assert.Equal(a.GetProperty(key).GetProperty("userId").GetGuid(), b.GetProperty(key).GetProperty("userId").GetGuid());   // аккаунты создаются один раз
-            Assert.Equal(JsonValueKind.Null, b.GetProperty(key).GetProperty("password").ValueKind);   // пароль виден только при создании
+            Assert.Equal("Dev-staff-pass-1", b.GetProperty(key).GetProperty("password").GetString());   // у всех один известный пароль
+            Assert.Equal(a.GetProperty(key).GetProperty("twoFactor").GetProperty("sharedKey").GetString(), b.GetProperty(key).GetProperty("twoFactor").GetProperty("sharedKey").GetString());
+            Assert.Equal(JsonValueKind.Null, b.GetProperty(key).GetProperty("twoFactor").GetProperty("recoveryCodes").ValueKind);   // резервные коды показываются один раз
+            Assert.Equal(2, b.GetProperty(key).GetProperty("twoFactor").GetProperty("codes").GetArrayLength());
         }
 
         Assert.Equal("Moderator", a.GetProperty("moderator").GetProperty("role").GetString());
@@ -79,6 +83,116 @@ public class CaseSeedDevToolsTests
         Assert.Equal(HttpStatusCode.OK, (await GetAsync(client, adminToken, "/admin/cases")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await GetAsync(client, moderatorToken, "/admin/cases")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await GetAsync(client, adminToken, "/moderation/cases")).StatusCode);
+    }
+
+    // ---------- 2FA служебных аккаунтов разработки ----------
+
+    private Task ResetTotpStepsAsync() => _factory.QueryAsync(async db =>
+    {
+        // Часы тестов заморожены, а использованный шаг кода запоминается: перед каждой проверкой возвращаем его в начало.
+        await db.Users.Where(u => u.Email!.StartsWith("dev-")).ExecuteUpdateAsync(s => s.SetProperty(u => u.TwoFactorLastUsedStep, 0L));
+        return 0;
+    });
+
+    private static Task<HttpResponseMessage> InviteAsync(HttpClient client, string adminToken, string email, string? code) =>
+        client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/v1/admin/staff-invitations")
+        {
+            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", adminToken) },
+            Content = JsonContent.Create(new { email, role = "Moderator", confirmation = new { password = "Dev-staff-pass-1", code } }),
+        });
+
+    [Fact]
+    public async Task The_seeded_admin_can_confirm_real_actions_with_the_given_codes_and_each_code_works_once()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+        await client.PostAsync("/dev/seed-staff", null);
+        await ResetTotpStepsAsync();
+        var seeded = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
+        var admin = seeded.GetProperty("admin");
+        var token = admin.GetProperty("accessToken").GetString()!;
+        var codes = admin.GetProperty("twoFactor").GetProperty("codes").EnumerateArray().Select(c => c.GetString()!).ToList();
+
+        var first = await InviteAsync(client, token, $"seed-invitee-{Guid.NewGuid():N}@example.com", codes[0]);
+        var second = await InviteAsync(client, token, $"seed-invitee-{Guid.NewGuid():N}@example.com", codes[1]);
+        var replay = await InviteAsync(client, token, $"seed-invitee-{Guid.NewGuid():N}@example.com", codes[0]);
+
+        Assert.True(first.StatusCode == HttpStatusCode.Created, await first.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);   // следующий код годится сразу
+        Assert.Equal(HttpStatusCode.BadRequest, replay.StatusCode);
+        Assert.Equal("invalid_two_factor_code", (await JsonAsync(replay)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task The_staff_code_route_gives_the_current_and_the_next_code_that_confirm_actions()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+        var seeded = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
+        await ResetTotpStepsAsync();
+        var token = seeded.GetProperty("admin").GetProperty("accessToken").GetString()!;
+
+        var response = await client.PostAsJsonAsync("/dev/staff-code", new { email = "dev-admin@example.com" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("no-store", response.Headers.CacheControl?.ToString());
+        var body = await JsonAsync(response);
+        var codes = body.GetProperty("codes").EnumerateArray().Select(c => c.GetString()!).ToList();
+        Assert.Equal(seeded.GetProperty("admin").GetProperty("twoFactor").GetProperty("codes")[0].GetString(), codes[0]);
+        Assert.InRange(body.GetProperty("secondsLeft").GetInt32(), 1, 30);
+        Assert.Equal(HttpStatusCode.Created, (await InviteAsync(client, token, $"seed-invitee-{Guid.NewGuid():N}@example.com", codes[0])).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("nobody@example.com")]
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task The_staff_code_route_refuses_unknown_addresses(string? email)
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+
+        var response = await client.PostAsJsonAsync("/dev/staff-code", new { email });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("staff_not_found", (await JsonAsync(response)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task The_staff_code_route_does_not_hand_out_codes_of_regular_users()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+        var seeded = await JsonAsync(await client.PostAsync("/dev/seed-case", JsonContent.Create(new { })));
+
+        var response = await client.PostAsJsonAsync("/dev/staff-code", new { email = seeded.GetProperty("opener").GetProperty("email").GetString() });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_account_from_the_older_seeder_is_brought_to_the_known_password_and_two_factor()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+        await client.PostAsync("/dev/seed-staff", null);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            // Как у аккаунта, созданного прежней версией сидера: случайный пароль, 2FA нет.
+            var users = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<User>>();
+            var legacy = (await users.FindByEmailAsync("dev-moderator-2@example.com"))!;
+            await users.RemovePasswordAsync(legacy);
+            await users.AddPasswordAsync(legacy, "Random-legacy-pass-9");
+            await users.SetTwoFactorEnabledAsync(legacy, false);
+        }
+
+        var seeded = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
+
+        var second = seeded.GetProperty("secondModerator");
+        Assert.Equal("Dev-staff-pass-1", second.GetProperty("password").GetString());
+        Assert.Equal(JsonValueKind.Array, second.GetProperty("twoFactor").GetProperty("recoveryCodes").ValueKind);   // 2FA включена заново, резервные коды выданы
+        Assert.Equal(8, second.GetProperty("twoFactor").GetProperty("recoveryCodes").GetArrayLength());
+        Assert.True(await _factory.QueryAsync(db => db.Users.AsNoTracking().Where(u => u.Email == "dev-moderator-2@example.com").Select(u => u.TwoFactorEnabled).SingleAsync()));
     }
 
     // ---------- обращение на каждой стадии ----------
@@ -286,6 +400,7 @@ public class CaseSeedDevToolsTests
     [Theory]
     [InlineData("/dev/seed-staff")]
     [InlineData("/dev/seed-case")]
+    [InlineData("/dev/staff-code")]
     public async Task The_seed_routes_do_not_exist_outside_development(string url)
     {
         var client = _factory.CreateClient(NoRedirect);
