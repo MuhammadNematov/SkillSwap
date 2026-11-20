@@ -36,6 +36,7 @@ public class AppDbContext : IdentityUserContext<User, Guid>, IDataProtectionKeyC
     public DbSet<BanRequest> BanRequests => Set<BanRequest>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<StaffInvitation> StaffInvitations => Set<StaffInvitation>();
+    public DbSet<PersonalLinkRequest> PersonalLinkRequests => Set<PersonalLinkRequest>();
     public DbSet<DataExport> DataExports => Set<DataExport>();
     public DbSet<MessageRevision> MessageRevisions => Set<MessageRevision>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();

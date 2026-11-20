@@ -135,6 +135,19 @@ public class User : IdentityUser<Guid>, ITimestamped
         LinkedUserId = personal.Id;
     }
 
+    /// <summary>Снимает привязку личного аккаунта. Конфликт интересов после этого проверяться перестаёт.</summary>
+    /// <returns>true, если привязка была и снята этим вызовом.</returns>
+    public bool UnlinkPersonalAccount()
+    {
+        if (LinkedUserId is null)
+        {
+            return false;
+        }
+
+        LinkedUserId = null;
+        return true;
+    }
+
     /// <summary>Полных лет на указанную дату (UTC); null, если даты рождения нет (служебный аккаунт).</summary>
     public int? GetAge(DateOnly today)
     {

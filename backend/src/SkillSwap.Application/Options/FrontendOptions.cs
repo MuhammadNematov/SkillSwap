@@ -24,6 +24,11 @@ public sealed class FrontendOptions
 
     public string StaffInvitationUrl(string token) => Combine(StaffInvitationPath.Replace("{token}", Uri.EscapeDataString(token), StringComparison.Ordinal));
 
+    /// <summary>Страница подтверждения привязки личного аккаунта к служебному (ссылка в письме); <c>{token}</c> заменяется на токен запроса: <c>Frontend__PersonalLinkPath</c>.</summary>
+    public string PersonalLinkPath { get; set; } = "/staff-link/{token}";
+
+    public string PersonalLinkUrl(string token) => Combine(PersonalLinkPath.Replace("{token}", Uri.EscapeDataString(token), StringComparison.Ordinal));
+
     public string CaseUrl(Guid caseId) => Combine(CasePath.Replace(IdPlaceholder, caseId.ToString(), StringComparison.Ordinal));
 
     public string RequestsUrl() => Combine(RequestsPath);

@@ -103,6 +103,12 @@ public sealed class CaseStore : ICaseStore
         return partners;
     }
 
+    public Task<int> CountActiveConflictsAsync(Guid moderatorId, IReadOnlyCollection<Guid> conflictUsers, CancellationToken ct) =>
+        _db.Cases.CountAsync(c =>
+            (conflictUsers.Contains(c.OpenedById) || conflictUsers.Contains(c.AgainstUserId))
+            && ((c.ModeratorId == moderatorId && (c.Status == CaseStatus.InProgress || c.Status == CaseStatus.WaitingResponse))
+                || (c.Status == CaseStatus.AppealReview && _db.CaseAppeals.Any(a => a.CaseId == c.Id && a.ReviewerModeratorId == moderatorId))), ct);
+
     public void AddAppeal(CaseAppeal appeal) => _db.CaseAppeals.Add(appeal);
 
     public Task<CaseAppeal?> FindAppealAsync(Guid caseId, bool tracked, CancellationToken ct) =>

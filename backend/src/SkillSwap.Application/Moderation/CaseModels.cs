@@ -156,5 +156,8 @@ public interface ICaseStore
     /// <summary>Есть ли у пользователя обращение (как у заявителя или как у того, на кого подано), которое ещё не закрыто окончательно и не отозвано.</summary>
     Task<bool> HasActiveCaseAsync(Guid userId, CancellationToken ct);
 
+    /// <summary>Сколько обращений модератора сейчас в работе (взятые им и повторные проверки по апелляции), где участвует кто-то из <paramref name="conflictUsers"/>.</summary>
+    Task<int> CountActiveConflictsAsync(Guid moderatorId, IReadOnlyCollection<Guid> conflictUsers, CancellationToken ct);
+
     Task SaveAsync(CancellationToken ct);
 }

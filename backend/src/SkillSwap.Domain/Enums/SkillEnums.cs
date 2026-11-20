@@ -168,6 +168,12 @@ public enum NotificationType
 
     /// <summary>Пригласившему: приглашение принято, создан служебный аккаунт. В данных: invitationId, userId, userName, role.</summary>
     StaffInvitationAccepted,
+
+    /// <summary>Сотруднику: владелец личного аккаунта подтвердил привязку. В данных: userId (личный аккаунт), userName.</summary>
+    PersonalLinkConfirmed,
+
+    /// <summary>Сотруднику: владелец личного аккаунта отказался от привязки. В данных: userId, userName.</summary>
+    PersonalLinkDeclined,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

@@ -342,6 +342,24 @@ public static class StaffEmailTemplates
         };
     }
 
+    /// <summary>Письмо владельцу личного аккаунта: сотрудник просит привязать этот аккаунт к служебному. Что это значит и что делать, если просьба неожиданная.</summary>
+    public static (string Subject, string Body) PersonalLink(string language, string staffName, UserRole role, string link, DateTime expiresAt)
+    {
+        var until = expiresAt.ToString("dd.MM.yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture) + " UTC";
+        return language switch
+        {
+            "ru" => (
+                "SkillSwap: просьба привязать личный аккаунт",
+                $"Здравствуйте!\n\nСотрудник платформы {staffName} ({RoleRu(role)}) просит привязать ваш личный аккаунт к своему служебному. Это нужно, чтобы он не рассматривал обращения, где участвуете вы или ваши бывшие партнёры по обменам. Служебный аккаунт не получает доступа к вашему профилю и перепискам.\n\nЕсли вы знаете этого человека и согласны, войдите в свой аккаунт и откройте ссылку:\n{link}\n\nСсылка действует до {until}. Если вы не ждали этого письма, просто проигнорируйте его или откажитесь на странице по ссылке."),
+            "tg" => (
+                "SkillSwap: дархост барои пайваст кардани аккаунти шахсӣ",
+                $"Салом!\n\nКормандии платформа {staffName} ({RoleTg(role)}) аз шумо мепурсад, ки аккаунти шахсии шуморо ба аккаунти хидматии ӯ пайваст кунад. Ин лозим аст, то ӯ муроҷиатҳоеро, ки шумо ё шарикони собиқи мубодилаи шумо дар онҳо иштирок мекунед, баррасӣ накунад. Аккаунти хидматӣ ба профил ва мукотибаи шумо дастрасӣ намегирад.\n\nАгар шумо ин шахсро мешиносед ва розӣ ҳастед, ба аккаунти худ ворид шавед ва истиноди зеринро кушоед:\n{link}\n\nИстинод то {until} амал мекунад. Агар ин номаро интизор набудед, онро нодида гиред ё дар саҳифаи истинод рад кунед."),
+            _ => (
+                "SkillSwap: request to link your personal account",
+                $"Hello!\n\nA platform staff member, {staffName} ({RoleEn(role)}), asks to link your personal account to their staff account. This is so that they do not review cases that involve you or your former exchange partners. The staff account gets no access to your profile or conversations.\n\nIf you know this person and agree, sign in to your account and open the link:\n{link}\n\nThe link is valid until {until}. If you did not expect this email, ignore it or decline on the page."),
+        };
+    }
+
     private static string RoleRu(UserRole role) => role == UserRole.Admin ? "администратор" : "модератор";
 
     private static string RoleTg(UserRole role) => role == UserRole.Admin ? "администратор" : "модератор";
