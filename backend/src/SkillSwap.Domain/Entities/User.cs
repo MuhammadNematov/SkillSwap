@@ -207,6 +207,22 @@ public class User : IdentityUser<Guid>, ITimestamped
 
     public bool IsBlocked => Status == UserStatus.Blocked;
 
+    /// <summary>Админ одобрил запрос на блокировку (раздел 8.3 ТЗ): Active → Blocked. Из подбора пользователь исчезает, войти не может. Служебный аккаунт так не блокируется.</summary>
+    public void Block()
+    {
+        if (!IsRegular)
+        {
+            throw new Exceptions.DomainValidationException("staff_cannot_be_blocked", "Служебный аккаунт блокируется отдельно.");
+        }
+
+        if (Status != UserStatus.Active)
+        {
+            throw new Exceptions.DomainValidationException("user_not_active", "Заблокировать можно только действующий аккаунт.");
+        }
+
+        Status = UserStatus.Blocked;
+    }
+
     /// <summary>Подпись удалённого пользователя в чатах, заявках и отзывах (раздел 8.1 ТЗ); клиент по флагу <c>isDeleted</c> показывает её на своём языке.</summary>
     public const string DeletedDisplayName = "Удалённый пользователь";
 

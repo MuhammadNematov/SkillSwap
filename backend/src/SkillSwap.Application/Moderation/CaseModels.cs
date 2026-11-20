@@ -42,6 +42,8 @@ public enum CaseListFilter
 /// <param name="ResponseDeadlineAt">Пока ждём пояснений: до какого времени отвечать.</param>
 /// <param name="CanWithdraw">Заявитель может отозвать обращение (пока его не взяли в работу).</param>
 /// <param name="PendingQuestions">Сколько вопросов модератора ждут моего ответа (ответить: <c>POST /cases/{id}/explanations</c>).</param>
+/// <param name="CanAppeal">Я могу подать апелляцию: обращение решено, не прошло 7 дней, апелляции ещё не было (<c>POST /cases/{id}/appeal</c>).</param>
+/// <param name="Appeal">Апелляция по обращению, если она подана.</param>
 public sealed record CaseDto(
     Guid Id,
     CaseType Type,
@@ -63,7 +65,9 @@ public sealed record CaseDto(
     DateTime? ResolvedAt,
     DateTime? ResponseDeadlineAt,
     bool CanWithdraw,
-    int PendingQuestions);
+    int PendingQuestions,
+    bool CanAppeal,
+    CaseAppealDto? Appeal);
 
 public sealed record CaseListDto(IReadOnlyList<CaseDto> Items, int Page, int PageSize, int TotalCount);
 
@@ -108,6 +112,33 @@ public interface ICaseStore
 
     /// <summary>Личный аккаунт сотрудника и все, с кем он когда-либо вёл обмен (конфликт интересов, раздел 3 ТЗ).</summary>
     Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct);
+
+    void AddAppeal(CaseAppeal appeal);
+
+    Task<CaseAppeal?> FindAppealAsync(Guid caseId, bool tracked, CancellationToken ct);
+
+    Task<IReadOnlyDictionary<Guid, CaseAppeal>> GetAppealsAsync(IReadOnlyCollection<Guid> caseIds, CancellationToken ct);
+
+    /// <summary>Действующие админы и суперадмины (получатели уведомления об апелляции).</summary>
+    Task<IReadOnlyList<Guid>> ListActiveAdminIdsAsync(CancellationToken ct);
+
+    /// <summary>Действующие модераторы (для выбора проверяющего по апелляции).</summary>
+    Task<IReadOnlyList<User>> ListModeratorsAsync(CancellationToken ct);
+
+    /// <summary>Все обращения для админа: фильтры по статусу и типу, новые сверху.</summary>
+    Task<(IReadOnlyList<Case> Items, int Total)> ListForAdminAsync(CaseStatus? status, CaseType? type, int page, int pageSize, CancellationToken ct);
+
+    /// <summary>Предупреждения, вынесенные по обращению (с отслеживанием): их отзывают при отмене решения.</summary>
+    Task<IReadOnlyList<Warning>> FindWarningsForCaseAsync(Guid caseId, CancellationToken ct);
+
+    Task<IReadOnlyList<Warning>> ListWarningsForCaseReadOnlyAsync(Guid caseId, CancellationToken ct);
+
+    Task<BanRequest?> FindBanRequestAsync(Guid id, CancellationToken ct);
+
+    /// <summary>Запросы на бан, созданные по обращению (с отслеживанием).</summary>
+    Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct);
+
+    Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct);
 
     void AddWarning(Warning warning);
 

@@ -242,7 +242,7 @@ public sealed class ExchangeService
     /// нейтральная <c>partner_unavailable</c>, чтобы факт блокировки не раскрывался. В базе остаётся настоящая причина.
     /// </summary>
     private static string? AbortReasonFor(ExchangeRow r, Guid viewerId) =>
-        (r.AbortReason == Exchange.AbortReasonBlocked && r.BlockedById != viewerId) || r.AbortReason == Exchange.AbortReasonAccountDeleted
+        (r.AbortReason == Exchange.AbortReasonBlocked && r.BlockedById != viewerId) || r.AbortReason == Exchange.AbortReasonAccountDeleted || r.AbortReason == Exchange.AbortReasonAccountBlocked
             ? PartnerUnavailable   // блокировку и удаление аккаунта партнёром показываем одинаково нейтрально
             : r.AbortReason;
 

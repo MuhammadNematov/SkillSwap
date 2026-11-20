@@ -140,5 +140,34 @@ public class ModerationController : ControllerBase
     public async Task<IActionResult> UnfreezeExchange(Guid caseId, [FromServices] ResolutionService resolution, CancellationToken ct) =>
         Ok(await resolution.UnfreezeExchangeAsync(ModeratorId(), caseId, ct));
 
+    /// <summary>
+    /// Завершить ожидание пояснений досрочно (<c>WaitingResponse → InProgress</c>) с обязательной причиной (<c>reason</c> 20–2000 символов, пишется в аудит): после этого можно выносить решение.
+    /// Поздние ответы участников не принимаются. 409 <c>invalid_state_transition</c>: обращение не ждёт пояснений.
+    /// </summary>
+    [HttpPost("cases/{caseId:guid}/stop-waiting")]
+    [ProducesResponseType<ModerationCaseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> StopWaiting(Guid caseId, [FromBody] StopWaitingRequest request, [FromServices] ResolutionService resolution, CancellationToken ct) =>
+        Ok(await resolution.StopWaitingAsync(ModeratorId(), caseId, request, ct));
+
+    /// <summary>
+    /// Заключение по повторной проверке апелляции (<c>conclusion</c> 20–4000 символов), только назначенный админом проверяющий. Его доступ к чату закрывается (аудит
+    /// <c>ChatAccessRevoked</c>), админ получает уведомление <c>AppealConclusionReady</c>. Проверки, назначенные мне: <c>GET /moderation/cases?scope=Appeals</c>.
+    /// 400: <c>appeal_conclusion_too_short</c>, <c>appeal_conclusion_already_written</c>. 404: не ваша проверка. 409 <c>invalid_state_transition</c>: проверка не идёт.
+    /// </summary>
+    [HttpPost("cases/{caseId:guid}/appeal-conclusion")]
+    [ProducesResponseType<ModerationCaseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AppealConclusion(Guid caseId, [FromBody] AppealConclusionRequest request, [FromServices] AppealService appeals, CancellationToken ct) =>
+        Ok(await appeals.ConcludeAsync(ModeratorId(), caseId, request, ct));
+
     private Guid ModeratorId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

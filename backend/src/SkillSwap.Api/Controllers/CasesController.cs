@@ -104,5 +104,20 @@ public class CasesController : ControllerBase
     public async Task<IActionResult> Answer(Guid caseId, [FromBody] AnswerQuestionRequest request, [FromServices] ExplanationService explanations, CancellationToken ct) =>
         Ok(await explanations.AnswerAsync(UserId(), caseId, request, ct));
 
+    /// <summary>
+    /// Подать апелляцию на решение (<c>reason</c> 20–2000 символов): любая из сторон, один раз, в течение 7 дней после решения (<c>canAppeal</c>). Вторая сторона и админы получают
+    /// уведомление <c>CaseAppealed</c>, обращение переходит в <c>Appealed</c>. 400: <c>appeal_reason_too_short</c>/<c>_too_long</c>, <c>appeal_window_closed</c>. 404: <c>case_not_found</c>.
+    /// 409 <c>invalid_state_transition</c>: решения ещё нет или апелляция уже подана.
+    /// </summary>
+    [HttpPost("cases/{caseId:guid}/appeal")]
+    [ProducesResponseType<CaseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Appeal(Guid caseId, [FromBody] FileAppealRequest request, [FromServices] AppealService appeals, CancellationToken ct) =>
+        Ok(await appeals.FileAsync(UserId(), caseId, request, ct));
+
     private Guid UserId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

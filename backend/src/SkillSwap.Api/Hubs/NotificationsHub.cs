@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using SkillSwap.Application.Notifications;
+using SkillSwap.Application.Profile;
 
 namespace SkillSwap.Api.Hubs;
 
@@ -14,6 +15,29 @@ public sealed class NotificationsHub : Hub
 {
     /// <summary>Имя события, которое получает клиент.</summary>
     public const string EventName = "notification";
+
+    private readonly ConnectionRegistry _registry;
+    private readonly IProfileStore _profiles;
+
+    public NotificationsHub(ConnectionRegistry registry, IProfileStore profiles)
+    {
+        _registry = registry;
+        _profiles = profiles;
+    }
+
+    public override async Task OnConnectedAsync()
+    {
+        if (await _registry.AcceptAsync(Context, _profiles))
+        {
+            await base.OnConnectedAsync();
+        }
+    }
+
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        _registry.Remove(Context.ConnectionId);
+        return base.OnDisconnectedAsync(exception);
+    }
 }
 
 /// <summary>Пользователь SignalR — клейм <c>sub</c> (клеймы в приложении не переименовываются, стандартный провайдер их не находит).</summary>

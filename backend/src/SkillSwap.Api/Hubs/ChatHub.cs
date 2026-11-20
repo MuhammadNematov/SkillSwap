@@ -38,11 +38,15 @@ public sealed class ChatHub : Hub
 
     private readonly ChatService _chat;
     private readonly TimeProvider _clock;
+    private readonly ConnectionRegistry _registry;
+    private readonly SkillSwap.Application.Profile.IProfileStore _profiles;
 
-    public ChatHub(ChatService chat, TimeProvider clock)
+    public ChatHub(ChatService chat, TimeProvider clock, ConnectionRegistry registry, SkillSwap.Application.Profile.IProfileStore profiles)
     {
         _chat = chat;
         _clock = clock;
+        _registry = registry;
+        _profiles = profiles;
     }
 
     public static string GroupName(Guid exchangeId) => $"exchange:{exchangeId:N}";
@@ -51,6 +55,11 @@ public sealed class ChatHub : Hub
 
     public override async Task OnConnectedAsync()
     {
+        if (!await _registry.AcceptAsync(Context, _profiles))
+        {
+            return;   // аккаунт недействующий (заблокирован): соединение оборвано
+        }
+
         foreach (var exchangeId in await _chat.ReadableExchangeIdsAsync(UserId, Context.ConnectionAborted))
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(exchangeId), Context.ConnectionAborted);
@@ -61,6 +70,7 @@ public sealed class ChatHub : Hub
 
     public override Task OnDisconnectedAsync(Exception? exception)
     {
+        _registry.Remove(Context.ConnectionId);
         foreach (var key in LastTyping.Keys.Where(k => k.StartsWith(Context.ConnectionId + "|", StringComparison.Ordinal)))
         {
             LastTyping.TryRemove(key, out _);

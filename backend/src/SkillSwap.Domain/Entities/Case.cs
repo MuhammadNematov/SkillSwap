@@ -370,7 +370,7 @@ public class Case : BaseEntity
         }
     }
 
-    internal static string CleanText(string? text, int min, int max, string codePrefix)
+    public static string CleanText(string? text, int min, int max, string codePrefix)
     {
         var clean = text?.Trim() ?? string.Empty;
         if (clean.Length < min)

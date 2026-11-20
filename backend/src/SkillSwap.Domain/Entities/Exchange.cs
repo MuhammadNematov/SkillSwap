@@ -19,6 +19,9 @@ public class Exchange : BaseEntity
     /// <summary>Причина прерывания при удалении аккаунта одного из участников (виновного нет). Партнёр видит нейтральную <c>partner_unavailable</c>.</summary>
     public const string AbortReasonAccountDeleted = "account_deleted";
 
+    /// <summary>Аккаунт одного из участников заблокирован администратором (одобренный запрос на бан).</summary>
+    public const string AbortReasonAccountBlocked = "account_blocked";
+
     /// <summary>
     /// Причина прерывания, когда пострадавший выходит после трёх окончательных неявок партнёра (раздел 6.3 ТЗ). Участники видят эту причину обоим;
     /// виновным записывается партнёр (см. <see cref="AbortForPartnerNoShow"/>). Свободный текст причины этим значением не становится: признак
@@ -211,6 +214,14 @@ public class Exchange : BaseEntity
     {
         RequireStatus(ExchangeStatus.Aborted, ExchangeStatus.Active, ExchangeStatus.Frozen);
         AbortReason = AbortReasonAccountDeleted;
+        Close(ExchangeStatus.Aborted, now);
+    }
+
+    /// <summary>Аккаунт участника заблокирован администратором: активный или замороженный обмен прерывается без виновного (партнёру причина показывается нейтрально).</summary>
+    public void AbortByBan(DateTime now)
+    {
+        RequireStatus(ExchangeStatus.Aborted, ExchangeStatus.Active, ExchangeStatus.Frozen);
+        AbortReason = AbortReasonAccountBlocked;
         Close(ExchangeStatus.Aborted, now);
     }
 

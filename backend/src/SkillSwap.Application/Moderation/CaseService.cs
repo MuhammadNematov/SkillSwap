@@ -251,6 +251,8 @@ public sealed class CaseService
 
         var evidence = await _cases.GetEvidenceIdsAsync(items.Select(c => c.Id).ToList(), ct);
         var pending = await _caseMessages.CountUnansweredAsync(items.Select(c => c.Id).ToList(), viewerId, ct);
+        var appeals = await _cases.GetAppealsAsync(items.Select(c => c.Id).ToList(), ct);
+        var now = Now();
         var exchanges = await _exchanges.GetViewsAsync(items.Select(c => c.ExchangeId).Distinct().ToList(), ct);
         var people = exchanges.Values.SelectMany(e => new[] { e.UserA, e.UserB }).GroupBy(u => u.Id).Select(g => g.First()).ToList();
         var urls = await _avatars.ForViewerAsync(viewerId, people.Select(p => (p.Id, p.AvatarUrl)).ToList(), ct);
@@ -268,7 +270,11 @@ public sealed class CaseService
                 c.OpenedById == viewerId ? CaseRole.Opener : CaseRole.Against, c.Description, c.FromCall, c.CreatedAt,
                 evidence.GetValueOrDefault(c.Id) ?? [], decided ? c.Decision : null, decided && c.AlsoWarned, decided ? c.DecisionReason : null,
                 decided ? c.ResolvedAt : null, c.Status == CaseStatus.WaitingResponse ? c.ResponseDeadlineAt : null,
-                c.Status == CaseStatus.Open && c.OpenedById == viewerId, c.Status == CaseStatus.WaitingResponse ? pending.GetValueOrDefault(c.Id) : 0);
+                c.Status == CaseStatus.Open && c.OpenedById == viewerId, c.Status == CaseStatus.WaitingResponse ? pending.GetValueOrDefault(c.Id) : 0,
+                c.Status == CaseStatus.Resolved && !c.WasAppealed && c.ResolvedAt is { } resolvedAt && now <= resolvedAt + CaseRules.AppealWindow,
+                appeals.TryGetValue(c.Id, out var appeal)
+                    ? new CaseAppealDto(appeal.AppellantId, appeal.Reason, appeal.CreatedAt, c.Status == CaseStatus.AppealReview, appeal.Outcome, appeal.FinalDecision, appeal.DecidedAt)
+                    : null);
         }).ToList();
     }
 

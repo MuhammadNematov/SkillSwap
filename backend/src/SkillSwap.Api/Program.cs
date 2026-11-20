@@ -29,6 +29,8 @@ builder.Services.AddScoped<TurnstileFilter>();
 // Хаб уведомлений (SignalR): пользователь — клейм sub; доставка из фоновых задач.
 builder.Services.AddSignalR().AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));   // перечисления строками, как в REST
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, SkillSwap.Api.Hubs.SubUserIdProvider>();
+builder.Services.AddSingleton<SkillSwap.Api.Hubs.ConnectionRegistry>();
+builder.Services.AddSingleton<SkillSwap.Application.Moderation.IRealtimeDisconnector>(sp => sp.GetRequiredService<SkillSwap.Api.Hubs.ConnectionRegistry>());
 builder.Services.AddScoped<SkillSwap.Application.Notifications.INotificationPusher, SkillSwap.Api.Hubs.SignalRNotificationPusher>();
 builder.Services.AddScoped<SkillSwap.Application.Chat.IChatBroadcaster, SkillSwap.Api.Hubs.SignalRChatBroadcaster>();
 

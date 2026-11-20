@@ -20,6 +20,7 @@ internal static class NotificationEmailTemplates
             NotificationType.RequestAccepted => RequestAccepted(language, name, other, ExchangeLink(payload, frontend)),
             NotificationType.SessionReminder => Reminder(language, name, other, payload, ExchangeLink(payload, frontend), timeZone),
             NotificationType.CaseResolved => CaseResolved(language, name, payload, frontend),
+            NotificationType.AppealDecided => AppealDecided(language, name, payload, frontend),
             _ => null,
         };
     }
@@ -44,6 +45,28 @@ internal static class NotificationEmailTemplates
             _ => (
                 "SkillSwap: decision on your case",
                 $"Hello, {name}!\n\nA decision was made on the case: {DecisionEn(decision)}.{(warned ? " A warning was added to the decision." : string.Empty)}\nReasoning and details: {link}\nYou can appeal until {until} (once)."),
+        };
+    }
+
+    /// <summary>Письмо о решении по апелляции: оставлено, отменено или заменено; для заменённого и оставленного указано итоговое решение, для отменённого предупреждения — что оно снято.</summary>
+    private static (string, string) AppealDecided(string language, string name, JsonElement payload, FrontendOptions frontend)
+    {
+        var outcome = Text(payload, "outcome") ?? string.Empty;
+        var decision = Text(payload, "decision") ?? string.Empty;
+        var warned = Text(payload, "alsoWarned") == "True";
+        var revoked = Text(payload, "warningRevoked") == "True";
+        var link = Guid.TryParse(Text(payload, "caseId"), out var id) ? frontend.CaseUrl(id) : frontend.BaseUrl.TrimEnd('/');
+        return language switch
+        {
+            "ru" => (
+                "SkillSwap: решение по апелляции",
+                $"Здравствуйте, {name}!\n\nАпелляция рассмотрена: {(outcome switch { "Upheld" => "решение оставлено без изменений", "Overturned" => "решение отменено", _ => "решение изменено" })}. Итог: {DecisionRu(decision)}.{(warned ? " К решению добавлено предупреждение." : string.Empty)}{(revoked ? " Ранее вынесенное вам предупреждение снято." : string.Empty)}\nПодробности: {link}\nЭто окончательное решение."),
+            "tg" => (
+                "SkillSwap: қарор оид ба аппелятсия",
+                $"Салом, {name}!\n\nАппелятсия баррасӣ шуд: {(outcome switch { "Upheld" => "қарор бетағйир монд", "Overturned" => "қарор бекор карда шуд", _ => "қарор тағйир дода шуд" })}. Натиҷа: {DecisionTg(decision)}.{(warned ? " Ба қарор огоҳӣ илова карда шуд." : string.Empty)}{(revoked ? " Огоҳии қаблан додашуда бекор карда шуд." : string.Empty)}\nТафсилот: {link}\nИн қарори охирин аст."),
+            _ => (
+                "SkillSwap: decision on your appeal",
+                $"Hello, {name}!\n\nThe appeal was reviewed: {(outcome switch { "Upheld" => "the decision stays unchanged", "Overturned" => "the decision was overturned", _ => "the decision was changed" })}. Result: {DecisionEn(decision)}.{(warned ? " A warning was added to the decision." : string.Empty)}{(revoked ? " The warning issued earlier was withdrawn." : string.Empty)}\nDetails: {link}\nThis decision is final."),
         };
     }
 

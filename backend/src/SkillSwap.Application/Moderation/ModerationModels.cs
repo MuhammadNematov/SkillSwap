@@ -11,6 +11,9 @@ public enum ModeratorScope
 
     /// <summary>Мои: взятые мной и ещё не закрытые окончательно.</summary>
     Mine,
+
+    /// <summary>Повторные проверки по апелляции, назначенные этому модератору и ещё без заключения.</summary>
+    Appeals,
 }
 
 /// <summary>Оспариваемый отзыв в обращении для модератора.</summary>
@@ -24,6 +27,8 @@ public sealed record ModerationReviewDto(
 /// <param name="HasChatAccess">У меня сейчас есть доступ к чату этого обмена по этому обращению (читать: <c>GET /moderation/cases/{id}/chat</c>).</param>
 /// <param name="Review">Оспариваемый отзыв (только спор по отзыву).</param>
 /// <param name="PendingQuestions">Сколько заданных мной вопросов ещё без ответа.</param>
+/// <param name="Appeal">Апелляция (причина, заключение проверяющего, итог), если она подана.</param>
+/// <param name="IsAppealReviewer">Меня назначили на повторную проверку по апелляции.</param>
 public sealed record ModerationCaseDto(
     Guid Id,
     CaseType Type,
@@ -49,7 +54,9 @@ public sealed record ModerationCaseDto(
     string? DecisionReason,
     DateTime? ResolvedAt,
     DateTime? ResponseDeadlineAt,
-    int PendingQuestions);
+    int PendingQuestions,
+    StaffAppealDto? Appeal,
+    bool IsAppealReviewer);
 
 public sealed record ModerationCaseListDto(IReadOnlyList<ModerationCaseDto> Items, int Page, int PageSize, int TotalCount);
 

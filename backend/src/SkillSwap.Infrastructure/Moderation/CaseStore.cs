@@ -66,9 +66,12 @@ public sealed class CaseStore : ICaseStore
         ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct)
     {
         var query = _db.Cases.AsNoTracking().AsQueryable();
-        query = scope == ModeratorScope.Queue
-            ? query.Where(c => c.Status == CaseStatus.Open)
-            : query.Where(c => c.ModeratorId == moderatorId && c.Status != CaseStatus.Closed && c.Status != CaseStatus.Withdrawn);
+        query = scope switch
+        {
+            ModeratorScope.Queue => query.Where(c => c.Status == CaseStatus.Open),
+            ModeratorScope.Appeals => query.Where(c => c.Status == CaseStatus.AppealReview && _db.CaseAppeals.Any(a => a.CaseId == c.Id && a.ReviewerModeratorId == moderatorId)),
+            _ => query.Where(c => c.ModeratorId == moderatorId && c.Status != CaseStatus.Closed && c.Status != CaseStatus.Withdrawn),
+        };
         if (excludedUsers.Count > 0)
         {
             query = query.Where(c => !excludedUsers.Contains(c.OpenedById) && !excludedUsers.Contains(c.AgainstUserId));
@@ -98,6 +101,62 @@ public sealed class CaseStore : ICaseStore
             .Distinct().ToListAsync(ct);
         partners.Add(personalUserId);
         return partners;
+    }
+
+    public void AddAppeal(CaseAppeal appeal) => _db.CaseAppeals.Add(appeal);
+
+    public Task<CaseAppeal?> FindAppealAsync(Guid caseId, bool tracked, CancellationToken ct) =>
+        (tracked ? _db.CaseAppeals : _db.CaseAppeals.AsNoTracking()).FirstOrDefaultAsync(a => a.CaseId == caseId, ct);
+
+    public async Task<IReadOnlyDictionary<Guid, CaseAppeal>> GetAppealsAsync(IReadOnlyCollection<Guid> caseIds, CancellationToken ct) =>
+        await _db.CaseAppeals.AsNoTracking().Where(a => caseIds.Contains(a.CaseId)).ToDictionaryAsync(a => a.CaseId, ct);
+
+    public async Task<IReadOnlyList<Guid>> ListActiveAdminIdsAsync(CancellationToken ct) =>
+        await _db.Users.AsNoTracking().Where(u => (u.Role == UserRole.Admin || u.Role == UserRole.SuperAdmin) && u.Status == UserStatus.Active).Select(u => u.Id).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<User>> ListModeratorsAsync(CancellationToken ct) =>
+        await _db.Users.AsNoTracking().Where(u => u.Role == UserRole.Moderator && u.Status == UserStatus.Active).OrderBy(u => u.Name).ToListAsync(ct);
+
+    public async Task<(IReadOnlyList<Case> Items, int Total)> ListForAdminAsync(CaseStatus? status, CaseType? type, int page, int pageSize, CancellationToken ct)
+    {
+        var query = _db.Cases.AsNoTracking().AsQueryable();
+        if (status is { } s)
+        {
+            query = query.Where(c => c.Status == s);
+        }
+
+        if (type is { } t)
+        {
+            query = query.Where(c => c.Type == t);
+        }
+
+        var total = await query.CountAsync(ct);
+        var items = await query.OrderByDescending(c => c.CreatedAt).ThenBy(c => c.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return (items, total);
+    }
+
+    public async Task<IReadOnlyList<Warning>> FindWarningsForCaseAsync(Guid caseId, CancellationToken ct) =>
+        await _db.Warnings.Where(w => w.CaseId == caseId).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Warning>> ListWarningsForCaseReadOnlyAsync(Guid caseId, CancellationToken ct) =>
+        await _db.Warnings.AsNoTracking().Where(w => w.CaseId == caseId).OrderBy(w => w.CreatedAt).ToListAsync(ct);
+
+    public Task<BanRequest?> FindBanRequestAsync(Guid id, CancellationToken ct) => _db.BanRequests.FirstOrDefaultAsync(b => b.Id == id, ct);
+
+    public async Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct) =>
+        await _db.BanRequests.Where(b => b.CaseId == caseId).ToListAsync(ct);
+
+    public async Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct)
+    {
+        var query = _db.BanRequests.AsNoTracking().AsQueryable();
+        if (status is { } s)
+        {
+            query = query.Where(b => b.Status == s);
+        }
+
+        var total = await query.CountAsync(ct);
+        var items = await query.OrderByDescending(b => b.CreatedAt).ThenBy(b => b.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return (items, total);
     }
 
     public void AddWarning(Warning warning) => _db.Warnings.Add(warning);

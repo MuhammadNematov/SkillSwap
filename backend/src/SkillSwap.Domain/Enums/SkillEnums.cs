@@ -141,6 +141,27 @@ public enum NotificationType
 
     /// <summary>Вам вынесено предупреждение (действует 12 месяцев). В данных: caseId, exchangeId, reason.</summary>
     WarningIssued,
+
+    /// <summary>Вторая сторона: на решение по обращению подана апелляция; админам: поступила апелляция. В данных: caseId, exchangeId.</summary>
+    CaseAppealed,
+
+    /// <summary>Обеим сторонам: апелляцию проверяет другой модератор, он получил доступ к переписке этого обмена (одно уведомление). В данных: caseId, exchangeId, role.</summary>
+    CaseAppealReviewAssigned,
+
+    /// <summary>Модератору: вас назначили на повторную проверку по апелляции. В данных: caseId, exchangeId.</summary>
+    AppealReviewAssigned,
+
+    /// <summary>Админу: модератор написал заключение по апелляции. В данных: caseId.</summary>
+    AppealConclusionReady,
+
+    /// <summary>Решение по апелляции (обеим сторонам, дублируется письмом). В данных: caseId, exchangeId, role, outcome, decision, alsoWarned, youWereWarned, warningRevoked.</summary>
+    AppealDecided,
+
+    /// <summary>Ваше предупреждение отозвано (решение отменено или заменено). В данных: caseId.</summary>
+    WarningRevoked,
+
+    /// <summary>Модератору: админ решил его запрос на блокировку. В данных: banRequestId, userId, approved.</summary>
+    BanRequestDecided,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>
