@@ -162,6 +162,9 @@ public enum NotificationType
 
     /// <summary>Модератору: админ решил его запрос на блокировку. В данных: banRequestId, userId, approved.</summary>
     BanRequestDecided,
+
+    /// <summary>Админам: обращение просрочено, срок реакции вышел, а его никто не взял. В данных: caseId, priority, dueAt.</summary>
+    CaseOverdue,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

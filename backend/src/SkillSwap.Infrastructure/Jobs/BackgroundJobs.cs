@@ -19,6 +19,9 @@ public sealed class HangfireBackgroundJobs : IBackgroundJobs
     public void Enqueue<T>(Expression<Func<T, Task>> job) where T : notnull => _client.Enqueue(job);
 
     public void Schedule<T>(Expression<Func<T, Task>> job, DateTimeOffset runAt) where T : notnull => _client.Schedule(job, runAt);
+
+    public void Recurring<T>(string id, Expression<Func<T, Task>> job, string cron) where T : notnull =>
+        RecurringJob.AddOrUpdate(id, job, cron, new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 }
 
 /// <summary>
@@ -51,6 +54,34 @@ public sealed class InlineBackgroundJobs : IBackgroundJobs
     public IReadOnlyList<Exception> Failures
     {
         get { lock (_gate) { return [.. _failures]; } }
+    }
+
+    private readonly Dictionary<string, (string Cron, Func<IServiceScopeFactory, Task> Run)> _recurring = [];
+
+    /// <summary>Зарегистрированные повторяющиеся задачи (идентификатор и расписание); сами не запускаются, тест вызывает <see cref="RunRecurringAsync"/>.</summary>
+    public IReadOnlyDictionary<string, string> RecurringJobs
+    {
+        get { lock (_gate) { return _recurring.ToDictionary(p => p.Key, p => p.Value.Cron); } }
+    }
+
+    public void Recurring<T>(string id, Expression<Func<T, Task>> job, string cron) where T : notnull
+    {
+        lock (_gate)
+        {
+            _recurring[id] = (cron, Build(job));
+        }
+    }
+
+    /// <summary>Выполняет повторяющуюся задачу один раз (как это сделал бы планировщик).</summary>
+    public async Task RunRecurringAsync(string id)
+    {
+        Func<IServiceScopeFactory, Task> run;
+        lock (_gate)
+        {
+            run = _recurring[id].Run;
+        }
+
+        await RunSafelyAsync(run);
     }
 
     public void Enqueue<T>(Expression<Func<T, Task>> job) where T : notnull => RunNow(Build(job));

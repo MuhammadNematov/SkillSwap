@@ -39,6 +39,9 @@ public static class AuditActions
     public const string CaseClosed = "CaseClosed";
     public const string ExplanationStopped = "ExplanationStopped";
     public const string CaseMaterialsRead = "CaseMaterialsRead";
+    public const string CaseOverdue = "CaseOverdue";
+    public const string ChatPurged = "ChatPurged";
+    public const string EvidenceReleased = "EvidenceReleased";
     public const string CaseAppealed = "CaseAppealed";
     public const string AppealReviewAssigned = "AppealReviewAssigned";
     public const string AppealConcluded = "AppealConcluded";

@@ -38,6 +38,9 @@ internal sealed class FakeBackgroundJobs : IBackgroundJobs
 
     public void Schedule<T>(System.Linq.Expressions.Expression<Func<T, Task>> job, DateTimeOffset runAt) where T : notnull =>
         Enqueued.Add($"{typeof(T).Name}: {job} @ {runAt:O}");
+
+    public void Recurring<T>(string id, System.Linq.Expressions.Expression<Func<T, Task>> job, string cron) where T : notnull =>
+        Enqueued.Add($"{typeof(T).Name}: {job} every {cron}");
 }
 
 internal sealed class FakeUserManager : UserManager<User>

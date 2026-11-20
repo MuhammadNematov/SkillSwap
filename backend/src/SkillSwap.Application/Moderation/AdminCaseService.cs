@@ -36,12 +36,14 @@ public sealed class AdminCaseService
     private readonly IMessageCipher _cipher;
     private readonly TimeProvider _clock;
     private readonly CaseConsequences _consequences;
+    private readonly IBackgroundJobs _jobs;
 
     public AdminCaseService(
         ICaseStore cases, ICaseMessageStore caseMessages, IMessageStore messages, IReviewStore reviews, IExchangeStore exchanges, IChatAccessGrantStore grants,
         ModerationService moderation, ReviewScheduler reviewScheduler, Sessions.LessonSessionService lessons, CaseCrossChecks checks, IProfileStore profiles, IUnitOfWork uow,
-        IAuditLog audit, INotificationPublisher notify, IMessageCipher cipher, TimeProvider clock, CaseConsequences consequences)
+        IAuditLog audit, INotificationPublisher notify, IMessageCipher cipher, TimeProvider clock, CaseConsequences consequences, IBackgroundJobs jobs)
     {
+        _jobs = jobs;
         _cases = cases;
         _caseMessages = caseMessages;
         _messages = messages;
@@ -250,6 +252,7 @@ public sealed class AdminCaseService
         }, ct);
 
         _notify.Dispatch();
+        _jobs.Enqueue<CaseMaintenanceJobs>(j => j.ReleaseHoldsAsync(caseId));   // обращение закрыто окончательно
         await _lessons.PublishUpdatesAsync(result.CancelledLessons);
         if (result.ExchangeClosedAt is { } closed)
         {
@@ -276,7 +279,7 @@ public sealed class AdminCaseService
             var appeal = appeals.GetValueOrDefault(c.Id);
             return new AdminCaseDto(
                 c.Id, c.Type, c.Category, c.Status, c.Priority, c.ExchangeId, c.ReviewId, people[c.OpenedById], people[c.AgainstUserId], c.Description, c.FromCall, c.CreatedAt,
-                c.ModeratorId, c.Decision, c.AlsoWarned, c.DecisionReason, c.ResolvedAt, c.ClosedAt,
+                c.DueAt, c.IsOverdue(Now()), c.ModeratorId, c.Decision, c.AlsoWarned, c.DecisionReason, c.ResolvedAt, c.ClosedAt,
                 appeal is null ? null : new StaffAppealDto(
                     appeal.AppellantId, appeal.Reason, appeal.CreatedAt, appeal.AdminId, appeal.ReviewerModeratorId, appeal.ReviewerConclusion, appeal.Outcome, appeal.FinalDecision, appeal.DecidedAt));
         }).ToList();

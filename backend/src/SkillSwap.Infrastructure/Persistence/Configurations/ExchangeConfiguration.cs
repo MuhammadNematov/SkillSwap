@@ -28,6 +28,9 @@ public class ExchangeConfiguration : IEntityTypeConfiguration<Exchange>
         // Фоновое завершение по сроку ищет активные обмены с истёкшим EndDate.
         builder.HasIndex(e => new { e.Status, e.EndDate });
 
+        // Очистка чатов (раздел 10.3 ТЗ): закрытые обмены, чаты которых ещё не вычищены.
+        builder.HasIndex(e => e.ClosedAt).HasFilter("\"ChatPurgedAt\" IS NULL AND \"ClosedAt\" IS NOT NULL");
+
         builder.HasOne<User>().WithMany().HasForeignKey(e => e.UserAId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<User>().WithMany().HasForeignKey(e => e.UserBId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Skill>().WithMany().HasForeignKey(e => e.SkillAId).OnDelete(DeleteBehavior.Restrict);

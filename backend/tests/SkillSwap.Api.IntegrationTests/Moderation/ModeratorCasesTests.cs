@@ -489,7 +489,7 @@ public class ModeratorCasesTests
             Assert.Equal("Exchange", r.TargetType);
             Assert.Equal(x.ExchangeId, r.TargetId);
             Assert.Contains(x.CaseId.ToString(), r.DetailsJson);   // какое обращение
-            Assert.True(r.CreatedAt > DateTime.UtcNow.AddMinutes(-5));   // когда
+            Assert.InRange((r.CreatedAt - Now).TotalMinutes, -5, 5);   // когда: по часам приложения (общие часы тестов могут быть сдвинуты)
         });
         Assert.Equal(beforeA, await NotificationCountAsync(x.A));
         Assert.Equal(beforeB, await NotificationCountAsync(x.B));

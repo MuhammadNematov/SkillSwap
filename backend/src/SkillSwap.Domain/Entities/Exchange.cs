@@ -54,6 +54,14 @@ public class Exchange : BaseEntity
     public bool ExtensionAcceptedByB { get; private set; }
     public DateTime? FrozenAt { get; private set; }
 
+    /// <summary>
+    /// Когда очистка чатов удалила все сообщения и вложения обмена (через 90 дней после закрытия, раздел 10.3 ТЗ). Пока сообщения-доказательства обращения хранятся,
+    /// остаётся null: очистка вернётся к обмену, когда доказательства отпустят. По этому признаку очистка не обходит один и тот же обмен каждый день.
+    /// </summary>
+    public DateTime? ChatPurgedAt { get; private set; }
+
+    public void MarkChatPurged(DateTime now) => ChatPurgedAt ??= now;
+
     /// <summary>Кто прервал обмен; null, если прервала система (блокировка) или модератор.</summary>
     public Guid? AbortedById { get; private set; }
 
