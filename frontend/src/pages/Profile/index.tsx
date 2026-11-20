@@ -9,12 +9,12 @@ import type { UserSkill } from '../../api/types'
 import { getUserProfile } from '../../api/users'
 import Avatar from '../../components/Avatar'
 import ExchangeRequestModal from '../../components/ExchangeRequestModal'
-import Icon from '../../components/Icon'
 import RatingBadge from '../../components/RatingBadge'
+import ReviewList from '../../components/ReviewList'
 import Spinner from '../../components/Spinner'
 import { getLanguages } from '../../api/onboarding'
 import { pickName } from '../../utils/localized'
-import { formatDateTime, utcOffsetLabel } from '../../utils/dates'
+import { utcOffsetLabel } from '../../utils/dates'
 
 type Tab = 'about' | 'skills' | 'reviews'
 
@@ -45,7 +45,6 @@ export default function Profile() {
   const { t, i18n } = useTranslation()
   const { id } = useParams()
   const userId = id ?? 'me'
-  const lang = i18n.resolvedLanguage ?? 'ru'
 
   const [tab, setTab] = useState<Tab>('about')
   const [requesting, setRequesting] = useState(false)
@@ -164,35 +163,7 @@ export default function Profile() {
         </section>
       )}
 
-      {tab === 'reviews' && (
-        <section className="space-y-3">
-          {user.reviews.length === 0 ? (
-            <div className="card text-sm text-slate-500">{t('profile.noReviews')}</div>
-          ) : (
-            user.reviews.map((r) => (
-              <article key={r.id} className="card">
-                <div className="flex items-center gap-3">
-                  <Avatar name={r.authorName} className="h-10 w-10" />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-slate-900">{r.authorName}</div>
-                    <div className="text-xs text-slate-400">{formatDateTime(r.createdAt, lang)}</div>
-                  </div>
-                  {r.isFullExchange && (
-                    <span className="rounded-full bg-emerald-100/80 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                      {t('profile.fullExchange')}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1 text-sm font-medium text-amber-600">
-                    <Icon name="star" className="h-4 w-4" />
-                    {r.score.toFixed(1)}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm text-slate-700">{r.text}</p>
-              </article>
-            ))
-          )}
-        </section>
-      )}
+      {tab === 'reviews' && <ReviewList userId={user.id} />}
 
       {requesting && (
         <ExchangeRequestModal

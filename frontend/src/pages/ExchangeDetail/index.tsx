@@ -8,6 +8,7 @@ import { abortExchange, completeExchange, extendExchange, getExchange, getSessio
 import type { LessonSession } from '../../api/types'
 import Avatar from '../../components/Avatar'
 import CancelSessionModal from '../../components/CancelSessionModal'
+import CaseModal from '../../components/CaseModal'
 import Chat from '../../components/Chat'
 import FormField from '../../components/FormField'
 import Icon from '../../components/Icon'
@@ -28,6 +29,7 @@ export default function ExchangeDetail() {
 
   const [proposing, setProposing] = useState(false)
   const [aborting, setAborting] = useState(false)
+  const [complaining, setComplaining] = useState(false)
   const [cancelling, setCancelling] = useState<LessonSession | null>(null)
 
   const { data: exchange, isLoading, error } = useQuery({ queryKey: ['exchange', id], queryFn: () => getExchange(id) })
@@ -35,7 +37,9 @@ export default function ExchangeDetail() {
 
   const complete = useMutation({ mutationFn: completeExchange, onSuccess: invalidate })
   const extend = useMutation({ mutationFn: extendExchange, onSuccess: invalidate })
-  const actionError = complete.error ?? extend.error
+  // Три окончательные неявки партнёра: можно выйти без последствий для себя
+  const leaveNoShow = useMutation({ mutationFn: () => abortExchange({ id, reason: 'partner_no_show' }), onSuccess: invalidate })
+  const actionError = complete.error ?? extend.error ?? leaveNoShow.error
 
   if (isLoading) return <Spinner />
   if (error || !exchange) return <div className="card text-sm text-red-700">{errorMessage(t, error)}</div>
@@ -69,6 +73,9 @@ export default function ExchangeDetail() {
           </div>
         </div>
         <span className="rounded-full bg-surface px-3 py-1 text-sm font-medium text-slate-700">{t(`exchangeStatus.${exchange.status}`)}</span>
+        <button className="btn-secondary px-3 py-1.5" onClick={() => setComplaining(true)}>
+          {t('cases.complain')}
+        </button>
       </section>
 
       <div className="grid gap-5 lg:grid-cols-5">
@@ -124,7 +131,9 @@ export default function ExchangeDetail() {
 
           {exchange.status === 'Aborted' && (
             <section className="card text-sm text-slate-600">
-              <div className="font-semibold text-slate-800">{t(`exchange.abortedBy_${exchange.abortedBy ?? 'system'}`)}</div>
+              <div className="font-semibold text-slate-800">
+                {exchange.abortedForNoShow ? t(exchange.abortedBy === 'partner' ? 'exchange.abortedNoShowOther' : 'exchange.abortedNoShowMe') : t(`exchange.abortedBy_${exchange.abortedBy ?? 'system'}`)}
+              </div>
               {exchange.abortReason && (
                 <p className="mt-1">{t([`exchange.abortReason_${exchange.abortReason}`, 'exchange.abortReasonText'], { text: exchange.abortReason })}</p>
               )}
@@ -150,6 +159,14 @@ export default function ExchangeDetail() {
                   {t('exchange.extend')}
                 </button>
               )}
+              {exchange.canAbortForNoShow && (
+                <div className="rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-800">
+                  <p>{t('exchange.noShowsHint', { count: exchange.partnerNoShows ?? 3, name: exchange.partner.name })}</p>
+                  <button className="btn-secondary mt-2 w-full" disabled={leaveNoShow.isPending} onClick={() => leaveNoShow.mutate()}>
+                    {t('exchange.leaveNoShow')}
+                  </button>
+                </div>
+              )}
               <button className="w-full rounded-xl px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50/70" onClick={() => setAborting(true)}>
                 {t('exchange.abort')}
               </button>
@@ -165,6 +182,7 @@ export default function ExchangeDetail() {
       {proposing && <SessionProposalModal exchangeId={exchange.id} partnerId={exchange.partner.id} partnerName={exchange.partner.name} onClose={() => setProposing(false)} />}
       {cancelling && <CancelSessionModal session={cancelling} onClose={() => setCancelling(null)} />}
       {aborting && <AbortModal exchangeId={exchange.id} onClose={() => setAborting(false)} />}
+      {complaining && <CaseModal exchangeId={exchange.id} partnerName={exchange.partner.name} onClose={() => setComplaining(false)} />}
     </div>
   )
 }

@@ -5,6 +5,8 @@ import Admin from './pages/Admin'
 import AppHome from './pages/AppHome'
 import Call from './pages/Call'
 import Calendar from './pages/Calendar'
+import Cases from './pages/Cases'
+import CaseDetail from './pages/Cases/CaseDetail'
 import ExchangeDetail from './pages/ExchangeDetail'
 import Exchanges from './pages/Exchanges'
 import ConfirmEmail from './pages/ConfirmEmail'
@@ -55,6 +57,8 @@ export default function App() {
           <Route path="exchanges/:id" element={<ExchangeDetail />} />
           <Route path="messages" element={<Messages />} />
           <Route path="reviews" element={<Reviews />} />
+          <Route path="cases" element={<Cases />} />
+          <Route path="cases/:id" element={<CaseDetail />} />
           <Route path="settings" element={<Settings />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="calendar" element={<Calendar />} />

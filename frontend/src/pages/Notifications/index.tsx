@@ -19,8 +19,20 @@ function targetOf(n: AppNotification): string | null {
     case 'RequestExpired':
       return '/app/exchanges?tab=outgoing'
     case 'ReviewAvailable':
+    case 'ReviewReminder':
     case 'ReviewPublished':
       return '/app/reviews'
+    case 'CaseTaken':
+    case 'CaseResolved':
+    case 'CaseExplanationRequested':
+    case 'CaseExplanationReminder':
+    case 'CaseAppealed':
+    case 'CaseAppealReviewAssigned':
+    case 'AppealDecided':
+      return n.payload.caseId ? `/app/cases/${n.payload.caseId}` : '/app/cases'
+    case 'WarningIssued':
+    case 'WarningRevoked':
+      return '/app/cases'
     default:
       return ex ? `/app/exchanges/${ex}` : null
   }

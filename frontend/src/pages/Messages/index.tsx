@@ -16,16 +16,17 @@ export default function Messages() {
 
   function preview(c: (typeof data)[number]) {
     const m = c.last
-    if (!m) return ''
-    const body =
-      m.type === 'Text' || m.type === 'System'
-        ? m.text
+    if (!m) return t('messages.noMessages')
+    const body = m.isDeleted
+      ? t('chat.deleted')
+      : m.type === 'Text' || m.type === 'System'
+        ? (m.preview ?? '')
         : m.type === 'File'
-          ? m.fileName
+          ? t('chat.file')
           : m.type === 'SessionCard'
             ? t('chat.sessionCard')
             : t('chat.voice')
-    return `${m.senderIsMe ? t('messages.you') : ''}${body ?? ''}`
+    return `${m.senderIsMe ? t('messages.you') : ''}${body}`
   }
 
   return (
@@ -44,7 +45,12 @@ export default function Messages() {
                     <span className="truncate font-bold text-slate-900">{c.exchange.partner.name}</span>
                     {c.last && <span className="shrink-0 text-xs text-slate-400">{formatDateTime(c.last.createdAt, lang)}</span>}
                   </div>
-                  <div className="truncate text-sm text-slate-500">{preview(c)}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1 truncate text-sm text-slate-500">{preview(c)}</div>
+                    {!!c.exchange.unreadMessages && (
+                      <span className="min-w-5 shrink-0 rounded-full bg-brand-600 px-1.5 text-center text-xs font-semibold leading-5 text-white">{c.exchange.unreadMessages}</span>
+                    )}
+                  </div>
                   <div className="text-xs text-slate-400">
                     {c.exchange.mySkill} ↔ {c.exchange.partnerSkill}
                   </div>

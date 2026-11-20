@@ -7,7 +7,8 @@
     "backHome": "Back to home",
     "cancel": "Cancel",
     "themeLight": "Light theme",
-    "themeDark": "Dark theme"
+    "themeDark": "Dark theme",
+    "loadMore": "Show more"
   },
   "landing": {
     "title1": "Exchange knowledge.",
@@ -445,7 +446,8 @@
     "requestExchange": "Request exchange",
     "noReviews": "No reviews yet",
     "fullExchange": "Full exchange",
-    "noBio": "No description yet"
+    "noBio": "No description yet",
+    "deletedUser": "Deleted user"
   },
   "validation": {
     "required": "Required field",
@@ -469,7 +471,8 @@
     "reviews": "Reviews",
     "notifications": "Notifications",
     "profile": "Profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "cases": "Cases"
   },
   "shell": {
     "searchPlaceholder": "Search skills...",
@@ -511,7 +514,8 @@
       "AnswerSession": "Your partner proposed a lesson time",
       "ConfirmSession": "Confirm that the lesson took place",
       "FinishExchange": "Your partner finished the exchange — confirm",
-      "AnswerExtension": "Your partner agreed to extend the exchange"
+      "AnswerExtension": "Your partner agreed to extend the exchange",
+      "WriteReview": "Write a review for the closed exchange"
     }
   },
   "moderation": {
@@ -687,7 +691,63 @@
       "two_factor_code_required": "Enter the two-factor code",
       "staff_cannot_delete_account": "A staff account cannot be deleted this way",
       "avatar_too_large": "The photo is larger than 2 MB",
-      "unsupported_image": "Use an intact JPG, PNG or WebP file"
+      "unsupported_image": "Use an intact JPG, PNG or WebP file",
+      "no_show_threshold_not_reached": "Fewer than three no-shows so far",
+      "review_score_out_of_range": "The score must be from 1 to 5",
+      "review_text_too_short": "The review is too short (at least 20 characters)",
+      "review_text_too_long": "The review is too long (up to 1000 characters)",
+      "review_already_published": "The review is already published and cannot be changed",
+      "review_window_closed": "The 14-day review period has ended",
+      "review_not_found": "Review not found",
+      "review_already_exists": "You have already written a review for this exchange",
+      "exchange_not_closed": "You can write a review after the exchange ends",
+      "no_counted_sessions": "Reviews are unavailable: no counted lessons",
+      "partner_deleted": "Your partner deleted their account",
+      "case_description_too_short": "The description is too short (at least 20 characters)",
+      "case_description_too_long": "The description is too long (up to 2000 characters)",
+      "case_category_mismatch": "The category does not match the case type",
+      "case_review_required": "Choose the review you are disputing",
+      "case_review_not_allowed": "A review can only be set for a review dispute",
+      "case_from_call_conduct_only": "From a call you can only report conduct",
+      "too_many_evidence": "You can attach at most 20 messages",
+      "evidence_not_in_exchange": "The message is not from this exchange",
+      "filing_window_closed": "The filing period has ended",
+      "review_already_disputed": "This review is already disputed",
+      "case_already_exists": "There was already a case about this review",
+      "not_in_call": "You can report from a call only while you are in the room",
+      "too_many_open_cases": "No more than three cases can be open at once",
+      "case_rate_limited": "Too many cases today, try again tomorrow",
+      "case_already_open": "This kind of case is already open for this exchange",
+      "case_not_found": "Case not found",
+      "question_not_found": "Question not found",
+      "explanation_not_requested": "Explanations are not requested right now",
+      "explanation_window_closed": "The answer period has ended",
+      "question_already_answered": "This question is already answered",
+      "case_message_empty": "The text cannot be empty",
+      "case_message_too_long": "The text is too long (up to 2000 characters)",
+      "appeal_reason_too_short": "The appeal reason is too short (at least 20 characters)",
+      "appeal_window_closed": "The 7-day appeal period has ended",
+      "conflict_of_interest": "Conflict of interest: this case cannot be taken",
+      "chat_access_denied": "No access to the conversation for this case",
+      "moderator_required": "The moderator role is required",
+      "explanation_already_requested": "Explanations are already requested, wait for the answers",
+      "too_many_questions": "10 questions have already been asked on this case",
+      "case_decision_not_allowed": "This decision does not fit this case type",
+      "case_warning_not_combinable": "A warning cannot be added to this decision",
+      "case_reason_too_short": "The reasoning is too short (at least 20 characters)",
+      "case_reason_too_long": "The reasoning is too long (up to 2000 characters)",
+      "waiting_for_explanations": "Waiting for explanations: wait for the answers or stop waiting",
+      "exchange_not_open": "The exchange is already closed",
+      "exchange_not_frozen": "The exchange is not frozen",
+      "case_type_not_supported": "Freezing does not apply to this case type",
+      "case_not_in_work": "The case is not in progress",
+      "appeal_reviewer_must_differ": "The reviewer must be different from the author of the decision",
+      "not_a_moderator": "The selected user is not a moderator",
+      "appeal_review_in_progress": "A second review is in progress, the decision cannot be made yet",
+      "nothing_to_overturn": "The decision is already neutral, there is nothing to overturn",
+      "appeal_final_decision_mismatch": "A new decision is only given when replacing it",
+      "ban_request_not_found": "Ban request not found",
+      "user_not_active": "The account is no longer active"
     },
     "validation": {
       "required": "Fill in this field",
@@ -705,7 +765,10 @@
       "invalid_level": "Invalid level",
       "invalid_time_zone": "Invalid time zone",
       "unsupported_language": "Language is not supported"
-    }
+    },
+    "pageCrashed": "The page failed to load",
+    "pageCrashedHint": "Something went wrong while showing the page. Reload it or go back.",
+    "reload": "Reload"
   },
   "call": {
     "title": "Video lesson",
@@ -788,7 +851,11 @@
     "abortedBy_system": "The exchange was closed",
     "abortReasonText": "Reason: {{text}}",
     "abortReason_blocked": "You blocked this person",
-    "abortReason_partner_unavailable": "Your partner is no longer available"
+    "abortReason_partner_unavailable": "Your partner is no longer available",
+    "noShowsHint": "{{name}} has missed {{count}} lessons. You can leave the exchange with no consequences for you.",
+    "leaveNoShow": "Leave because of no-shows",
+    "abortedNoShowMe": "You missed the lessons: your partner left the exchange",
+    "abortedNoShowOther": "You left the exchange because of your partner’s no-shows"
   },
   "chat": {
     "attach": "Attach file",
@@ -814,7 +881,15 @@
     "noSound": "No sound: check your microphone",
     "saveVoice": "Save to computer",
     "discard": "Delete",
-    "downloadVoice": "Download"
+    "downloadVoice": "Download",
+    "edit": "Edit",
+    "delete": "Delete",
+    "edited": "edited",
+    "editing": "Editing message",
+    "cancelEdit": "Cancel",
+    "save": "Save",
+    "deleteConfirm": "Delete this message? This cannot be undone.",
+    "file": "File"
   },
   "session": {
     "accept": "Accept",
@@ -862,7 +937,8 @@
     "noShowMe": "You did not show up",
     "noShowPartner": "{{name}} did not show up",
     "missedNote": "Nobody showed up",
-    "lateJoin": "Your partner was {{min}} min late"
+    "lateJoin": "Your partner was {{min}} min late",
+    "partnerInRoom": "{{name}} is already in the room"
   },
   "calendar": {
     "title": "Calendar",
@@ -875,7 +951,8 @@
   "messages": {
     "title": "Messages",
     "empty": "Chats appear once an exchange starts",
-    "you": "You: "
+    "you": "You: ",
+    "noMessages": "No messages yet"
   },
   "onboarding": {
     "title": "Tell us about yourself",
@@ -950,7 +1027,22 @@
     "needScores": "Rate all four criteria",
     "textLength": "Review text: 20 to 1000 characters",
     "blindHint": "Reviews are published together: when both are written or after 7 days. They cannot be edited after publishing.",
-    "send": "Send review"
+    "send": "Send review",
+    "mine": "My reviews",
+    "edit": "Edit",
+    "saveChanges": "Save",
+    "editHint": "You can edit the review until it is published. The publication date does not move.",
+    "oneSidedHint": "Your partner did not hold a single counted lesson, so your review will be published right away.",
+    "pending": "Waiting to be published",
+    "pendingUntil": "Waiting to be published: visible to everyone by {{date}} at the latest",
+    "status": {
+      "Published": "Published",
+      "Hidden": "Hidden by a moderator",
+      "Frozen": "Under dispute",
+      "Pending": "Waiting to be published"
+    },
+    "aboutMeFrom": "Review about you from {{name}}",
+    "fullExchangeHint": "Your review will get the “Full exchange” badge"
   },
   "notifications": {
     "title": "Notifications",
@@ -983,7 +1075,18 @@
       "NewMessages": "{{partnerName}}: {{count}} new messages",
       "SessionNoShow": "{{partnerName}} did not show up for the lesson",
       "SessionNoShowMe": "You did not show up for the lesson",
-      "SessionMissed": "The lesson did not take place: nobody showed up"
+      "SessionMissed": "The lesson did not take place: nobody showed up",
+      "ReviewReminder": "Reminder: you can review {{userName}} for two more days",
+      "CaseResolved": "A decision was made on the case: {{decision}}",
+      "CaseExplanationRequested": "A moderator asks for explanations on a case. Answer by {{deadlineAt}}",
+      "CaseExplanationReminder": "Reminder: answer the moderator’s question on the case",
+      "CaseAppealed": "An appeal was filed on the case",
+      "CaseAppealReviewAssigned": "Another moderator is reviewing the appeal",
+      "AppealDecided": "The appeal was reviewed, the final decision is made",
+      "WarningIssued": "You received a warning",
+      "WarningRevoked": "The warning was revoked",
+      "ExchangeFrozen": "The exchange was frozen after a report",
+      "ExchangeUnfrozen": "The exchange was unfrozen"
     }
   },
   "settings": {
@@ -1072,5 +1175,99 @@
     "sessionTitle": "Figma auto layout",
     "sessionTime": "Tomorrow · 6:30 PM with Sarah",
     "quote": "“I reached B1 German in four months and taught 30 hours of Python along the way.”"
+  },
+  "cases": {
+    "title": "Cases",
+    "tab_All": "All",
+    "tab_Opened": "Filed by me",
+    "tab_Against": "Against me",
+    "empty": "No cases",
+    "back": "Back to cases",
+    "against": "Against: {{name}}",
+    "from": "From: {{name}}",
+    "questionsWaiting": "Moderator questions waiting for your answer: {{count}}",
+    "openTitle": "Report {{name}}",
+    "disputeTitle": "Dispute a review",
+    "fromCallTitle": "Report from the call",
+    "fromCallHint": "The exchange will be frozen right away and the room will close. A moderator or you (by withdrawing the case) can unfreeze it.",
+    "fromCallBadge": "Filed from a video call",
+    "category": "What happened",
+    "descriptionPlaceholder": "Describe what happened (at least 20 characters)",
+    "descriptionLength": "Description: 20 to 2000 characters",
+    "evidence": "Attach messages as evidence",
+    "privacyHint": "A moderator will read the conversation of this exchange. The other person learns about the case once it is taken into work.",
+    "submit": "Submit",
+    "complain": "Report",
+    "complainCall": "Report",
+    "disputeReview": "Dispute this review",
+    "decisionTitle": "Decision",
+    "alsoWarned": "A warning was also issued to the offending person",
+    "toExchange": "Open the exchange",
+    "withdraw": "Withdraw the case",
+    "explanations": "Explanations",
+    "answerBy": "Answer by {{date}}",
+    "moderatorAsks": "Moderator’s question",
+    "yourAnswer": "Your answer",
+    "answerPlaceholder": "Your answer",
+    "sendAnswer": "Answer",
+    "appeal": "File an appeal",
+    "appealHint": "You can appeal once, within 7 days of the decision.",
+    "appealText": "Explain why the decision should be reviewed. Another moderator will review it and an administrator will make the final decision.",
+    "appealPlaceholder": "Reason for the appeal (at least 20 characters)",
+    "appealSend": "File appeal",
+    "reasonLength": "Reason: 20 to 2000 characters",
+    "appealTitle": "Appeal",
+    "appealFiled": "Appeal filed, waiting for review",
+    "appealReviewing": "A second review is in progress",
+    "appealOutcome": {
+      "Upheld": "The decision stands",
+      "Overturned": "The decision was overturned",
+      "Changed": "The decision was replaced"
+    },
+    "type": {
+      "ReviewDispute": "Review dispute",
+      "Conduct": "Conduct",
+      "NoShowAbuse": "No-shows and bad-faith lessons"
+    },
+    "categories": {
+      "ReviewUnfair": "The review is unfair",
+      "ReviewAbusive": "The review is abusive",
+      "ReviewFalse": "The review contains false statements",
+      "Insults": "Insults",
+      "Threats": "Threats",
+      "Harassment": "Harassment",
+      "Spam": "Spam and pushing",
+      "Extortion": "Extortion and payment outside the platform",
+      "SystematicEvasion": "Systematic no-shows",
+      "BadFaithLessons": "Bad-faith lessons"
+    },
+    "status": {
+      "Open": "Waiting for a moderator",
+      "Withdrawn": "Withdrawn",
+      "InProgress": "In progress",
+      "WaitingResponse": "Waiting for explanations",
+      "Resolved": "Resolved",
+      "Appealed": "Appealed",
+      "AppealReview": "Second review",
+      "Closed": "Closed"
+    },
+    "statusHint": {
+      "Open": "No moderator has taken the case yet. You can withdraw it until then.",
+      "Withdrawn": "You withdrew the case.",
+      "InProgress": "A moderator is looking into the case and can read the conversation of this exchange.",
+      "WaitingResponse": "The moderator asked questions. Answer by the deadline, otherwise they will decide with what they have.",
+      "Resolved": "A decision has been made. You can appeal it within 7 days.",
+      "Appealed": "The appeal is filed and waits for a reviewer to be assigned.",
+      "AppealReview": "Another moderator is reviewing the decision.",
+      "Closed": "The case is closed."
+    },
+    "decision": {
+      "ReviewKept": "Review kept",
+      "ReviewHidden": "Review hidden",
+      "Warning": "Warning",
+      "ExchangeEnded": "Exchange ended by a moderator",
+      "FrozenBanRequested": "Exchange frozen, a ban was requested",
+      "NoViolation": "No violation"
+    }
   }
 }

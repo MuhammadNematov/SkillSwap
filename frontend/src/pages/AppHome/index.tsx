@@ -80,7 +80,7 @@ export default function AppHome() {
               <li key={i} className="flex items-center justify-between gap-3 py-3">
                 <span className="text-sm text-ink">{t(`dashboard.action.${a.type}`)}</span>
                 <Link
-                  to={a.requestId ? '/app/exchanges?tab=incoming' : `/app/exchanges/${a.exchangeId}`}
+                  to={a.requestId ? '/app/exchanges?tab=incoming' : a.type === 'WriteReview' ? '/app/reviews' : `/app/exchanges/${a.exchangeId}`}
                   className="btn-secondary px-4 py-2"
                 >
                   {t('dashboard.actionOpen')}

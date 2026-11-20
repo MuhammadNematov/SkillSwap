@@ -23,7 +23,7 @@ export interface RecommendedPartner {
   online: boolean
 }
 
-export type ActionType = 'AnswerRequest' | 'AnswerSession' | 'ConfirmSession' | 'FinishExchange' | 'AnswerExtension'
+export type ActionType = 'AnswerRequest' | 'AnswerSession' | 'ConfirmSession' | 'FinishExchange' | 'AnswerExtension' | 'WriteReview'
 export interface DashboardAction {
   type: ActionType
   exchangeId: string | null

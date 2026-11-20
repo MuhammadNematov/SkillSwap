@@ -379,16 +379,53 @@ export async function mockSendVoice(exchangeId: string, durationSec: number, blo
   messages.push(mkMessage(exchangeId, true, 'Voice', Date.now(), { durationSec: Math.round(durationSec), attachmentId: id }))
 }
 
+const EDIT_WINDOW_MS = 15 * 60 * 1000
+
+function ownMessage(exchangeId: string, id: string): ChatMessage {
+  const msg = messages.find((x) => x.id === id && x.exchangeId === exchangeId)
+  if (!msg) throw new ApiError('message_not_found', 404)
+  if (!msg.senderIsMe) throw new ApiError('not_message_author', 403)
+  if (msg.deleted) throw new ApiError('message_deleted', 409)
+  if (Date.now() - new Date(msg.createdAt).getTime() > EDIT_WINDOW_MS) throw new ApiError('edit_window_expired', 409)
+  return msg
+}
+
+export async function mockEditMessage(exchangeId: string, id: string, text: string): Promise<ChatMessage> {
+  await sleep(100)
+  const msg = ownMessage(exchangeId, id)
+  if (msg.type !== 'Text') throw new ApiError('message_not_editable', 409)
+  if (!text.trim()) throw new ApiError('message_empty', 400)
+  msg.text = text.trim()
+  msg.editedAt = iso(Date.now())
+  return clone(msg)
+}
+
+export async function mockDeleteMessage(exchangeId: string, id: string): Promise<void> {
+  await sleep(100)
+  const msg = ownMessage(exchangeId, id)
+  msg.deleted = true
+  msg.text = undefined
+}
+
 export async function mockGetConversations(): Promise<Conversation[]> {
   await sleep()
   return clone(
     exchanges
       .map((exchange) => {
-        const mine = messages.filter((m) => m.exchangeId === exchange.id)
-        return { exchange, last: mine.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).at(-1) }
+        const mine = messages.filter((m) => m.exchangeId === exchange.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        const l = mine.at(-1)
+        const last = l
+          ? { id: l.id, type: l.type, preview: l.deleted ? null : (l.text ?? null), createdAt: l.createdAt, senderIsMe: l.senderIsMe, isDeleted: !!l.deleted }
+          : null
+        return { exchange, last }
       })
       .sort((a, b) => (b.last?.createdAt ?? '').localeCompare(a.last?.createdAt ?? '')),
   )
+}
+
+export async function mockGetSessionExchangeId(id: string): Promise<string> {
+  await sleep(50)
+  return find(sessions, id).exchangeId
 }
 
 export async function mockRescheduleSession(id: string, startAt: string): Promise<void> {

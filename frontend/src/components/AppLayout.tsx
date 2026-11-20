@@ -73,6 +73,7 @@ export default function AppLayout() {
   const activity: NavItem[] = [
     { to: '/app/notifications', key: 'notifications', icon: 'bell', badge: unread },
     { to: '/app/reviews', key: 'reviews', icon: 'star' },
+    { to: '/app/cases', key: 'cases', icon: 'scale' },
     { to: '/app/profile', key: 'profile', icon: 'user' },
     { to: '/app/settings', key: 'settings', icon: 'settings' },
   ]
