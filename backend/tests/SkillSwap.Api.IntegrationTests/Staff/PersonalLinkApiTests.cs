@@ -367,6 +367,45 @@ public partial class PersonalLinkApiTests
         Assert.Equal(1, note.GetProperty("conflictingCases").GetInt32());
     }
 
+    [Fact]
+    public async Task A_case_in_work_that_now_conflicts_goes_back_to_the_queue_and_the_chat_access_is_revoked()
+    {
+        var moderator = await StaffActor.CreateAsync(_factory, UserRole.Moderator);
+        var (exchangeId, caseId, a) = await CaseOfAsync();
+        var (otherExchange, otherCase, _) = await CaseOfAsync();   // другое обращение без конфликта остаётся у модератора
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(moderator.Token, HttpMethod.Post, $"/moderation/cases/{caseId}/take")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(moderator.Token, HttpMethod.Post, $"/moderation/cases/{otherCase}/take")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(moderator.Token, HttpMethod.Get, $"/moderation/cases/{caseId}/chat")).StatusCode);
+        var token = await RequestedAsync(moderator, await UserAsync(a.Id));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await SendAsync(a.Token, HttpMethod.Post, $"/staff-link-requests/{Uri.EscapeDataString(token)}/confirm")).StatusCode);
+
+        var released = await _factory.QueryAsync(db => db.Cases.AsNoTracking().SingleAsync(c => c.Id == caseId));
+        Assert.Equal(CaseStatus.Open, released.Status);
+        Assert.Null(released.ModeratorId);
+        var kept = await _factory.QueryAsync(db => db.Cases.AsNoTracking().SingleAsync(c => c.Id == otherCase));
+        Assert.Equal(CaseStatus.InProgress, kept.Status);
+        Assert.Equal(moderator.Id, kept.ModeratorId);
+        var grants = await _factory.QueryAsync(db => db.ChatAccessGrants.AsNoTracking().Where(g => g.CaseId == caseId).ToArrayAsync());
+        Assert.All(grants, g => Assert.NotNull(g.RevokedAt));
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(moderator.Token, HttpMethod.Get, $"/moderation/cases/{caseId}/chat")).StatusCode);   // прочитать чат уже нельзя
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(moderator.Token, HttpMethod.Get, $"/moderation/cases/{otherCase}/chat")).StatusCode);
+        var take = await SendAsync(moderator.Token, HttpMethod.Post, $"/moderation/cases/{caseId}/take");
+        Assert.Equal("conflict_of_interest", await CodeAsync(take));   // и взять обратно тоже
+
+        var audit = await _factory.QueryAsync(db => db.AuditLogs.AsNoTracking().SingleAsync(l => l.Action == "CaseReleased" && l.TargetId == caseId));
+        Assert.Null(audit.ActorId);   // решила система
+        Assert.Equal("conflict_of_interest", JsonDocument.Parse(audit.DetailsJson).RootElement.GetProperty("reason").GetString());
+        Assert.Equal(1, await _factory.QueryAsync(db => db.AuditLogs.CountAsync(l => l.Action == "ChatAccessRevoked" && l.TargetId == exchangeId)));
+        var away = Assert.Single(await NotificationsAsync(moderator.Token, "CaseTakenAway")).GetProperty("payload");
+        Assert.Equal(caseId, away.GetProperty("caseId").GetGuid());
+        Assert.Equal("conflict_of_interest", away.GetProperty("reason").GetString());
+        Assert.Single(await NotificationsAsync(a.Token, "CaseReturnedToQueue"));
+        var note = Assert.Single(await NotificationsAsync(moderator.Token, "PersonalLinkConfirmed")).GetProperty("payload");
+        Assert.Equal(1, note.GetProperty("conflictingCases").GetInt32());
+        Assert.NotEqual(otherExchange, exchangeId);
+    }
+
     // ======================= снятие =======================
 
     // ======================= снятие привязки: только админ, история навсегда =======================

@@ -162,6 +162,19 @@ public sealed class CaseStore : ICaseStore
     public async Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct) =>
         await _db.BanRequests.Where(b => b.CaseId == caseId).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Case>> FindHeldByModeratorAsync(Guid moderatorId, IReadOnlyCollection<Guid>? conflictUsers, bool tracked, CancellationToken ct)
+    {
+        var query = (tracked ? _db.Cases : _db.Cases.AsNoTracking()).Where(c =>
+            (c.ModeratorId == moderatorId && (c.Status == CaseStatus.InProgress || c.Status == CaseStatus.WaitingResponse))
+            || (c.Status == CaseStatus.AppealReview && _db.CaseAppeals.Any(a => a.CaseId == c.Id && a.ReviewerModeratorId == moderatorId)));
+        if (conflictUsers is not null)
+        {
+            query = query.Where(c => conflictUsers.Contains(c.OpenedById) || conflictUsers.Contains(c.AgainstUserId));
+        }
+
+        return await query.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id).ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct) =>
         await _db.BanRequests.Where(b => b.UserId == userId && b.Status == BanRequestStatus.Pending).ToListAsync(ct);
 

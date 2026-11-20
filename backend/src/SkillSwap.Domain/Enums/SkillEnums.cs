@@ -180,6 +180,15 @@ public enum NotificationType
 
     /// <summary>Сотруднику: решение по запросу на снятие привязки (или привязку сняли без запроса). В данных: requestId (может быть пустым), approved.</summary>
     PersonalUnlinkDecided,
+
+    /// <summary>Обеим сторонам: модератор, который вёл обращение, больше не может его вести (его сняли или появился конфликт интересов), обращение вернулось в очередь. Только в интерфейсе. В данных: caseId, exchangeId, role.</summary>
+    CaseReturnedToQueue,
+
+    /// <summary>Модератору: у вас забрали обращение, потому что после привязки личного аккаунта появился конфликт интересов. Только в интерфейсе. В данных: caseId, reason (conflict_of_interest).</summary>
+    CaseTakenAway,
+
+    /// <summary>Админам: проверяющего по апелляции сняли до заключения, нужно назначить другого. Только в интерфейсе. В данных: caseId, exchangeId, reason (staff_removed или conflict_of_interest).</summary>
+    AppealReviewerReleased,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

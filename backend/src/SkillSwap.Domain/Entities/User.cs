@@ -135,6 +135,22 @@ public class User : IdentityUser<Guid>, ITimestamped
         LinkedUserId = personal.Id;
     }
 
+    /// <summary>Служебный аккаунт снят (модератора снял админ): Active → Blocked, войти и пользоваться сервисами больше нельзя, роль остаётся для истории и журнала.</summary>
+    public void RemoveFromStaff()
+    {
+        if (IsRegular)
+        {
+            throw new Exceptions.DomainValidationException("not_staff_account", "Это не служебный аккаунт.");
+        }
+
+        if (Status != UserStatus.Active)
+        {
+            throw new Exceptions.DomainValidationException("staff_not_active", "Служебный аккаунт уже снят.");
+        }
+
+        Status = UserStatus.Blocked;
+    }
+
     /// <summary>Админ разблокировал аккаунт: Blocked → Active. Прерванные блокировкой обмены не возвращаются, сеансы заново не открываются (нужно войти).</summary>
     public void Unblock()
     {

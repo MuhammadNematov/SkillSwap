@@ -94,6 +94,7 @@ public sealed class PersonalLinkService
     private readonly UserManager<User> _users;
     private readonly StepUpService _stepUp;
     private readonly ICaseStore _cases;
+    private readonly ModeratorCaseReleaser _releaser;
     private readonly IUnitOfWork _uow;
     private readonly IAuditLog _audit;
     private readonly INotificationPublisher _notify;
@@ -102,7 +103,7 @@ public sealed class PersonalLinkService
     private readonly TimeProvider _clock;
 
     public PersonalLinkService(
-        IPersonalLinkStore links, IProfileStore profiles, UserManager<User> users, StepUpService stepUp, ICaseStore cases, IUnitOfWork uow, IAuditLog audit,
+        IPersonalLinkStore links, IProfileStore profiles, UserManager<User> users, StepUpService stepUp, ICaseStore cases, ModeratorCaseReleaser releaser, IUnitOfWork uow, IAuditLog audit,
         INotificationPublisher notify, IMailSender mail, IOptions<FrontendOptions> frontend, TimeProvider clock)
     {
         _links = links;
@@ -110,6 +111,7 @@ public sealed class PersonalLinkService
         _users = users;
         _stepUp = stepUp;
         _cases = cases;
+        _releaser = releaser;
         _uow = uow;
         _audit = audit;
         _notify = notify;
@@ -328,7 +330,7 @@ public sealed class PersonalLinkService
     public async Task<IReadOnlyList<StaffLinkHistoryDto>> HistoryAsync(Guid adminId, Guid staffId, CancellationToken ct)
     {
         var admin = await RequireAdminAsync(adminId, ct);
-        var target = await RequireStaffAsync(staffId, ct);
+        var target = await RequireStaffAsync(staffId, ct, allowRemoved: true);   // история нужна и после снятия сотрудника
         if (!StaffRules.CanUnlinkPersonal(admin.Role, target.Role) && adminId != staffId)
         {
             throw new ForbiddenException("staff_role_not_allowed", "У вас нет прав на этого сотрудника.");
@@ -345,34 +347,56 @@ public sealed class PersonalLinkService
     {
         await _uow.ExecuteAsync(async t =>
         {
-            var staff = await _profiles.FindUserForUpdateAsync(staffId, t) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
-            var personalId = staff.LinkedUserId ?? throw new ConflictException("not_linked", "Личный аккаунт не привязан.");
-            await _uow.LockUsersAsync([admin.Id, staffId, personalId], t);
-            var now = Now();
-
-            // Запись истории: если привязка создана в обход подтверждения (старые данные, разработка), историю дописываем, чтобы конфликт не потерялся.
-            var link = await _links.FindActiveLinkAsync(staffId, t);
-            if (link is null)
-            {
-                link = StaffPersonalLink.Create(staffId, personalId, now);
-                _links.AddLink(link);
-            }
-
-            staff.UnlinkPersonalAccount();
-            link.Unlink(admin.Id, now);
-
-            PersonalUnlinkRequest? pending = requestId is { } id
-                ? await _links.FindUnlinkRequestAsync(id, tracked: true, t)
-                : await _links.FindPendingUnlinkRequestAsync(staffId, tracked: true, t);
-            pending?.Approve(admin.Id, now);   // уже решён: 409 invalid_state_transition
-
-            _audit.Add(new AuditEntry(admin.Id, StaffAuditActions.PersonalAccountUnlinked, "User", staffId, new { personalUserId = personalId, requestId = pending?.Id }));
-            _notify.Add(staffId, NotificationType.PersonalUnlinkDecided, new { requestId = pending?.Id, approved = true });
-            await _links.SaveAsync(t);
+            await UnlinkInTransactionAsync(admin, staffId, requestId, t);
             return 0;
         }, ct);
 
         _notify.Dispatch();
+    }
+
+    /// <summary>
+    /// Снятие привязки при снятии сотрудника: внутри транзакции вызывающего (он блокирует админа, сотрудника и личный аккаунт, сохраняет и рассылает уведомления). Без запроса и
+    /// без отдельного подтверждения (оно уже пройдено для снятия). Нет привязки — ничего не делает.
+    /// </summary>
+    /// <returns>true, если привязка снята этим вызовом.</returns>
+    public async Task<bool> UnlinkForRemovalAsync(User admin, Guid staffId, CancellationToken ct)
+    {
+        var staff = await _profiles.FindUserAsync(staffId, ct) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
+        if (staff.LinkedUserId is null)
+        {
+            return false;
+        }
+
+        await UnlinkInTransactionAsync(admin, staffId, null, ct);
+        return true;
+    }
+
+    private async Task UnlinkInTransactionAsync(User admin, Guid staffId, Guid? requestId, CancellationToken t)
+    {
+        var staff = await _profiles.FindUserForUpdateAsync(staffId, t) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
+        var personalId = staff.LinkedUserId ?? throw new ConflictException("not_linked", "Личный аккаунт не привязан.");
+        await _uow.LockUsersAsync([admin.Id, staffId, personalId], t);
+        var now = Now();
+
+        // Запись истории: если привязка создана в обход подтверждения (старые данные, разработка), историю дописываем, чтобы конфликт не потерялся.
+        var link = await _links.FindActiveLinkAsync(staffId, t);
+        if (link is null)
+        {
+            link = StaffPersonalLink.Create(staffId, personalId, now);
+            _links.AddLink(link);
+        }
+
+        staff.UnlinkPersonalAccount();
+        link.Unlink(admin.Id, now);
+
+        PersonalUnlinkRequest? pending = requestId is { } id
+            ? await _links.FindUnlinkRequestAsync(id, tracked: true, t)
+            : await _links.FindPendingUnlinkRequestAsync(staffId, tracked: true, t);
+        pending?.Approve(admin.Id, now);   // уже решён: 409 invalid_state_transition
+
+        _audit.Add(new AuditEntry(admin.Id, StaffAuditActions.PersonalAccountUnlinked, "User", staffId, new { personalUserId = personalId, requestId = pending?.Id }));
+        _notify.Add(staffId, NotificationType.PersonalUnlinkDecided, new { requestId = pending?.Id, approved = true });
+        await _links.SaveAsync(t);
     }
 
     private static void RequireCanUnlink(User admin, User target)
@@ -442,7 +466,7 @@ public sealed class PersonalLinkService
 
         await _uow.ExecuteAsync(async t =>
         {
-            await _uow.LockUsersAsync([peek.StaffId, personalUserId], t);
+            await _uow.LockUsersAsync((await _releaser.UsersToLockAsync(peek.StaffId, t)).Append(personalUserId), t);   // и участники обращений, которые могут освободиться
             var request = await FindOwnAsync(personalUserId, token, forUpdate: true, t);
             RequirePending(request);
 
@@ -468,7 +492,8 @@ public sealed class PersonalLinkService
             _links.AddLink(StaffPersonalLink.Create(staff.Id, personalUserId, now));   // история привязок: конфликт интересов учитывает и снятые
             request.Confirm(now);
             await _links.SaveAsync(t);
-            var conflicts = await _cases.CountActiveConflictsAsync(staff.Id, await _cases.GetConflictUserIdsForStaffAsync(staff.Id, t), t);
+            var conflictUsers = await _cases.GetConflictUserIdsForStaffAsync(staff.Id, t);
+            var conflicts = (await _releaser.ReleaseAsync(null, staff.Id, conflictUsers, ModeratorCaseReleaser.ConflictReason, t)).Total;   // обращения с конфликтом возвращаются в очередь сразу
             _audit.Add(new AuditEntry(personalUserId, StaffAuditActions.PersonalAccountLinked, "User", staff.Id, new { requestId = request.Id, conflictingCases = conflicts }));
             _notify.Add(staff.Id, NotificationType.PersonalLinkConfirmed, new { userId = personalUserId, userName = personal.Name, conflictingCases = conflicts });
             await _links.SaveAsync(t);
@@ -546,10 +571,10 @@ public sealed class PersonalLinkService
         }
     }
 
-    private async Task<User> RequireStaffAsync(Guid staffId, CancellationToken ct)
+    private async Task<User> RequireStaffAsync(Guid staffId, CancellationToken ct, bool allowRemoved = false)
     {
         var user = await _profiles.FindUserAsync(staffId, ct) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
-        if (user.IsRegular || user.Role == UserRole.User || user.Status != UserStatus.Active)
+        if (user.IsRegular || user.Role == UserRole.User || (!allowRemoved && user.Status != UserStatus.Active))
         {
             throw new ForbiddenException("staff_required", "Доступно только действующему служебному аккаунту.");
         }

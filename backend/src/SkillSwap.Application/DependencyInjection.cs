@@ -61,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<Staff.StaffInvitationService>();
         services.AddScoped<Staff.PersonalLinkService>();
         services.AddScoped<Staff.AccountBlocker>();
+        services.AddScoped<Staff.ModeratorCaseReleaser>();
+        services.AddScoped<Staff.ModeratorAdminService>();
         services.AddScoped<AdminUsers.AdminUserService>();
         services.AddScoped<Moderation.ChatCleanupJobs>();
         services.AddScoped<Moderation.CaseJobs>();

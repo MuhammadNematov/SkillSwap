@@ -141,6 +141,12 @@ public interface ICaseStore
     /// <summary>Запросы на бан, созданные по обращению (с отслеживанием).</summary>
     Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct);
 
+    /// <summary>
+    /// Обращения, которые держит модератор: взятые им (InProgress, WaitingResponse) и те, где он назначен проверяющим по апелляции (AppealReview). С <paramref name="conflictUsers"/>
+    /// только те, где участвует кто-то из этих пользователей.
+    /// </summary>
+    Task<IReadOnlyList<Case>> FindHeldByModeratorAsync(Guid moderatorId, IReadOnlyCollection<Guid>? conflictUsers, bool tracked, CancellationToken ct);
+
     /// <summary>Необработанные запросы на бан по пользователю (с отслеживанием).</summary>
     Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct);
 

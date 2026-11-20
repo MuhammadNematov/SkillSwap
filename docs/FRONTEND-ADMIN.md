@@ -54,7 +54,7 @@
 
 **Ошибки.** Запрос на привязку: 400 подтверждения (раздел 1); 404 `personal_account_not_found` (нет такого действующего личного аккаунта с подтверждённой почтой: единый код для «нет», «служебный», «заблокирован»); 409 `staff_already_linked`, `personal_account_already_linked`; 429 `link_request_rate_limited`. Запрос на снятие: 400 `unlink_reason_too_short`/`_too_long`; 409 `not_linked`, `unlink_request_already_pending`. Решения админа: 403 `staff_role_not_allowed` (админов и суперадминов снимает только суперадмин), `cannot_change_own_rights` (себе и свой запрос нельзя); 404 `unlink_request_not_found`; 409 `invalid_state_transition` (запрос уже решён), `not_linked`; 400 подтверждения. Просмотр и подтверждение владельцем: 404 `link_request_not_found` (неизвестный токен или запрос адресован не вам); 403 `regular_account_required`; 409 `link_request_expired`, `link_request_cancelled`, `link_request_declined`, `link_request_already_confirmed`, `staff_already_linked`, `personal_account_already_linked`, `staff_not_active`.
 
-**Уведомления** (только в интерфейсе): сотруднику `PersonalLinkConfirmed` (`userId`, `userName`, `conflictingCases`: сколько его обращений в работе теперь с конфликтом интересов, их стоит передать другому модератору), `PersonalLinkDeclined` (`userId`, `userName`) и `PersonalUnlinkDecided` (`requestId` (может быть пустым, если привязку сняли без запроса), `approved`); админам и суперадминам, которые вправе решить, `PersonalUnlinkRequested` (`requestId`, `staffId`, `staffName`).
+**Уведомления** (только в интерфейсе): сотруднику `PersonalLinkConfirmed` (`userId`, `userName`, `conflictingCases`: сколько его обращений в работе (взятые им и повторные проверки по апелляции) теперь с конфликтом интересов; **сервер уже вернул их в очередь** (раздел 5), передавать вручную не нужно), `PersonalLinkDeclined` (`userId`, `userName`) и `PersonalUnlinkDecided` (`requestId` (может быть пустым, если привязку сняли без запроса), `approved`); админам и суперадминам, которые вправе решить, `PersonalUnlinkRequested` (`requestId`, `staffId`, `staffName`).
 
 ## 4. Пользователи (шаг 3)
 
@@ -78,7 +78,27 @@
 
 **Ошибки.** 400 `block_reason_too_short`/`_too_long` (блокировка и разблокировка), `warning_revoke_reason_too_short`/`_too_long` (снятие), `user_not_active` (уже заблокирован или удалён), `user_not_blocked`, `staff_cannot_be_blocked` (служебный аккаунт блокируется через снятие сотрудника), `invalid_paging`; 403 `cannot_change_own_rights` (себя нельзя), `admin_required`; 404 `user_not_found`, `warning_not_found`; 409 `warning_not_active` (уже снято или истекло).
 
-## 5. Проверка локально (только Development)
+## 5. Модераторы (шаг 4)
+
+Тег **Admin moderators**. Доступно админу и суперадмину (модератору 403). Маршруты под `/admin/staff/moderators`: путь `GET /admin/moderators` из раздела про апелляции остаётся прежним (он нужен только для выбора проверяющего).
+
+| Метод | Что делает |
+| --- | --- |
+| `GET /admin/staff/moderators?removed=&page=&pageSize=` | Модераторы по имени; по умолчанию действующие, `removed=true` показывает снятых. Элемент: `id`, `name`, `email`, `removed`, `createdAt`, `personalLinked`, `load`: `inProgress` (в работе), `waitingResponse` (ждёт ответов), `appealReview` (проверяет апелляцию), `resolvedLast30Days` |
+| `GET /admin/staff/moderators/{id}` | Карточка: `moderator` (как элемент списка) и `heldCases`: обращения, которые он держит сейчас (`id`, `type`, `status`, `role`: `Moderator` или `AppealReviewer`, `priority`, `dueAt`, `responseDeadlineAt`) |
+| `POST /admin/staff/moderators/{id}/remove` | Снять модератора, тело `{ reason, confirmation }`: причина 10–500 символов (в аудит) и подтверждение паролем и кодом 2FA (раздел 1). Ответ: `moderator` (карточка после снятия), `casesReturned`, `appealReviewsReturned`, `personalUnlinked` |
+
+**Что делает снятие.** Аккаунт перестаёт действовать (статус `Blocked`, роль остаётся для истории), все его сеансы отзываются, открытые соединения SignalR разрываются, токен доступа ещё жив до истечения, но сервисы отвечают 403. Обращения, которые он вёл (`InProgress`, `WaitingResponse`), возвращаются в очередь (`Open`): исполнитель и срок ответа сбрасываются, срок реакции остаётся прежним, любой подходящий модератор может взять их заново и получит свой доступ к чату. Апелляции, где он проверяющий и ещё не написал заключение, возвращаются админам: статус снова `Appealed`, нужно назначить другого проверяющего. Решения, которые он уже вынес, и его заключения не меняются. Все его доступы к чату отзываются (каждый отзыв в аудите). Привязка личного аккаунта снимается, а конфликт интересов по истории привязок остаётся. Админу снимать модераторов можно, админов и суперадминов этот метод не снимает.
+
+**Ошибки.** 400 `removal_reason_too_short`/`_too_long` и ошибки подтверждения (раздел 1); 403 `staff_role_not_allowed`, `cannot_change_own_rights`; 404 `moderator_not_found` (нет такого, не служебный или не модератор в карточке); 409 `not_a_moderator` (админа или суперадмина здесь не снимают), `staff_already_removed`.
+
+**Автоосвобождение при конфликте** (оговорка шага 2). Когда владелец личного аккаунта подтверждает привязку, обращения сотрудника в работе, где участвует личный аккаунт или его бывшие партнёры по обменам, **сразу возвращаются в очередь** (повторные проверки по апелляции возвращаются админам), доступы к чату отзываются, в аудите `CaseReleased` без исполнителя (решила система) и причина `conflict_of_interest`. Остальные обращения сотрудника остаются у него.
+
+**Уведомления** (только в интерфейсе): обеим сторонам обращения `CaseReturnedToQueue` (`caseId`, `exchangeId`, `role`: `Opener` или `Against`): обращение вернулось в очередь, модератор сменится; модератору `CaseTakenAway` (`caseId`, `reason`: `conflict_of_interest`): у него забрали обращение после привязки личного аккаунта (при снятии модератору ничего не приходит); админам и суперадминам `AppealReviewerReleased` (`caseId`, `exchangeId`, `reason`: `staff_removed` или `conflict_of_interest`): нужно назначить другого проверяющего (инициатору снятия не приходит).
+
+**Экран.** Список с вкладками «Действующие» и «Снятые», нагрузка в строке; карточка с обращениями в руках и кнопкой «Снять» (причина и форма подтверждения паролем и кодом, предупреждение, что обращения вернутся в очередь); после снятия показать числа из ответа.
+
+## 6. Проверка локально (только Development)
 
 Маршруты скрыты в OpenAPI и не существуют вне Development (404).
 

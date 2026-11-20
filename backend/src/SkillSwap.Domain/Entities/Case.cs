@@ -247,6 +247,23 @@ public class Case : BaseEntity
         Status = CaseStatus.InProgress;
     }
 
+    /// <summary>
+    /// Модератора сняли или у него появился конфликт интересов: обращение возвращается в очередь (InProgress или WaitingResponse → Open). Срок ответа и напоминание сбрасываются,
+    /// срок реакции (<see cref="DueAt"/>) остаётся прежним, чтобы обращение не потеряло очередь. Следующий модератор начнёт с обычного взятия.
+    /// </summary>
+    public void ReleaseFromModerator(Guid moderatorId)
+    {
+        if (Status is not (CaseStatus.InProgress or CaseStatus.WaitingResponse) || ModeratorId != moderatorId)
+        {
+            throw new InvalidStateTransitionException(nameof(Case), Status.ToString(), CaseStatus.Open.ToString());
+        }
+
+        ModeratorId = null;
+        Status = CaseStatus.Open;
+        ResponseDeadlineAt = null;
+        ExplanationReminderSentAt = null;
+    }
+
     /// <summary>Модератор запросил пояснения (InProgress → WaitingResponse): на ответ 48 часов.</summary>
     public void RequestExplanation(Guid moderatorId, DateTime now)
     {
