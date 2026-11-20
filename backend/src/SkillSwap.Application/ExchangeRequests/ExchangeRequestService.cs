@@ -20,10 +20,10 @@ namespace SkillSwap.Application.ExchangeRequests;
 /// </summary>
 public sealed class ExchangeRequestService
 {
-    private const int DefaultMaxPending = 5;
-    private const int DefaultMaxPerDay = 10;
-    private const int DefaultCooldownDays = 30;
-    private const int DefaultMaxActiveExchanges = 3;
+    private const int DefaultMaxPending = Settings.SystemSettingDefinitions.MaxPendingOutgoingDefault;
+    private const int DefaultMaxPerDay = Settings.SystemSettingDefinitions.MaxRequestsPerDayDefault;
+    private const int DefaultCooldownDays = Settings.SystemSettingDefinitions.DeclineCooldownDaysDefault;
+    private const int DefaultMaxActiveExchanges = Settings.SystemSettingDefinitions.MaxActiveExchangesDefault;
 
     /// <summary>409 <c>exchange_limit_reached</c>; <c>limitReachedFor</c>: you — у меня, partner — у партнёра.</summary>
     private static ConflictException LimitReached(int max, string who) => new(
