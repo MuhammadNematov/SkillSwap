@@ -150,6 +150,7 @@ public static class DependencyInjection
         services.AddScoped<IMatchStore, MatchStore>();
         services.AddScoped<ISystemSettingsStore, SystemSettingsStore>();
         services.AddScoped<SkillSwap.Application.Audit.IAuditJournalStore, Audit.AuditJournalStore>();
+        services.AddScoped<SkillSwap.Application.Stats.IStatsStore, Stats.StatsStore>();
         services.AddScoped<SkillSwap.Application.Settings.ISystemSettingsAdminStore, SystemSettingsStore>();
         services.AddScoped<IExchangeRequestStore, ExchangeRequestStore>();
         services.AddScoped<IExchangeStore, ExchangeStore>();
