@@ -92,9 +92,9 @@ public static class LessonSeedDevTools
         });
     }
 
-    private sealed record Seeded(User User, string Password);
+    internal sealed record Seeded(User User, string Password);
 
-    private static async Task<Seeded> CreateUserAsync(
+    internal static async Task<Seeded> CreateUserAsync(
         UserManager<User> users, AppDbContext db, string email, string name, Guid teachSkill, Guid learnSkill, CancellationToken ct)
     {
         var password = $"Dev-{Guid.NewGuid():N}"[..16] + "1a";
