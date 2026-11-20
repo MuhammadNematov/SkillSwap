@@ -117,6 +117,25 @@ public class Case : BaseEntity
     /// <summary>До какого времени стороны должны ответить на вопрос модератора (WaitingResponse, 48 часов).</summary>
     public DateTime? ResponseDeadlineAt { get; private set; }
 
+    /// <summary>Когда участникам ушло напоминание «ответьте до конца срока» в этом круге пояснений (null — ещё не уходило).</summary>
+    public DateTime? ExplanationReminderSentAt { get; private set; }
+
+    /// <summary>За сколько до конца срока ответа приходит напоминание.</summary>
+    public static readonly TimeSpan ExplanationReminderBefore = TimeSpan.FromHours(6);
+
+    /// <summary>Отмечает отправку напоминания. Повторный вызов ничего не меняет.</summary>
+    /// <returns>true, если отмечено этим вызовом (напоминание нужно разослать).</returns>
+    public bool MarkExplanationReminderSent(DateTime now)
+    {
+        if (Status != CaseStatus.WaitingResponse || ExplanationReminderSentAt is not null)
+        {
+            return false;
+        }
+
+        ExplanationReminderSentAt = now;
+        return true;
+    }
+
     public CaseDecision? Decision { get; private set; }
 
     /// <summary>К решению добавлено предупреждение нарушителю.</summary>
@@ -219,6 +238,7 @@ public class Case : BaseEntity
         RequireModerator(moderatorId);
         Status = CaseStatus.WaitingResponse;
         ResponseDeadlineAt = now + CaseRules.ExplanationWindow;
+        ExplanationReminderSentAt = null;
     }
 
     /// <summary>Стороны ответили или истекли 48 часов (WaitingResponse → InProgress). Повторный вызов безвреден.</summary>

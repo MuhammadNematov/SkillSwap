@@ -12405,7 +12405,9 @@
           "ExchangeFrozen",
           "ExchangeUnfrozen",
           "CaseTaken",
-          "CaseExplanationRequested"
+          "CaseExplanationRequested",
+          "CaseExplanationReminder",
+          "CaseReturnedToWork"
         ],
         "type": "string"
       },

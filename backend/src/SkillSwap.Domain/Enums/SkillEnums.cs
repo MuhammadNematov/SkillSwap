@@ -129,6 +129,12 @@ public enum NotificationType
 
     /// <summary>Модератор задал вам вопрос по обращению: ответить нужно за 48 часов. В данных: caseId, exchangeId, questionId, deadlineAt.</summary>
     CaseExplanationRequested,
+
+    /// <summary>Напоминание: до конца срока ответа по обращению 6 часов, а вы ещё не ответили. В данных: caseId, exchangeId, questionId, deadlineAt.</summary>
+    CaseExplanationReminder,
+
+    /// <summary>Модератору: обращение вернулось в работу (ответили все или истекли 48 часов). Только в интерфейсе. В данных: caseId, reason (AllAnswered или Expired).</summary>
+    CaseReturnedToWork,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

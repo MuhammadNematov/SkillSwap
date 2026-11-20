@@ -74,6 +74,25 @@ public class ExplanationsTests
         return items.EnumerateArray().Where(i => i.GetProperty("type").GetString() == type).ToList();
     }
 
+    private async Task<List<JsonElement>> StaffNotificationsAsync(StaffPerson who, string type)
+    {
+        var items = (await JsonAsync(await SendAsync(who.Token, HttpMethod.Get, "/notifications?pageSize=50"))).GetProperty("items");
+        return items.EnumerateArray().Where(i => i.GetProperty("type").GetString() == type).ToList();
+    }
+
+    private async Task RunReminderAsync(Guid caseId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<CaseJobs>().ExplanationReminderAsync(caseId);
+    }
+
+    /// <summary>Срок ответа через 5 часов: напоминание (за 6 часов) уже пора слать.</summary>
+    private Task DeadlineInAsync(Guid caseId, TimeSpan left) => _factory.QueryAsync(async db =>
+    {
+        await db.Cases.Where(c => c.Id == caseId).ExecuteUpdateAsync(s => s.SetProperty(c => c.ResponseDeadlineAt, Now + left));
+        return 0;
+    });
+
     private async Task<Guid> QuestionForAsync(MatchPerson who, Guid caseId) =>
         (await JsonAsync(await SendAsync(who.Token, HttpMethod.Get, $"/cases/{caseId}/explanations"))).GetProperty("items").EnumerateArray()
         .Single(i => i.GetProperty("kind").GetString() == "Question").GetProperty("id").GetGuid();
@@ -368,5 +387,97 @@ public class ExplanationsTests
         var jobs = Jobs.Scheduled.Where(j => j.Description.Contains("ExplanationDueAsync")).ToList();
         Assert.Equal(before + 1, jobs.Count);
         Assert.InRange((jobs[^1].RunAt.UtcDateTime - Now).TotalHours, 47.9, 48.1);
+    }
+
+    // ---------- модератору: вернулось в работу ----------
+
+    [Fact]
+    public async Task The_moderator_is_told_when_everyone_has_answered_and_not_before()
+    {
+        var x = await TakenAsync();
+        await AskAsync(x.Moderator, x.CaseId);
+        await AnswerAsync(x.A, x.CaseId, await QuestionForAsync(x.A, x.CaseId));
+        Assert.Empty(await StaffNotificationsAsync(x.Moderator, "CaseReturnedToWork"));   // B ещё не ответил
+
+        await AnswerAsync(x.B, x.CaseId, await QuestionForAsync(x.B, x.CaseId));
+
+        var note = Assert.Single(await StaffNotificationsAsync(x.Moderator, "CaseReturnedToWork"));
+        Assert.Equal(x.CaseId, note.GetProperty("payload").GetProperty("caseId").GetGuid());
+        Assert.Equal("AllAnswered", note.GetProperty("payload").GetProperty("reason").GetString());
+    }
+
+    [Fact]
+    public async Task The_moderator_is_told_once_when_the_deadline_returns_the_case_to_work()
+    {
+        var x = await TakenAsync();
+        await AskAsync(x.Moderator, x.CaseId);
+        await ExpireAsync(x.CaseId);
+
+        await RunJobAsync(x.CaseId);
+        await RunJobAsync(x.CaseId);
+
+        var note = Assert.Single(await StaffNotificationsAsync(x.Moderator, "CaseReturnedToWork"));
+        Assert.Equal("Expired", note.GetProperty("payload").GetProperty("reason").GetString());
+    }
+
+    // ---------- напоминание за 6 часов ----------
+
+    [Fact]
+    public async Task Six_hours_before_the_deadline_only_those_who_have_not_answered_get_a_reminder_once()
+    {
+        var x = await TakenAsync();
+        await AskAsync(x.Moderator, x.CaseId);
+        await AnswerAsync(x.A, x.CaseId, await QuestionForAsync(x.A, x.CaseId));   // A ответил, B нет
+        await DeadlineInAsync(x.CaseId, TimeSpan.FromHours(5));
+
+        await RunReminderAsync(x.CaseId);
+        await RunReminderAsync(x.CaseId);   // повтор ничего не добавляет
+
+        var note = Assert.Single(await NotificationsAsync(x.B, "CaseExplanationReminder"));
+        Assert.Equal(x.CaseId, note.GetProperty("payload").GetProperty("caseId").GetGuid());
+        Assert.Empty(await NotificationsAsync(x.A, "CaseExplanationReminder"));
+        Assert.Empty(await StaffNotificationsAsync(x.Moderator, "CaseExplanationReminder"));
+    }
+
+    [Fact]
+    public async Task The_reminder_does_not_go_out_too_early_or_after_the_case_is_back_in_work()
+    {
+        var x = await TakenAsync();
+        await AskAsync(x.Moderator, x.CaseId);
+
+        await RunReminderAsync(x.CaseId);   // до конца срока ещё 48 часов
+        Assert.Empty(await NotificationsAsync(x.A, "CaseExplanationReminder"));
+
+        await AnswerAsync(x.A, x.CaseId, await QuestionForAsync(x.A, x.CaseId));
+        await AnswerAsync(x.B, x.CaseId, await QuestionForAsync(x.B, x.CaseId));   // вернулось в работу
+        await DeadlineInAsync(x.CaseId, TimeSpan.FromHours(5));
+        await RunReminderAsync(x.CaseId);
+
+        Assert.Empty(await NotificationsAsync(x.A, "CaseExplanationReminder"));
+        Assert.Empty(await NotificationsAsync(x.B, "CaseExplanationReminder"));
+    }
+
+    [Fact]
+    public async Task Asking_queues_both_the_reminder_and_the_deadline_jobs_and_a_new_round_gets_a_new_reminder()
+    {
+        var x = await TakenAsync();
+        var before = Jobs.Scheduled.Count(j => j.Description.Contains("ExplanationReminderAsync"));
+
+        await AskAsync(x.Moderator, x.CaseId, "Opener");
+
+        var reminders = Jobs.Scheduled.Where(j => j.Description.Contains("ExplanationReminderAsync")).ToList();
+        Assert.Equal(before + 1, reminders.Count);
+        Assert.InRange((reminders[^1].RunAt.UtcDateTime - Now).TotalHours, 41.9, 42.1);   // 48 - 6
+
+        await DeadlineInAsync(x.CaseId, TimeSpan.FromHours(5));
+        await RunReminderAsync(x.CaseId);
+        Assert.Single(await NotificationsAsync(x.A, "CaseExplanationReminder"));
+
+        // Второй круг: вопрос снова ждёт ответа, и напоминание по нему уйдёт заново.
+        await AnswerAsync(x.A, x.CaseId, await QuestionForAsync(x.A, x.CaseId));
+        await AskAsync(x.Moderator, x.CaseId, "Opener", "Уточните, пожалуйста, детали договорённости.");
+        await DeadlineInAsync(x.CaseId, TimeSpan.FromHours(5));
+        await RunReminderAsync(x.CaseId);
+        Assert.Equal(2, (await NotificationsAsync(x.A, "CaseExplanationReminder")).Count);
     }
 }

@@ -58,6 +58,7 @@ public sealed class ExplanationService
         }
 
         DateTime deadline = default;
+        DateTime now0 = default;
         await _uow.ExecuteAsync(async token =>
         {
             await _uow.LockUsersAsync([moderatorId, peek.OpenedById, peek.AgainstUserId], token);
@@ -81,6 +82,7 @@ public sealed class ExplanationService
             }
 
             var now = Now();
+            now0 = now;
             var questions = recipients.Select(r => CaseMessage.Create(caseId, moderatorId, r, request.Text)).ToList();   // пустой и длинный текст: 400
             found.RequestExplanation(moderatorId, now);   // не InProgress: 409 invalid_state_transition
             deadline = found.ResponseDeadlineAt!.Value;
@@ -98,6 +100,8 @@ public sealed class ExplanationService
 
         _notify.Dispatch();
         _jobs.Schedule<CaseJobs>(j => j.ExplanationDueAsync(caseId), new DateTimeOffset(deadline, TimeSpan.Zero));
+        var remindAt = deadline - Case.ExplanationReminderBefore;
+        _jobs.Schedule<CaseJobs>(j => j.ExplanationReminderAsync(caseId), new DateTimeOffset(remindAt > now0 ? remindAt : now0, TimeSpan.Zero));
         return await ThreadAsync(caseId, forUser: null, ct);
     }
 
@@ -125,6 +129,7 @@ public sealed class ExplanationService
             throw new NotFoundException("case_not_found", "Обращение не найдено.");
         }
 
+        var returned = false;
         await _uow.ExecuteAsync(async token =>
         {
             await _uow.LockUsersAsync([peek.ModeratorId.Value, peek.OpenedById, peek.AgainstUserId], token);
@@ -157,11 +162,18 @@ public sealed class ExplanationService
             if (!await _messages.HasUnansweredAsync(caseId, token))
             {
                 found.ResumeAfterExplanation();   // ответили все: обращение снова в работе
+                _notify.Add(found.ModeratorId!.Value, NotificationType.CaseReturnedToWork, new { caseId, reason = "AllAnswered" });
+                returned = true;
             }
 
             await _cases.SaveAsync(token);
             return 0;
         }, ct);
+
+        if (returned)
+        {
+            _notify.Dispatch();
+        }
 
         return await ThreadAsync(caseId, forUser: userId, ct);
     }
@@ -226,9 +238,13 @@ public sealed class CaseJobs
     private readonly IUnitOfWork _uow;
     private readonly IAuditLog _audit;
     private readonly TimeProvider _clock;
+    private readonly ICaseMessageStore _messages;
+    private readonly INotificationPublisher _notify;
 
-    public CaseJobs(ICaseStore cases, IUnitOfWork uow, IAuditLog audit, TimeProvider clock)
+    public CaseJobs(ICaseStore cases, IUnitOfWork uow, IAuditLog audit, TimeProvider clock, ICaseMessageStore messages, INotificationPublisher notify)
     {
+        _messages = messages;
+        _notify = notify;
         _cases = cases;
         _uow = uow;
         _audit = audit;
@@ -257,10 +273,47 @@ public sealed class CaseJobs
             if (found.ResumeAfterExplanation())
             {
                 _audit.Add(new AuditEntry(null, AuditActions.ExplanationExpired, "Case", caseId));
+                _notify.Add(found.ModeratorId!.Value, NotificationType.CaseReturnedToWork, new { caseId, reason = "Expired" });
                 await _cases.SaveAsync(ct);
             }
 
             return 0;
         }, CancellationToken.None);
+        _notify.Dispatch();
+    }
+
+    /// <summary>За 6 часов до конца срока напоминает тем, кто ещё не ответил (по одному напоминанию на круг пояснений). Уже вернувшееся в работу и повтор не трогаются.</summary>
+    public async Task ExplanationReminderAsync(Guid caseId)
+    {
+        var peek = await _cases.FindAsync(caseId, tracked: false, CancellationToken.None);
+        if (peek is null || peek.Status != CaseStatus.WaitingResponse || peek.ModeratorId is null)
+        {
+            return;
+        }
+
+        await _uow.ExecuteAsync(async ct =>
+        {
+            await _uow.LockUsersAsync([peek.ModeratorId.Value, peek.OpenedById, peek.AgainstUserId], ct);
+            var found = await _cases.FindAsync(caseId, tracked: true, ct);
+            var now = _clock.GetUtcNow().UtcDateTime;
+            if (found is null || found.Status != CaseStatus.WaitingResponse
+                || now < found.ResponseDeadlineAt!.Value - Case.ExplanationReminderBefore - Tolerance || now >= found.ResponseDeadlineAt.Value
+                || !found.MarkExplanationReminderSent(now))
+            {
+                return 0;
+            }
+
+            var questions = (await _messages.ListAsync(caseId, null, ct)).Where(m => m.InReplyToId is null).ToList();
+            var answered = await _messages.AnsweredQuestionIdsAsync(questions.Select(q => q.Id).ToList(), ct);
+            foreach (var question in questions.Where(q => !answered.Contains(q.Id)))
+            {
+                _notify.Add(question.RecipientId, NotificationType.CaseExplanationReminder,
+                    new { caseId, exchangeId = found.ExchangeId, questionId = question.Id, deadlineAt = found.ResponseDeadlineAt });
+            }
+
+            await _cases.SaveAsync(ct);
+            return 0;
+        }, CancellationToken.None);
+        _notify.Dispatch();
     }
 }

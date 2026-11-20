@@ -308,6 +308,9 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ExchangeId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ExplanationReminderSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("FromCall")
                         .HasColumnType("boolean");
 
