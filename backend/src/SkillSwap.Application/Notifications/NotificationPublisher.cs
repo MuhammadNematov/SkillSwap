@@ -65,5 +65,5 @@ public sealed class NotificationPublisher : INotificationPublisher
 public static class NotificationPolicy
 {
     public static bool SendsEmail(NotificationType type) =>
-        type is NotificationType.RequestReceived or NotificationType.RequestAccepted or NotificationType.SessionReminder;
+        type is NotificationType.RequestReceived or NotificationType.RequestAccepted or NotificationType.SessionReminder or NotificationType.CaseResolved;
 }

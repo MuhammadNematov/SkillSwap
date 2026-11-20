@@ -19,9 +19,66 @@ internal static class NotificationEmailTemplates
             NotificationType.RequestReceived => RequestReceived(language, name, other, frontend.RequestsUrl()),
             NotificationType.RequestAccepted => RequestAccepted(language, name, other, ExchangeLink(payload, frontend)),
             NotificationType.SessionReminder => Reminder(language, name, other, payload, ExchangeLink(payload, frontend), timeZone),
+            NotificationType.CaseResolved => CaseResolved(language, name, payload, frontend),
             _ => null,
         };
     }
+
+    /// <summary>Письмо о решении по обращению: что решено, дополнительное предупреждение, срок апелляции (7 дней) и ссылка на обращение с обоснованием.</summary>
+    private static (string, string) CaseResolved(string language, string name, JsonElement payload, FrontendOptions frontend)
+    {
+        var decision = Text(payload, "decision") ?? string.Empty;
+        var warned = Text(payload, "alsoWarned") == "True";
+        var link = Guid.TryParse(Text(payload, "caseId"), out var id) ? frontend.CaseUrl(id) : frontend.BaseUrl.TrimEnd('/');
+        var until = DateTime.TryParse(Text(payload, "appealUntil"), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var utc)
+            ? utc.ToString("dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : "—";
+        return language switch
+        {
+            "ru" => (
+                "SkillSwap: решение по обращению",
+                $"Здравствуйте, {name}!\n\nПо обращению принято решение: {DecisionRu(decision)}.{(warned ? " К решению добавлено предупреждение." : string.Empty)}\nОбоснование и подробности: {link}\nВы можете подать апелляцию до {until} (один раз)."),
+            "tg" => (
+                "SkillSwap: қарор оид ба муроҷиат",
+                $"Салом, {name}!\n\nОид ба муроҷиат қарор қабул шуд: {DecisionTg(decision)}.{(warned ? " Ба қарор огоҳӣ илова карда шуд." : string.Empty)}\nАсос ва тафсилот: {link}\nШумо метавонед то {until} аппелятсия пешниҳод кунед (як маротиба)."),
+            _ => (
+                "SkillSwap: decision on your case",
+                $"Hello, {name}!\n\nA decision was made on the case: {DecisionEn(decision)}.{(warned ? " A warning was added to the decision." : string.Empty)}\nReasoning and details: {link}\nYou can appeal until {until} (once)."),
+        };
+    }
+
+    private static string DecisionRu(string decision) => decision switch
+    {
+        "ReviewKept" => "отзыв оставлен без изменений",
+        "ReviewHidden" => "отзыв скрыт",
+        "Warning" => "вынесено предупреждение",
+        "ExchangeEnded" => "обмен завершён модератором",
+        "FrozenBanRequested" => "обмен заморожен, запрос на блокировку передан администратору",
+        "NoViolation" => "нарушений не найдено",
+        _ => "решение вынесено",
+    };
+
+    private static string DecisionTg(string decision) => decision switch
+    {
+        "ReviewKept" => "шарҳ бетағйир монд",
+        "ReviewHidden" => "шарҳ пинҳон карда шуд",
+        "Warning" => "огоҳӣ дода шуд",
+        "ExchangeEnded" => "мубодила аз ҷониби модератор қатъ карда шуд",
+        "FrozenBanRequested" => "мубодила яхкунӣ шуд, дархости масдуд кардан ба администратор супорида шуд",
+        "NoViolation" => "вайронкунӣ ёфт нашуд",
+        _ => "қарор қабул шуд",
+    };
+
+    private static string DecisionEn(string decision) => decision switch
+    {
+        "ReviewKept" => "the review stays as it is",
+        "ReviewHidden" => "the review has been hidden",
+        "Warning" => "a warning was issued",
+        "ExchangeEnded" => "the exchange was ended by a moderator",
+        "FrozenBanRequested" => "the exchange is frozen and a block request was passed to an administrator",
+        "NoViolation" => "no violation was found",
+        _ => "a decision was made",
+    };
 
     /// <summary>Письмо о непрочитанных сообщениях (не чаще раза в сутки на обмен). Текст сообщений в письмо не попадает.</summary>
     public static (string Subject, string Body) UnreadMessages(string language, string name, string other, int count, string link) => language switch

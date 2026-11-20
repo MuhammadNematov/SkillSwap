@@ -55,8 +55,3 @@ public sealed class DataExportStore : IDataExportStore
     public Task SaveAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
 }
 
-/// <summary>Пока в системе нет обращений (этап 6), удерживать данные не из-за чего.</summary>
-public sealed class NoOpenCases : IErasureHold
-{
-    public Task<bool> HasOpenCaseAsync(Guid userId, CancellationToken ct) => Task.FromResult(false);
-}

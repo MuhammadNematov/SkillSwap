@@ -102,5 +102,43 @@ public class ModerationController : ControllerBase
     public async Task<IActionResult> Explanations(Guid caseId, [FromServices] ExplanationService explanations, CancellationToken ct) =>
         Ok(await explanations.ListForModeratorAsync(ModeratorId(), caseId, ct));
 
+    /// <summary>
+    /// Вынести решение. Спор по отзыву: <c>ReviewKept</c> (отзыв возвращается в рейтинг) или <c>ReviewHidden</c> (скрыт, рейтинг пересчитан). Жалобы: <c>Warning</c>,
+    /// <c>ExchangeEnded</c> (обмен завершается принудительно, у обоих право на отзыв по обычным правилам), <c>FrozenBanRequested</c> (обмен заморожен, запрос на бан админу),
+    /// <c>NoViolation</c> (обмен, замороженный жалобой, размораживается). <c>alsoWarned</c> добавляет предупреждение виновному; третье действующее за 12 месяцев само создаёт запрос на бан.
+    /// <c>reason</c> 20–2000 символов, его видят обе стороны. Доступ модератора к чату закрывается, обе стороны получают уведомление <c>CaseResolved</c> и письмо,
+    /// через 7 дней без апелляции обращение закрывается. 400: <c>case_decision_not_allowed</c>, <c>case_warning_not_combinable</c>, <c>case_reason_too_short</c>/<c>_too_long</c>.
+    /// 409: <c>waiting_for_explanations</c>, <c>exchange_not_open</c> (завершать нечего), <c>invalid_state_transition</c>.
+    /// </summary>
+    [HttpPost("cases/{caseId:guid}/resolve")]
+    [ProducesResponseType<ModerationCaseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Resolve(Guid caseId, [FromBody] ResolveCaseRequest request, [FromServices] ResolutionService resolution, CancellationToken ct) =>
+        Ok(await resolution.ResolveAsync(ModeratorId(), caseId, request, ct));
+
+    /// <summary>Заморозить обмен по жалобе, пока она рассматривается (чат только для чтения, открытые уроки отменяются, обоим <c>ExchangeFrozen</c>). 409: <c>exchange_not_active</c>, <c>case_type_not_supported</c>, <c>case_not_in_work</c>.</summary>
+    [HttpPost("cases/{caseId:guid}/freeze-exchange")]
+    [ProducesResponseType<ExchangeFreezeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> FreezeExchange(Guid caseId, [FromServices] ResolutionService resolution, CancellationToken ct) =>
+        Ok(await resolution.FreezeExchangeAsync(ModeratorId(), caseId, ct));
+
+    /// <summary>Разморозить обмен (срок обмена сдвигается на время заморозки, обоим <c>ExchangeUnfrozen</c>). 409: <c>exchange_not_frozen</c>, <c>case_type_not_supported</c>, <c>case_not_in_work</c>.</summary>
+    [HttpPost("cases/{caseId:guid}/unfreeze-exchange")]
+    [ProducesResponseType<ExchangeFreezeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UnfreezeExchange(Guid caseId, [FromServices] ResolutionService resolution, CancellationToken ct) =>
+        Ok(await resolution.UnfreezeExchangeAsync(ModeratorId(), caseId, ct));
+
     private Guid ModeratorId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

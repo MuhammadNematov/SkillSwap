@@ -163,7 +163,7 @@ public static class DependencyInjection
         services.AddScoped<IDashboardStore, DashboardStore>();
         services.AddScoped<IAccountStore, SkillSwap.Infrastructure.Account.AccountStore>();
         services.AddScoped<IDataExportStore, SkillSwap.Infrastructure.Account.DataExportStore>();
-        services.AddScoped<IErasureHold, SkillSwap.Infrastructure.Account.NoOpenCases>();
+        services.AddScoped<IErasureHold, SkillSwap.Infrastructure.Moderation.OpenCaseErasureHold>();
         services.AddScoped<IUserDataExportSource, SkillSwap.Infrastructure.Account.UserDataExportSource>();
         services.AddSingleton<IMessageCipher, SkillSwap.Infrastructure.DataProtection.DataProtectionMessageCipher>();
 

@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<Moderation.CaseService>();
         services.AddScoped<Moderation.ModerationService>();
         services.AddScoped<Moderation.ExplanationService>();
+        services.AddScoped<Moderation.ResolutionService>();
         services.AddScoped<Moderation.CaseJobs>();
         services.AddScoped<Reviews.ReviewService>();
         services.AddScoped<Reviews.ReviewJobs>();

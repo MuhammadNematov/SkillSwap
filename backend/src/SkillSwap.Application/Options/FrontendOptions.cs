@@ -16,6 +16,11 @@ public sealed class FrontendOptions
     /// <summary>Страница обмена (ссылка в письме «заявка принята»); <c>{id}</c> заменяется на id обмена: <c>Frontend__ExchangePath</c>.</summary>
     public string ExchangePath { get; set; } = "/exchanges/{id}";
 
+    /// <summary>Страница обращения (ссылка в письме о решении); <c>{id}</c> заменяется на id обращения: <c>Frontend__CasePath</c>.</summary>
+    public string CasePath { get; set; } = "/cases/{id}";
+
+    public string CaseUrl(Guid caseId) => Combine(CasePath.Replace(IdPlaceholder, caseId.ToString(), StringComparison.Ordinal));
+
     public string RequestsUrl() => Combine(RequestsPath);
 
     public string ExchangeUrl(Guid exchangeId) => Combine(ExchangePath.Replace(IdPlaceholder, exchangeId.ToString(), StringComparison.Ordinal));

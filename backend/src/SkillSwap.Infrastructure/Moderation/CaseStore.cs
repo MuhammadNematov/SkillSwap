@@ -100,5 +100,34 @@ public sealed class CaseStore : ICaseStore
         return partners;
     }
 
+    public void AddWarning(Warning warning) => _db.Warnings.Add(warning);
+
+    public void AddBanRequest(BanRequest request) => _db.BanRequests.Add(request);
+
+    public Task<int> CountActiveWarningsAsync(Guid userId, DateTime now, CancellationToken ct) =>
+        _db.Warnings.CountAsync(w => w.UserId == userId && w.RevokedAt == null && w.ExpiresAt > now, ct);
+
+    public Task<bool> HasPendingBanRequestAsync(Guid userId, CancellationToken ct) =>
+        _db.BanRequests.AnyAsync(b => b.UserId == userId && b.Status == BanRequestStatus.Pending, ct);
+
+    public Task<bool> HasOtherActiveComplaintAsync(Guid exchangeId, Guid exceptCaseId, CancellationToken ct) =>
+        _db.Cases.AnyAsync(c => c.ExchangeId == exchangeId && c.Id != exceptCaseId && c.Type != CaseType.ReviewDispute && !Finished.Contains(c.Status), ct);
+
+    public Task<bool> HasActiveCaseAsync(Guid userId, CancellationToken ct) =>
+        _db.Cases.AnyAsync(c => (c.OpenedById == userId || c.AgainstUserId == userId) && !Finished.Contains(c.Status), ct);
+
     public Task SaveAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
+}
+
+/// <summary>Пока по пользователю есть обращение, которое не закрыто и не отозвано (раздел 8 ТЗ), его личные данные при удалении аккаунта удерживаются.</summary>
+public sealed class OpenCaseErasureHold : SkillSwap.Application.Account.IErasureHold
+{
+    private readonly ICaseStore _cases;
+
+    public OpenCaseErasureHold(ICaseStore cases)
+    {
+        _cases = cases;
+    }
+
+    public Task<bool> HasOpenCaseAsync(Guid userId, CancellationToken ct) => _cases.HasActiveCaseAsync(userId, ct);
 }

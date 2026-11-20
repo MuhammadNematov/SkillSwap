@@ -282,6 +282,29 @@ public sealed class CaseJobs
         _notify.Dispatch();
     }
 
+    /// <summary>Прошло 7 дней после решения без апелляции: обращение закрывается (Resolved → Closed). Обращение с апелляцией и повторный запуск не трогаются.</summary>
+    public async Task CloseIfDueAsync(Guid caseId)
+    {
+        var peek = await _cases.FindAsync(caseId, tracked: false, CancellationToken.None);
+        if (peek is null || peek.Status != CaseStatus.Resolved || peek.ModeratorId is null)
+        {
+            return;
+        }
+
+        await _uow.ExecuteAsync(async ct =>
+        {
+            await _uow.LockUsersAsync([peek.ModeratorId.Value, peek.OpenedById, peek.AgainstUserId], ct);
+            var found = await _cases.FindAsync(caseId, tracked: true, ct);
+            if (found is not null && found.CloseIfDue(_clock.GetUtcNow().UtcDateTime + Tolerance))
+            {
+                _audit.Add(new AuditEntry(null, AuditActions.CaseClosed, "Case", caseId));
+                await _cases.SaveAsync(ct);
+            }
+
+            return 0;
+        }, CancellationToken.None);
+    }
+
     /// <summary>За 6 часов до конца срока напоминает тем, кто ещё не ответил (по одному напоминанию на круг пояснений). Уже вернувшееся в работу и повтор не трогаются.</summary>
     public async Task ExplanationReminderAsync(Guid caseId)
     {

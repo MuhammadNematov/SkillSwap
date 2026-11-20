@@ -109,5 +109,21 @@ public interface ICaseStore
     /// <summary>Личный аккаунт сотрудника и все, с кем он когда-либо вёл обмен (конфликт интересов, раздел 3 ТЗ).</summary>
     Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct);
 
+    void AddWarning(Warning warning);
+
+    void AddBanRequest(BanRequest request);
+
+    /// <summary>Сколько у пользователя действующих предупреждений (не отозваны, не истекли).</summary>
+    Task<int> CountActiveWarningsAsync(Guid userId, DateTime now, CancellationToken ct);
+
+    /// <summary>Есть ли по пользователю необработанный запрос на бан.</summary>
+    Task<bool> HasPendingBanRequestAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Есть ли по обмену другая жалоба (поведение, неявки и срыв), которая ещё не закрыта окончательно: она может требовать заморозки.</summary>
+    Task<bool> HasOtherActiveComplaintAsync(Guid exchangeId, Guid exceptCaseId, CancellationToken ct);
+
+    /// <summary>Есть ли у пользователя обращение (как у заявителя или как у того, на кого подано), которое ещё не закрыто окончательно и не отозвано.</summary>
+    Task<bool> HasActiveCaseAsync(Guid userId, CancellationToken ct);
+
     Task SaveAsync(CancellationToken ct);
 }

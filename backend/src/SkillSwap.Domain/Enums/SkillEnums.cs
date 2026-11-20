@@ -135,6 +135,12 @@ public enum NotificationType
 
     /// <summary>Модератору: обращение вернулось в работу (ответили все или истекли 48 часов). Только в интерфейсе. В данных: caseId, reason (AllAnswered или Expired).</summary>
     CaseReturnedToWork,
+
+    /// <summary>По обращению вынесено решение (обеим сторонам, дублируется письмом). В данных: caseId, exchangeId, role, decision, alsoWarned, youWereWarned, appealUntil.</summary>
+    CaseResolved,
+
+    /// <summary>Вам вынесено предупреждение (действует 12 месяцев). В данных: caseId, exchangeId, reason.</summary>
+    WarningIssued,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

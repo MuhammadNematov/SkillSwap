@@ -77,3 +77,13 @@ public sealed record ModerationMessageDto(
 
 public sealed record ModerationChatPageDto(
     Guid CaseId, Guid ExchangeId, RequestUserDto UserA, RequestUserDto UserB, IReadOnlyList<ModerationMessageDto> Items, string? NextBefore);
+
+/// <summary>
+/// Решение по обращению. <c>decision</c> зависит от типа: спор по отзыву — <c>ReviewKept</c> или <c>ReviewHidden</c>; жалобы — <c>Warning</c>, <c>ExchangeEnded</c>,
+/// <c>FrozenBanRequested</c>, <c>NoViolation</c>. <c>alsoWarned</c> добавляет предупреждение виновному (к <c>ReviewHidden</c>, <c>ExchangeEnded</c>, <c>FrozenBanRequested</c>).
+/// <c>reason</c> обязательно, 20–2000 символов: его видят обе стороны.
+/// </summary>
+public sealed record ResolveCaseRequest(CaseDecision Decision, bool AlsoWarned, string? Reason);
+
+/// <summary>Состояние обмена после заморозки или разморозки.</summary>
+public sealed record ExchangeFreezeDto(Guid ExchangeId, ExchangeStatus Status);
