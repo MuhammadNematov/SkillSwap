@@ -117,8 +117,8 @@ public class SkillSuggestionsAdminTests
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(superAdmin.Token, HttpMethod.Get, "/admin/skill-suggestions")).StatusCode);
         Assert.Equal("invalid_paging", await CodeAsync(await SendAsync(admin.Token, HttpMethod.Get, "/admin/skill-suggestions?pageSize=500")));
         // Снятый админ с живым токеном не работает ни с предложениями, ни с каталогом.
-        Assert.Equal("admin_required", await CodeAsync(await SendAsync(removed.Token, HttpMethod.Get, "/admin/skill-suggestions")));
-        Assert.Equal("admin_required", await CodeAsync(await SendAsync(removed.Token, HttpMethod.Post, "/admin/skill-categories", new { nameTg = "x", nameRu = "x", nameEn = Marker(), sortOrder = 1 })));
+        Assert.Equal("staff_not_active", await CodeAsync(await SendAsync(removed.Token, HttpMethod.Get, "/admin/skill-suggestions")));
+        Assert.Equal("staff_not_active", await CodeAsync(await SendAsync(removed.Token, HttpMethod.Post, "/admin/skill-categories", new { nameTg = "x", nameRu = "x", nameEn = Marker(), sortOrder = 1 })));
     }
 
     [Fact]

@@ -68,6 +68,7 @@ public static class JwtAuthenticationExtensions
 
         services.AddAuthorization(options => Policies.Register(options));
         services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ChatAccessHandler>();
+        services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ActiveStaffHandler>();
         services.AddHttpContextAccessor();
         services.AddScoped<SkillSwap.Application.Moderation.IRequestInfo, HttpRequestInfo>();
         return services;

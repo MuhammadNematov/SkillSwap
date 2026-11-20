@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SkillSwap.Api.Auth;
 using SkillSwap.Application.Common;
 using SkillSwap.Application.Skills;
 
@@ -12,7 +13,7 @@ namespace SkillSwap.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/admin")]
-[Authorize(Roles = "Admin,SuperAdmin")]
+[Authorize(Policy = Policies.Admin)]
 [Tags("Admin")]
 public class AdminSkillCatalogController : ControllerBase
 {

@@ -98,7 +98,7 @@ public class AdminSkillCatalogTests
     [InlineData(UserRole.SuperAdmin)]
     public async Task Admins_and_superadmins_can_read_it(UserRole role)
     {
-        var response = await SendAsync(TestTokens.For(_factory, role), HttpMethod.Get, "/admin/skill-categories");
+        var response = await SendAsync((await ModerationTestData.StaffAsync(_factory, role)).Token, HttpMethod.Get, "/admin/skill-categories");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
