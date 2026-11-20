@@ -205,6 +205,8 @@ export interface AdminCase {
   description: string
   fromCall: boolean
   createdAt: string
+  dueAt: string // срок реакции модератора (24 или 72 часа по приоритету)
+  isOverdue: boolean // срок прошёл, а обращение не взято
   moderatorId: string | null
   decision: CaseDecision | null
   alsoWarned: boolean
@@ -354,6 +356,8 @@ const mockUser = (c: ModCase): CaseItem => ({
     : null,
 })
 const mockAdmin = (c: ModCase): AdminCase => ({
+  dueAt: new Date(new Date(c.createdAt).getTime() + (c.priority === 'High' ? 24 : 72) * HOUR).toISOString(),
+  isOverdue: c.status === 'Open' && new Date(c.createdAt).getTime() + (c.priority === 'High' ? 24 : 72) * HOUR < Date.now(),
   id: c.id,
   type: c.type,
   category: c.category,

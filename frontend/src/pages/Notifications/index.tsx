@@ -30,6 +30,8 @@ function targetOf(n: AppNotification): string | null {
     case 'CaseAppealReviewAssigned':
     case 'AppealDecided':
       return n.payload.caseId ? `/app/cases/${n.payload.caseId}` : '/app/cases'
+    case 'CaseOverdue':
+      return n.payload.caseId ? `/app/admin?case=${n.payload.caseId}` : '/app/admin'
     case 'WarningIssued':
     case 'WarningRevoked':
       return '/app/cases'
