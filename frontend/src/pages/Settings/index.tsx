@@ -9,6 +9,7 @@ import { deleteAvatar, getMe, updateMe, uploadAvatar } from '../../api/me'
 import { getLanguages } from '../../api/onboarding'
 import { disableTwoFactor, getAuthSessions, revokeAllAuthSessions, revokeAuthSession } from '../../api/twoFactor'
 import Avatar from '../../components/Avatar'
+import { AVATAR_PRESETS, presetToFile } from '../../utils/avatars'
 import Modal from '../../components/Modal'
 import Spinner from '../../components/Spinner'
 import TwoFactorSetup from '../../components/TwoFactorSetup'
@@ -77,8 +78,11 @@ function ProfileSection() {
     qc.invalidateQueries({ queryKey: ['profile'] })
     if (user) updateUser({ ...user, avatarUrl: url })
   }
-  const upload = useMutation({ mutationFn: uploadAvatar, onSuccess: (url) => afterAvatar(url) })
-  const remove = useMutation({ mutationFn: deleteAvatar, onSuccess: () => afterAvatar(null) })
+  const [editingAvatar, setEditingAvatar] = useState(false)
+  const upload = useMutation({ mutationFn: uploadAvatar, onSuccess: (url) => { afterAvatar(url); setEditingAvatar(false) } })
+  const pickPreset = useMutation({ mutationFn: async (url: string) => uploadAvatar(await presetToFile(url)), onSuccess: (url) => { afterAvatar(url); setEditingAvatar(false) } })
+  const remove = useMutation({ mutationFn: deleteAvatar, onSuccess: () => { afterAvatar(null); setEditingAvatar(false) } })
+  const busyAvatar = upload.isPending || pickPreset.isPending || remove.isPending
 
   if (me.isLoading || langs.isLoading) return <Spinner />
 
@@ -104,35 +108,68 @@ function ProfileSection() {
       <div className="flex flex-wrap items-center gap-4">
         <Avatar name={name || user?.name || '?'} src={me.data?.avatarUrl} className="h-20 w-20 text-2xl" />
         <div className="space-y-1.5">
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (!f) return
-                setAvatarError(null)
-                if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) return setAvatarError(t('settings.avatarBadType'))
-                if (f.size > 2 * 1024 * 1024) return setAvatarError(t('settings.avatarTooBig'))
-                upload.mutate(f)
-                e.target.value = ''
-              }}
-            />
-            <button type="button" className="btn-secondary px-4 py-2" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
-              {upload.isPending ? t('common.loading') : t('settings.avatarChange')}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              setAvatarError(null)
+              if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) return setAvatarError(t('settings.avatarBadType'))
+              if (f.size > 2 * 1024 * 1024) return setAvatarError(t('settings.avatarTooBig'))
+              upload.mutate(f)
+              e.target.value = ''
+            }}
+          />
+          <button type="button" className="btn-secondary px-4 py-2" onClick={() => setEditingAvatar(true)}>
+            {t('settings.avatarEdit')}
+          </button>
+          <p className="text-xs text-slate-400">{t('settings.avatarHint')}</p>
+          {(avatarError || upload.isError || pickPreset.isError || remove.isError) && !editingAvatar && (
+            <p className="text-xs text-red-600">{avatarError ?? errorMessage(t, upload.error ?? pickPreset.error ?? remove.error)}</p>
+          )}
+        </div>
+      </div>
+      {editingAvatar && (
+        <Modal title={t('settings.avatarEditTitle')} onClose={() => setEditingAvatar(false)}>
+          <div className="space-y-4">
+            <button type="button" className="btn-primary w-full" disabled={busyAvatar} onClick={() => fileRef.current?.click()}>
+              {upload.isPending ? t('common.loading') : t('settings.avatarFromGallery')}
             </button>
+            <div>
+              <div className="mb-2 text-sm font-medium text-slate-700">{t('settings.avatarPresets')}</div>
+              <div className="flex gap-4">
+                {AVATAR_PRESETS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    disabled={busyAvatar}
+                    onClick={() => {
+                      setAvatarError(null)
+                      pickPreset.mutate(p.url)
+                    }}
+                    className="flex flex-col items-center gap-1.5 text-xs text-slate-500 disabled:opacity-50"
+                  >
+                    <img src={p.url} alt="" className="h-20 w-20 rounded-full object-cover ring-2 ring-transparent transition hover:ring-brand-400" draggable={false} />
+                    {t(`settings.avatarPreset.${p.key}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
             {me.data?.avatarUrl && (
-              <button type="button" className="btn-secondary px-4 py-2" disabled={remove.isPending} onClick={() => remove.mutate()}>
+              <button type="button" className="btn-secondary w-full" disabled={busyAvatar} onClick={() => remove.mutate()}>
                 {t('settings.avatarRemove')}
               </button>
             )}
+            <p className="text-xs text-slate-400">{t('settings.avatarHint')}</p>
+            {(avatarError || upload.isError || pickPreset.isError || remove.isError) && (
+              <p className="text-xs text-red-600">{avatarError ?? errorMessage(t, upload.error ?? pickPreset.error ?? remove.error)}</p>
+            )}
           </div>
-          <p className="text-xs text-slate-400">{t('settings.avatarHint')}</p>
-          {(avatarError || upload.isError || remove.isError) && <p className="text-xs text-red-600">{avatarError ?? errorMessage(t, upload.error ?? remove.error)}</p>}
-        </div>
-      </div>
+        </Modal>
+      )}
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('registerPage.name')}</span>
         <input className="input" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />

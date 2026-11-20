@@ -61,6 +61,11 @@ export function isJoinWindowOpen(startIso: string, now = new Date()): boolean {
   return now.getTime() >= start - 10 * 60_000 && now.getTime() <= start + 75 * 60_000
 }
 
+// Когда откроется вход в комнату (за 10 минут до старта)
+export function joinOpensAtIso(startIso: string): string {
+  return new Date(new Date(startIso).getTime() - 10 * 60_000).toISOString()
+}
+
 // Сегодняшняя дата в формате для <input type="date" max="...">
 export function todayIso(): string {
   const now = new Date()

@@ -2,11 +2,13 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { USE_MOCKS } from '../api/config'
 import { errorMessage } from '../api/errors'
 import type { LessonSession, SessionStatus } from '../api/types'
 import { confirmSessionManual } from '../api/exchanges'
+import { useNow } from '../hooks/useNow'
 import { useInvalidateAll, useSessionActions } from '../hooks/useSessionActions'
-import { formatDateTime, formatInZone, isJoinWindowOpen, utcOffsetLabel } from '../utils/dates'
+import { formatDateTime, formatInZone, formatTime, isJoinWindowOpen, joinOpensAtIso, utcOffsetLabel } from '../utils/dates'
 import Icon from './Icon'
 import RescheduleModal from './RescheduleModal'
 
@@ -39,10 +41,12 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
   const { confirm, decline } = useSessionActions()
   const invalidateAll = useInvalidateAll()
   const [rescheduling, setRescheduling] = useState(false)
+  const now = useNow()
   const happened = useMutation({ mutationFn: confirmSessionManual, onSuccess: invalidateAll })
 
   // Войти можно в окне комнаты; опоздавший тоже может зайти, пока оно открыто (NoShow и Missed ещё не окончательные)
-  const canJoin = ['Scheduled', 'InProgress', 'NoShow', 'Missed'].includes(session.status) && isJoinWindowOpen(session.startAt)
+  const canJoin = ['Scheduled', 'InProgress', 'NoShow', 'Missed'].includes(session.status) && (USE_MOCKS || isJoinWindowOpen(session.startAt, now))
+  const joinTooEarly = session.status === 'Scheduled' && !canJoin && now.getTime() < new Date(session.startAt).getTime()
   const incomingProposal = session.status === 'Proposed' && !session.proposedByMe
   const error = confirm.error ?? decline.error ?? happened.error
 
@@ -102,6 +106,11 @@ export default function SessionItem({ session, onCancel, showPartner }: Props) {
             <button className="btn-secondary px-4 py-2" onClick={() => onCancel(session)}>
               {t('session.cancel')}
             </button>
+            {joinTooEarly && (
+              <p className="basis-full text-xs text-ink-soft">
+                {t('session.joinOpensAt', { time: formatTime(joinOpensAtIso(session.startAt), lang) })}
+              </p>
+            )}
           </>
         )}
         {canJoin && session.status !== 'Scheduled' && (

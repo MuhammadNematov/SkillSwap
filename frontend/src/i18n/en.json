@@ -397,7 +397,7 @@
   "matches": {
     "title": "Find partners",
     "searchResults": "Results for “{{q}}”",
-    "tabAll": "All ({{count}})",
+    "tabAll": "All",
     "tabFull": "Full matches",
     "tabPartial": "Partial",
     "filters": {
@@ -655,7 +655,7 @@
       "slot_overlap_you": "You have another lesson at this time",
       "slot_overlap_partner": "Your partner has another lesson at this time",
       "too_many_proposals": "Too many proposals without an answer: wait for a reply",
-      "exchange_not_active": "The exchange is no longer active",
+      "exchange_not_active": "The exchange is not active",
       "chat_read_only": "The chat is read-only",
       "chat_archived": "The chat is archived and unavailable",
       "session_not_found": "Lesson not found",
@@ -684,7 +684,7 @@
       "join_window_not_open": "The room is not open yet: you can join 10 minutes before the lesson starts",
       "join_window_closed": "The lesson time is over and the room is closed",
       "session_not_joinable": "You cannot join this lesson right now: it is not confirmed or already closed",
-      "exchange_frozen": "The exchange is frozen, the video room is unavailable",
+      "exchange_frozen": "The exchange is frozen after a report, the room is closed",
       "livekit_not_configured": "The video server is unavailable right now, please try later",
       "export_rate_limited": "You can request an export once a day",
       "export_not_found": "No export has been requested",
@@ -788,7 +788,23 @@
     "mockNote": "Mock mode: the real video room ({{room}}) will connect with LiveKit.",
     "opensAt": "The room opens: {{time}}",
     "exited": "You left the room. If the lesson is still going, you can come back.",
-    "rejoin": "Rejoin the room"
+    "rejoin": "Rejoin the room",
+    "toExchange": "Go to the exchange",
+    "deviceFailure": "Camera or microphone is unavailable. Check browser permissions and that no other app is using the device.",
+    "connectionError": "There is a problem connecting to the room. If no video appears, leave and join again.",
+    "prejoin": {
+      "title": "Check your camera and microphone",
+      "starting": "Starting the camera…",
+      "micLevel": "Microphone level",
+      "enter": "Join the room",
+      "problem": {
+        "insecure": "Camera and microphone only work on a secure address (https or localhost). You can still join, but without video and sound.",
+        "denied": "Access to the camera or microphone is blocked. Allow it in the site settings of your browser and reload the page.",
+        "notFound": "No camera or microphone found. Connect a device or turn off the one you do not need above.",
+        "busy": "The device is in use by another app. Close it and try again.",
+        "other": "Could not start the device. Try reloading the page."
+      }
+    }
   },
   "exchanges": {
     "title": "My exchanges",
@@ -938,7 +954,8 @@
     "noShowPartner": "{{name}} did not show up",
     "missedNote": "Nobody showed up",
     "lateJoin": "Your partner was {{min}} min late",
-    "partnerInRoom": "{{name}} is already in the room"
+    "partnerInRoom": "{{name}} is already in the room",
+    "joinOpensAt": "The room opens at {{time}} (10 minutes before the start)"
   },
   "calendar": {
     "title": "Calendar",
@@ -1110,7 +1127,7 @@
     "unknownDevice": "Unknown device",
     "thisDevice": "This device",
     "lastActive": "active {{date}}",
-    "avatarChange": "Upload photo",
+    "avatarChange": "Choose from gallery",
     "avatarRemove": "Remove",
     "avatarHint": "JPG, PNG or WebP up to 2 MB",
     "account": {
@@ -1135,7 +1152,15 @@
       "useRecovery": "Use a recovery code"
     },
     "avatarBadType": "Use a JPG, PNG or WebP file",
-    "avatarTooBig": "The file is larger than 2 MB"
+    "avatarTooBig": "The file is larger than 2 MB",
+    "avatarPresets": "Or pick a ready one",
+    "avatarPreset": {
+      "boy": "Boy",
+      "girl": "Girl"
+    },
+    "avatarEdit": "Change",
+    "avatarEditTitle": "Profile photo",
+    "avatarFromGallery": "Upload from gallery"
   },
   "block": {
     "action": "Block",
@@ -1269,5 +1294,13 @@
       "FrozenBanRequested": "Exchange frozen, a ban was requested",
       "NoViolation": "No violation"
     }
+  },
+  "dev": {
+    "title": "Developer mode: test lesson",
+    "hint": "Creates two users and a lesson that starts in 2 minutes. Works only with a Development backend.",
+    "create": "Create a test lesson",
+    "startsAt": "Starts: {{time}}",
+    "opensAt": "entry opens at {{time}}",
+    "how": "Open the app in two browser profiles, sign in as these users and join the lesson from the calendar."
   }
 }

@@ -45,7 +45,11 @@ const toSkill = (s: PublicSkillDto): UserSkill => ({
 export async function getUserProfile(id: string): Promise<UserProfile> {
   if (USE_MOCKS) {
     await sleep()
-    if (id === 'me') return ME
+    if (id === 'me') {
+      // свой профиль берём из «настроек»: фото, имя и «О себе» меняются там
+      const me = await getMe()
+      return { ...ME, name: me.name, avatarUrl: me.avatarUrl, bio: me.bio }
+    }
     const p = findPerson(id)
     if (!p) throw new ApiError('user_not_found', 404)
     return p
