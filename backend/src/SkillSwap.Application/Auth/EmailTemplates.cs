@@ -47,6 +47,20 @@ internal static class EmailTemplates
     };
 
     /// <summary>Письмо на старый адрес после удаления аккаунта (раздел 8.1 ТЗ).</summary>
+    /// <summary>Письмо заблокированному: аккаунт заблокирован за нарушение правил платформы. Деталей обращения в письме нет.</summary>
+    public static (string Subject, string Body) AccountBlocked(string language, string name) => language switch
+    {
+        "ru" => (
+            "SkillSwap: аккаунт заблокирован",
+            $"Здравствуйте, {name}!\n\nВаш аккаунт заблокирован за нарушение правил платформы. Войти в него больше нельзя."),
+        "tg" => (
+            "SkillSwap: аккаунт масдуд карда шуд",
+            $"Салом, {name}!\n\nАккаунти шумо барои вайрон кардани қоидаҳои платформа масдуд карда шуд. Ворид шудан ба он дигар имконнопазир аст."),
+        _ => (
+            "SkillSwap: your account has been blocked",
+            $"Hello, {name}!\n\nYour account has been blocked for violating the platform rules. You can no longer sign in."),
+    };
+
     public static (string Subject, string Body) AccountDeleted(string language, string name) => language switch
     {
         "ru" => (

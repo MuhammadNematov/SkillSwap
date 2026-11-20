@@ -1,6 +1,8 @@
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Common;
 using SkillSwap.Application.Exceptions;
+using SkillSwap.Application.ExchangeRequests;
+using SkillSwap.Application.Auth;
 using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Profile;
@@ -20,6 +22,8 @@ public sealed class BanRequestService
 {
     private readonly ICaseStore _cases;
     private readonly IExchangeStore _exchanges;
+    private readonly IExchangeRequestStore _requests;
+    private readonly IMailSender _mail;
     private readonly LessonSessionService _lessons;
     private readonly ReviewScheduler _reviewScheduler;
     private readonly IProfileStore _profiles;
@@ -33,11 +37,13 @@ public sealed class BanRequestService
     private readonly TimeProvider _clock;
 
     public BanRequestService(
-        ICaseStore cases, IExchangeStore exchanges, LessonSessionService lessons, ReviewScheduler reviewScheduler, IProfileStore profiles, IRefreshTokenRepository refreshTokens,
+        ICaseStore cases, IExchangeStore exchanges, IExchangeRequestStore requests, IMailSender mail, LessonSessionService lessons, ReviewScheduler reviewScheduler, IProfileStore profiles, IRefreshTokenRepository refreshTokens,
         IRealtimeDisconnector disconnector, AdminCaseService admin, CaseConsequences consequences, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify, TimeProvider clock)
     {
         _cases = cases;
         _exchanges = exchanges;
+        _requests = requests;
+        _mail = mail;
         _lessons = lessons;
         _reviewScheduler = reviewScheduler;
         _profiles = profiles;
@@ -69,6 +75,7 @@ public sealed class BanRequestService
 
         var cancelled = new List<LessonSessionDto>();
         var closed = new List<(Guid Id, DateTime ClosedAt)>();
+        (string Email, string Language, string Name)? letter = null;
         await _uow.ExecuteAsync(async token =>
         {
             // Блокируем админа, пользователя и всех партнёров по его открытым обменам; перечитываем обмены уже под блокировкой.
@@ -89,6 +96,14 @@ public sealed class BanRequestService
             user.Block();   // не действующий аккаунт: 400 user_not_active
             await _refreshTokens.RevokeAllForUserAsync(user.Id, now, token);
 
+            // Ожидающие заявки заблокированного в обе стороны истекают без уведомлений отправителям (как при блокировке пользователем).
+            foreach (var pending in await _requests.FindPendingForUserForUpdateAsync(user.Id, token))
+            {
+                pending.Expire(now);
+            }
+
+            letter = user.Email is { Length: > 0 } email ? (email, user.UiLanguage, user.Name) : null;
+
             foreach (var exchange in open)
             {
                 exchange.AbortByBan(now);
@@ -104,6 +119,12 @@ public sealed class BanRequestService
         }, ct);
 
         _notify.Dispatch();
+        if (letter is { } l)
+        {
+            var (subject, body) = EmailTemplates.AccountBlocked(l.Language, l.Name);   // без деталей обращения
+            await _mail.SendAsync(l.Email, subject, body, CancellationToken.None);
+        }
+
         await _disconnector.DisconnectUserAsync(peek.UserId, ct);
         await _lessons.PublishUpdatesAsync(cancelled);
         foreach (var (id, at) in closed)

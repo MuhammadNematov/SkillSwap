@@ -923,6 +923,78 @@ public class AppealsTests
         Assert.True(late.Aborted);   // заблокированный с ещё живым токеном подключиться не может
     }
 
+    /// <summary>Новый пользователь с подходящими навыками и ожидающая заявка на обмен (в одну или в другую сторону) между ним и <paramref name="target"/>.</summary>
+    private async Task<(Guid Id, MatchPerson Other)> PendingRequestAsync(MatchTestWorld world, MatchPerson target, int targetTeaches, bool toTarget)
+    {
+        var learns = 1 - targetTeaches;   // у второго человека навыки зеркальные: он преподаёт то, что хочет целевой, и наоборот
+        var other = await world.UserAsync((learns, SkillLevel.Beginner), (targetTeaches, SkillLevel.Beginner));
+        await _factory.QueryAsync(async db =>
+        {
+            await db.Users.Where(u => u.Id == other.Id).ExecuteUpdateAsync(x => x.SetProperty(u => u.EmailConfirmed, true));
+            return 0;
+        });
+        var response = toTarget
+            ? await SendAsync(other.Token, HttpMethod.Post, "/exchange-requests", new { toUserId = target.Id, toTeachesSkillId = world.S(targetTeaches), fromTeachesSkillId = world.S(learns), durationDays = 30 })
+            : await SendAsync(target.Token, HttpMethod.Post, "/exchange-requests", new { toUserId = other.Id, toTeachesSkillId = world.S(learns), fromTeachesSkillId = world.S(targetTeaches), durationDays = 30 });
+        Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        return ((await JsonAsync(response)).GetProperty("id").GetGuid(), other);
+    }
+
+    [Fact]
+    public async Task Approving_a_ban_expires_the_pending_requests_of_the_user_in_both_directions_without_telling_the_senders()
+    {
+        var (s, ban) = await PendingBanAsync();
+        var admin = await AdminAsync();
+        var (incoming, sender) = await PendingRequestAsync(s.World, s.B, 1, toTarget: true);
+        var (outgoing, receiver) = await PendingRequestAsync(s.World, s.B, 1, toTarget: false);
+        var (unrelated, _) = await PendingRequestAsync(s.World, s.A, 0, toTarget: true);   // чужая заявка к A не трогается
+
+        await SendAsync(admin.Token, HttpMethod.Post, $"/admin/ban-requests/{ban.Id}/approve");
+
+        var states = await _factory.QueryAsync(db => db.ExchangeRequests.AsNoTracking().Where(r => r.Id == incoming || r.Id == outgoing || r.Id == unrelated).ToDictionaryAsync(r => r.Id, r => r.Status));
+        Assert.Equal(ExchangeRequestStatus.Expired, states[incoming]);
+        Assert.Equal(ExchangeRequestStatus.Expired, states[outgoing]);
+        Assert.Equal(ExchangeRequestStatus.Pending, states[unrelated]);
+        Assert.Empty(await NotificationsAsync(sender, "RequestExpired"));    // отправителям причина не раскрывается
+        Assert.Empty(await NotificationsAsync(receiver, "RequestExpired"));
+    }
+
+    [Theory]
+    [InlineData("ru", "аккаунт заблокирован", "за нарушение правил платформы")]
+    [InlineData("tg", "аккаунт масдуд карда шуд", "барои вайрон кардани қоидаҳои платформа")]
+    [InlineData("en", "your account has been blocked", "for violating the platform rules")]
+    public async Task The_blocked_user_gets_a_letter_in_their_language_without_case_details(string language, string subject, string phrase)
+    {
+        var (s, ban) = await PendingBanAsync();
+        var admin = await AdminAsync();
+        await _factory.QueryAsync(async db =>
+        {
+            await db.Users.Where(u => u.Id == s.B.Id).ExecuteUpdateAsync(x => x.SetProperty(u => u.UiLanguage, language));
+            return 0;
+        });
+
+        await SendAsync(admin.Token, HttpMethod.Post, $"/admin/ban-requests/{ban.Id}/approve", new { comment = "Внутренний комментарий админа" });
+
+        var letter = Assert.Single(_factory.Mail.To(s.B.User.Email!), m => m.Subject.Contains(subject));
+        Assert.Contains(phrase, letter.Body);
+        Assert.Contains(s.B.User.Name, letter.Body);
+        Assert.DoesNotContain("оскорбля", letter.Body);          // деталей обращения нет
+        Assert.DoesNotContain("Внутренний комментарий", letter.Body);
+        Assert.DoesNotContain(s.CaseId.ToString(), letter.Body);
+    }
+
+    [Fact]
+    public async Task A_rejected_ban_request_sends_no_letter()
+    {
+        var (s, ban) = await PendingBanAsync();
+        var admin = await AdminAsync();
+        var before = _factory.Mail.To(s.B.User.Email!).Count;
+
+        await SendAsync(admin.Token, HttpMethod.Post, $"/admin/ban-requests/{ban.Id}/reject");
+
+        Assert.Equal(before, _factory.Mail.To(s.B.User.Email!).Count);
+    }
+
     [Fact]
     public async Task A_ban_request_is_decided_once_and_by_an_admin()
     {
