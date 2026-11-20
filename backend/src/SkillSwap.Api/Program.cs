@@ -89,7 +89,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseConfiguredRateLimiter();   // после UseAuthentication: общий лимит считается по авторизованному пользователю
 app.UseAuthorization();
-app.UseDevelopmentHangfireDashboard();   // панель фоновых задач: только в Development
+app.UseSuperAdminHangfireDashboard();   // панель фоновых задач: только для суперадмина по одноразовому билету
 
 app.MapControllers();
 app.MapHub<SkillSwap.Api.Hubs.NotificationsHub>("/hubs/notifications");

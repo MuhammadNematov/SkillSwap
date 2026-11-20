@@ -151,7 +151,37 @@
 
 **Экран.** Таблица настроек с описанием и текущим значением, пометка «по умолчанию», поле ввода по типу (переключатель или число с границами), кнопка «Сохранить» собирает все изменённые поля в один запрос, затем форма подтверждения паролем и кодом, необязательное поле «Причина».
 
-## 8. Проверка локально (только Development)
+## 8. Журнал аудита и панель фоновых задач (шаг 7)
+
+### Журнал аудита
+
+Тег **Audit**. Только чтение. Записи новые сверху.
+
+| Метод | Кто | Что делает |
+| --- | --- | --- |
+| `GET /admin/audit` | админ, суперадмин | Админ видит **действия модераторов и свои**, суперадмин на этом маршруте видит всё |
+| `GET /admin/audit/actions` | админ, суперадмин | Названия действий, которые есть в видимой части журнала, по алфавиту: для выпадающего фильтра |
+| `GET /superadmin/audit` | только суперадмин | Полный журнал: все исполнители, действия системы (`actorId` пустой), адреса |
+| `GET /superadmin/audit/actions` | только суперадмин | Все названия действий |
+
+**Фильтры** (необязательные, сочетаются): `actorId`, `action` (точное название), `targetType`, `targetId`, `from` (включительно) и `to` (не включая) в ISO 8601, время без пояса считается UTC; `page`, `pageSize` (до 50). Фильтр не расширяет видимость: админ, указав чужого исполнителя, получит пустой список. Ответ: `items`, `page`, `pageSize`, `totalCount`. Запись: `id`, `actorId` (пустой у действий системы, например фоновых задач), `actorName`, `actorRole`, `action`, `targetType` (например `Case`, `Exchange`, `User`, `Skill`, `SystemSetting`), `targetId` (может быть пустым), `details` (объект JSON: поля зависят от действия, например `reason`, `oldValue` и `newValue` у настроек, `exchangesAborted` у блокировки), `ipAddress` (**только у суперадмина**, у админа всегда `null`), `createdAt`.
+
+**Действия** (список для фильтра лучше брать из `/actions`, он всегда актуален). Чтение и доступ: `ChatRead`, `ChatAccessGranted`, `ChatAccessRevoked`, `CaseMaterialsRead`. Обращения: `CaseOpened`, `CaseWithdrawn`, `CaseTaken`, `CaseReleased`, `CaseResolved`, `CaseClosed`, `CaseOverdue`, `ExplanationRequested`, `ExplanationAnswered`, `ExplanationExpired`, `ExplanationStopped`, `EvidenceReleased`, `ChatPurged`. Апелляции: `CaseAppealed`, `AppealReviewAssigned`, `AppealReviewReleased`, `AppealAdminReleased`, `AppealConcluded`, `AppealDecided`. Санкции: `WarningIssued`, `WarningRevoked`, `WarningRevokedManually`, `ExchangeFrozen`, `ExchangeUnfrozen`, `ExchangeForceEnded`, `BanRequested`, `BanDecided`, `UserBlocked`, `UserUnblocked`, `ReviewHidden`, `ReviewRestored`. Сотрудники: `StaffInvited`, `StaffInvitationRevoked`, `StaffInvitationResent`, `StaffInvitationAccepted`, `StaffRemoved`, `PersonalLinkRequested`, `PersonalAccountLinked`, `PersonalLinkDeclined`, `PersonalUnlinkRequested`, `PersonalUnlinkRejected`, `PersonalAccountUnlinked`, `StepUpFailed` (неудачное подтверждение паролем и 2FA). Каталог и настройки: `SkillSuggestionApproved`, `SkillSuggestionMerged`, `SkillSuggestionRejected`, `CategoryCreated`, `CategoryUpdated`, `CategoryDeleted`, `SkillCreated`, `SkillUpdated`, `SkillDeleted`, `SettingChanged`, `HangfirePanelOpened`.
+
+**Ошибки.** 400 `invalid_paging`, `invalid_period` (`from` не раньше `to`), `invalid_filter` (слишком длинное название) и обычная ошибка привязки для неверного guid; 401; 403 (роль не подходит; админу закрыт `/superadmin/audit`) и `staff_not_active` (раздел 0).
+
+**Экран.** Таблица (время, исполнитель с ролью, действие, объект, кнопка «Подробности» разворачивает `details`) с фильтрами по исполнителю, действию (список из `/actions`), объекту и периоду; пагинация. Для админа заголовок «Действия модераторов и ваши»; колонку «Адрес» показывать только суперадмину (у админа она пустая).
+
+### Панель фоновых задач (только суперадмин)
+
+Тег **Superadmin hangfire**. Панель Hangfire (`/hangfire`) показывает очереди, ошибки и расписание повторяющихся задач (письма, истечение заявок, закрытие обращений и так далее). Браузер не присылает токен доступа в заголовке, поэтому вход двухшаговый:
+
+1. `POST /superadmin/hangfire/session` с телом `{ confirmation }` (пароль и код 2FA, раздел 1). Ответ: `url` (например `/hangfire?ticket=...`), `ticketExpiresAt` (билет живёт минуту), `sessionMinutes` (30).
+2. Откройте `url` **в новой вкладке** (на адрес бэкенда, а не фронтенда). Билет сгорает при первом открытии, сервер ставит сессию в защищённой cookie на `/hangfire` (`HttpOnly`, `SameSite=Strict`) и дальше панель работает сама. Через 30 минут или после снятия суперадмина панель отвечает 401: получите новый билет.
+
+Ошибки первого шага: 400 ошибки подтверждения (раздел 1), 403 (не суперадмин, в том числе админ) или `staff_not_active`, 409 `dashboard_unavailable` (фоновые задачи выключены в настройках сервера: панели нет). Каждое выданное разрешение пишется в журнал как `HangfirePanelOpened`. Панель позволяет повторять и удалять задачи: давайте суперадмину кнопку с предупреждением. Одна и та же панель на всех средах, раньше она в Development открывалась без входа.
+
+## 9. Проверка локально (только Development)
 
 Маршруты скрыты в OpenAPI и не существуют вне Development (404).
 

@@ -35,6 +35,7 @@ public static class StaffAuditActions
     public const string WarningRevokedManually = "WarningRevokedManually";
     public const string SettingChanged = "SettingChanged";
     public const string StepUpFailed = "StepUpFailed";
+    public const string HangfirePanelOpened = "HangfirePanelOpened";
     public const string SkillSuggestionApproved = "SkillSuggestionApproved";
     public const string SkillSuggestionMerged = "SkillSuggestionMerged";
     public const string SkillSuggestionRejected = "SkillSuggestionRejected";

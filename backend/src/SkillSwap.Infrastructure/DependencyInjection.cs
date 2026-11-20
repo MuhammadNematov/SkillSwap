@@ -149,6 +149,7 @@ public static class DependencyInjection
         services.AddScoped<IUserBlockStore, UserBlockStore>();
         services.AddScoped<IMatchStore, MatchStore>();
         services.AddScoped<ISystemSettingsStore, SystemSettingsStore>();
+        services.AddScoped<SkillSwap.Application.Audit.IAuditJournalStore, Audit.AuditJournalStore>();
         services.AddScoped<SkillSwap.Application.Settings.ISystemSettingsAdminStore, SystemSettingsStore>();
         services.AddScoped<IExchangeRequestStore, ExchangeRequestStore>();
         services.AddScoped<IExchangeStore, ExchangeStore>();
