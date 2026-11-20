@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<Moderation.BanRequestService>();
         services.AddScoped<Moderation.CaseCrossChecks>();
         services.AddScoped<Moderation.CaseMaintenanceJobs>();
+        services.AddScoped<Staff.StepUpService>();
         services.AddScoped<Moderation.ChatCleanupJobs>();
         services.AddScoped<Moderation.CaseJobs>();
         services.AddScoped<Reviews.ReviewService>();
