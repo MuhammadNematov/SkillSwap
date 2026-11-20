@@ -43,6 +43,7 @@ public static class DependencyInjection
         // Строка подключения читается лениво (при создании DbContext), а её наличие проверяет ConnectionStringCheck
         // при старте хоста: так не важно, каким источником и в какой момент конфигурация была дополнена.
         services.AddHostedService<ConnectionStringCheck>();
+        services.AddHostedService<Persistence.DevelopmentMigrationRunner>();   // только Development: актуальная схема до сидеров и фоновых задач
         services.AddDbContext<AppDbContext>((sp, options) => options.UseNpgsql(
             sp.GetRequiredService<IConfiguration>().GetConnectionString(ConnectionStringName)));
 

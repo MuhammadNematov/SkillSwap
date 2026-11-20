@@ -24,6 +24,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private readonly GarageContainer _garage = new();
     private string _connectionString = string.Empty;
 
+    /// <summary>Строка подключения к БД тестового контейнера (для тестов, которым нужна своя пустая база на том же сервере).</summary>
+    public string ConnectionString => _connectionString;
+
     // Тесты читают письма отсюда вместо консоли.
     public CapturingMailSender Mail { get; } = new();
 
