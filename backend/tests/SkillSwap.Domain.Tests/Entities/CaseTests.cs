@@ -28,14 +28,14 @@ public class CaseTests
     private static Case InProgress(Case? c = null)
     {
         c ??= Conduct();
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
         return c;
     }
 
     private static Case Resolved(Case? c = null, CaseDecision decision = CaseDecision.Warning)
     {
         c ??= Conduct();
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
         c.Resolve(Moderator, decision, false, Reason, Now.AddDays(1));
         return c;
     }
@@ -153,7 +153,7 @@ public class CaseTests
 
         Assert.False(c.IsOverdue(c.DueAt));
         Assert.True(c.IsOverdue(c.DueAt.AddTicks(1)));
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
         Assert.False(c.IsOverdue(c.DueAt.AddDays(5)));
     }
 
@@ -185,7 +185,7 @@ public class CaseTests
 
         Assert.Equal(CaseStatus.Withdrawn, c.Status);
         Assert.False(c.IsActive);
-        Assert.Throws<InvalidStateTransitionException>(() => c.Take(Moderator));   // отозванное не взять
+        Assert.Throws<InvalidStateTransitionException>(() => c.Take(Moderator, Now));   // отозванное не взять
         Assert.Throws<InvalidStateTransitionException>(() => c.Withdraw(Opener));
 
         var taken = InProgress();
@@ -199,11 +199,11 @@ public class CaseTests
     {
         var c = Conduct();
 
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
 
         Assert.Equal(CaseStatus.InProgress, c.Status);
         Assert.Equal(Moderator, c.ModeratorId);
-        Assert.Throws<InvalidStateTransitionException>(() => c.Take(OtherModerator));   // уже взято
+        Assert.Throws<InvalidStateTransitionException>(() => c.Take(OtherModerator, Now));   // уже взято
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public class CaseTests
         foreach (var participant in new[] { Opener, Against })
         {
             var c = Conduct();
-            Assert.Equal("conflict_of_interest", Assert.Throws<DomainValidationException>(() => c.Take(participant)).Code);
+            Assert.Equal("conflict_of_interest", Assert.Throws<DomainValidationException>(() => c.Take(participant, Now)).Code);
             Assert.Equal(CaseStatus.Open, c.Status);
         }
     }
@@ -301,7 +301,7 @@ public class CaseTests
     public void Each_type_allows_its_own_decisions(CaseType type, CaseDecision decision, bool allowed)
     {
         var c = type switch { CaseType.ReviewDispute => Dispute(), CaseType.NoShowAbuse => NoShow(), _ => Conduct() };
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
 
         if (allowed)
         {
@@ -339,7 +339,7 @@ public class CaseTests
     public void Hiding_a_review_can_be_combined_with_a_warning_to_its_author()
     {
         var c = Dispute();
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
 
         c.Resolve(Moderator, CaseDecision.ReviewHidden, alsoWarned: true, Reason, Now);
 
@@ -476,7 +476,7 @@ public class CaseTests
 
         Assert.Throws<InvalidStateTransitionException>(() => c.Appeal(Opener, Now.AddDays(30)));
         Assert.Throws<InvalidStateTransitionException>(() => c.Resolve(Moderator, CaseDecision.Warning, false, Reason, Now));
-        Assert.Throws<InvalidStateTransitionException>(() => c.Take(OtherModerator));
+        Assert.Throws<InvalidStateTransitionException>(() => c.Take(OtherModerator, Now));
         Assert.Throws<InvalidStateTransitionException>(() => c.BeginAppealReview(OtherModerator));
     }
 
@@ -485,7 +485,7 @@ public class CaseTests
     {
         var c = Conduct();
         Assert.Equal(CaseStatus.Open, c.Status);
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
         Assert.Equal(CaseStatus.InProgress, c.Status);
         c.RequestExplanation(Moderator, Now);
         Assert.Equal(CaseStatus.WaitingResponse, c.Status);

@@ -93,15 +93,31 @@ public sealed class CaseStore : ICaseStore
         return (items, total);
     }
 
-    public async Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct)
+    public async Task<IReadOnlyCollection<Guid>> GetConflictUserIdsForStaffAsync(Guid staffId, CancellationToken ct)
     {
+        var personal = await _db.StaffPersonalLinks.AsNoTracking().Where(l => l.StaffId == staffId).Select(l => l.PersonalUserId).ToListAsync(ct);
+        if (await _db.Users.AsNoTracking().Where(u => u.Id == staffId).Select(u => u.LinkedUserId).FirstOrDefaultAsync(ct) is { } current && !personal.Contains(current))
+        {
+            personal.Add(current);   // привязка, сделанная без записи в историю (старые данные, разработка)
+        }
+
+        if (personal.Count == 0)
+        {
+            return [];
+        }
+
         var partners = await _db.Exchanges.AsNoTracking()
-            .Where(e => e.UserAId == personalUserId || e.UserBId == personalUserId)
-            .Select(e => e.UserAId == personalUserId ? e.UserBId : e.UserAId)
+            .Where(e => personal.Contains(e.UserAId) || personal.Contains(e.UserBId))
+            .Select(e => personal.Contains(e.UserAId) ? e.UserBId : e.UserAId)
             .Distinct().ToListAsync(ct);
-        partners.Add(personalUserId);
-        return partners;
+        return personal.Concat(partners).Distinct().ToList();
     }
+
+    public Task<int> CountActiveConflictsAsync(Guid moderatorId, IReadOnlyCollection<Guid> conflictUsers, CancellationToken ct) =>
+        _db.Cases.CountAsync(c =>
+            (conflictUsers.Contains(c.OpenedById) || conflictUsers.Contains(c.AgainstUserId))
+            && ((c.ModeratorId == moderatorId && (c.Status == CaseStatus.InProgress || c.Status == CaseStatus.WaitingResponse))
+                || (c.Status == CaseStatus.AppealReview && _db.CaseAppeals.Any(a => a.CaseId == c.Id && a.ReviewerModeratorId == moderatorId))), ct);
 
     public void AddAppeal(CaseAppeal appeal) => _db.CaseAppeals.Add(appeal);
 
@@ -145,6 +161,28 @@ public sealed class CaseStore : ICaseStore
 
     public async Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct) =>
         await _db.BanRequests.Where(b => b.CaseId == caseId).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Case>> FindHeldByModeratorAsync(Guid moderatorId, IReadOnlyCollection<Guid>? conflictUsers, bool tracked, CancellationToken ct)
+    {
+        var query = (tracked ? _db.Cases : _db.Cases.AsNoTracking()).Where(c =>
+            (c.ModeratorId == moderatorId && (c.Status == CaseStatus.InProgress || c.Status == CaseStatus.WaitingResponse))
+            || (c.Status == CaseStatus.AppealReview && _db.CaseAppeals.Any(a => a.CaseId == c.Id && a.ReviewerModeratorId == moderatorId)));
+        if (conflictUsers is not null)
+        {
+            query = query.Where(c => conflictUsers.Contains(c.OpenedById) || conflictUsers.Contains(c.AgainstUserId));
+        }
+
+        return await query.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id).ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<CaseAppeal>> FindUndecidedAppealsOfAdminAsync(Guid adminId, CancellationToken ct) =>
+        await _db.CaseAppeals.Where(a => a.AdminId == adminId && a.Outcome == null).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct) =>
+        await _db.BanRequests.Where(b => b.UserId == userId && b.Status == BanRequestStatus.Pending).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<BanRequest>> ListBanRequestsForUserAsync(Guid userId, CancellationToken ct) =>
+        await _db.BanRequests.AsNoTracking().Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).ToListAsync(ct);
 
     public async Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct)
     {

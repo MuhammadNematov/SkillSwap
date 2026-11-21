@@ -62,6 +62,13 @@ public class CaseConfiguration : IEntityTypeConfiguration<Case>
         builder.HasIndex(c => c.ResponseDeadlineAt).HasFilter("\"Status\" = 'WaitingResponse'");
         builder.HasIndex(c => c.ResolvedAt).HasFilter("\"Status\" = 'Resolved'");
 
+        // Статистика (этап 7, шаг 8): подано, решено (в том числе уже закрытые), закрыто, признано просроченным за период; первое взятие для реакции.
+        builder.HasIndex(c => c.CreatedAt);
+        builder.HasIndex(c => new { c.ResolvedAt, c.Decision }).HasFilter("\"ResolvedAt\" IS NOT NULL");
+        builder.HasIndex(c => c.ClosedAt).HasFilter("\"ClosedAt\" IS NOT NULL");
+        builder.HasIndex(c => c.OverdueMarkedAt).HasFilter("\"OverdueMarkedAt\" IS NOT NULL");
+        builder.HasIndex(c => new { c.FirstTakenById, c.FirstTakenAt }).HasFilter("\"FirstTakenAt\" IS NOT NULL");
+
         builder.HasOne<Exchange>().WithMany().HasForeignKey(c => c.ExchangeId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Review>().WithMany().HasForeignKey(c => c.ReviewId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(c => c.OpenedById).OnDelete(DeleteBehavior.Restrict);

@@ -478,7 +478,7 @@ public class CasesApiTests
         await _factory.QueryAsync(async db =>
         {
             var decided = Case.Open(CaseType.ReviewDispute, CaseCategory.ReviewUnfair, x.ExchangeId, x.ReviewId, x.A.Id, x.B.Id, Complaint, false, false, Now);
-            decided.Take(moderator.Id);
+            decided.Take(moderator.Id, DateTime.UtcNow);
             decided.Resolve(moderator.Id, CaseDecision.ReviewKept, false, "Отзыв честный и по делу, оснований скрывать нет.", Now);
             db.Cases.Add(decided);
             await db.SaveChangesAsync();
@@ -655,7 +655,7 @@ public class CasesApiTests
         await _factory.QueryAsync(async db =>
         {
             var taken = await db.Cases.SingleAsync(c => c.Id == id);
-            taken.Take(moderator.Id);
+            taken.Take(moderator.Id, DateTime.UtcNow);
             await db.SaveChangesAsync();
             return 0;
         });
@@ -679,7 +679,7 @@ public class CasesApiTests
         Assert.Equal(HttpStatusCode.NotFound, (await ApiAsync(x.B, HttpMethod.Get, $"/cases/{id}")).StatusCode);
         await _factory.QueryAsync(async db =>
         {
-            (await db.Cases.SingleAsync(c => c.Id == id)).Take(moderator.Id);
+            (await db.Cases.SingleAsync(c => c.Id == id)).Take(moderator.Id, DateTime.UtcNow);
             await db.SaveChangesAsync();
             return 0;
         });
@@ -701,7 +701,7 @@ public class CasesApiTests
         var second = (await JsonAsync(await OpenAsync(x.A, NoShow(x.ExchangeId)))).GetProperty("id").GetGuid();
         await _factory.QueryAsync(async db =>
         {
-            (await db.Cases.SingleAsync(c => c.Id == first)).Take(moderator.Id);
+            (await db.Cases.SingleAsync(c => c.Id == first)).Take(moderator.Id, DateTime.UtcNow);
             await db.SaveChangesAsync();
             return 0;
         });
@@ -728,7 +728,7 @@ public class CasesApiTests
         await _factory.QueryAsync(async db =>
         {
             var c = await db.Cases.SingleAsync(v => v.Id == id);
-            c.Take(moderator.Id);
+            c.Take(moderator.Id, DateTime.UtcNow);
             c.Resolve(moderator.Id, CaseDecision.ReviewKept, false, "Отзыв честный и по делу, оснований скрывать его нет.", Now);
             await db.SaveChangesAsync();
             return 0;

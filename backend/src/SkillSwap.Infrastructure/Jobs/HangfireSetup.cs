@@ -2,6 +2,7 @@ using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -62,6 +63,8 @@ public static class HangfireSetup
                     });
         });
 
+        services.AddSingleton<HangfireDashboardAccess>();
+        services.AddSingleton<SkillSwap.Application.Staff.IDashboardTickets>(sp => sp.GetRequiredService<HangfireDashboardAccess>());
         services.AddSingleton<HangfireBackgroundJobs>();
         services.AddSingleton<InlineBackgroundJobs>();
         services.AddSingleton<IBackgroundJobs>(sp => sp.GetRequiredService<IOptions<HangfireOptions>>().Value.Enabled
@@ -73,26 +76,155 @@ public static class HangfireSetup
     }
 
     /// <summary>
-    /// Панель Hangfire (<c>/hangfire</c>): только в Development и только когда Hangfire включён. На боевом сервере панели нет:
-    /// она появится для суперадмина вместе с панелью суперадмина (этап 7).
+    /// Панель Hangfire (<c>/hangfire</c>) для суперадмина, во всех средах, где фоновые задачи включены. Войти можно только по одноразовому билету, который суперадмин получает после
+    /// подтверждения паролем и 2FA (<c>POST /superadmin/hangfire/session</c>): сервер ставит короткую сессию в cookie, и каждый запрос панели проверяет по базе, что это действующий суперадмин
+    /// (см. <see cref="HangfireDashboardFilter"/>). Без сессии панель отвечает 401.
     /// </summary>
-    public static WebApplication UseDevelopmentHangfireDashboard(this WebApplication app)
+    public static WebApplication UseSuperAdminHangfireDashboard(this WebApplication app)
     {
-        if (app.Environment.IsDevelopment() && app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value.Enabled)
+        if (app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value.Enabled)
         {
             app.UseHangfireDashboard(DashboardPath, new DashboardOptions
             {
-                Authorization = [new DevelopmentOnlyDashboardFilter()],
+                Authorization = [],   // стандартный фильтр «только с локального адреса» не нужен: вход решает асинхронный фильтр ниже
+                AsyncAuthorization = [new HangfireDashboardFilter()],
                 DashboardTitle = "SkillSwap: фоновые задачи",
+                AppPath = null,   // ссылки «назад на сайт» не нужны: панель открывается отдельной вкладкой
             });
         }
 
         return app;
     }
+}
 
-    private sealed class DevelopmentOnlyDashboardFilter : IDashboardAuthorizationFilter
+/// <summary>
+/// Одноразовые билеты и сессии панели Hangfire. Хранятся в памяти процесса (на нескольких экземплярах сервера сессия действует на том, где её открыли: при переходе на несколько экземпляров
+/// хранилище нужно вынести в Redis). В памяти лежат только хэши билетов и токенов сессий, сами значения знает только владелец.
+/// </summary>
+public sealed class HangfireDashboardAccess : SkillSwap.Application.Staff.IDashboardTickets
+{
+    public const string CookieName = "skillswap_hangfire";
+
+    private readonly IOptions<HangfireOptions> _options;
+    private readonly TimeProvider _clock;
+    private readonly object _gate = new();
+    private readonly Dictionary<string, (Guid UserId, DateTime ExpiresAt)> _tickets = [];
+    private readonly Dictionary<string, (Guid UserId, DateTime ExpiresAt)> _sessions = [];
+
+    public HangfireDashboardAccess(IOptions<HangfireOptions> options, TimeProvider clock)
     {
-        public bool Authorize(DashboardContext context) => true;   // панель подключается только в Development
+        _options = options;
+        _clock = clock;
+    }
+
+    public bool Available => _options.Value.Enabled;
+
+    public string Path => HangfireSetup.DashboardPath;
+
+    public TimeSpan TicketLifetime { get; } = TimeSpan.FromMinutes(1);
+
+    public TimeSpan SessionLifetime { get; } = TimeSpan.FromMinutes(30);
+
+    private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
+
+    public (string Ticket, DateTime ExpiresAt) Issue(Guid userId)
+    {
+        var ticket = NewSecret();
+        var expires = Now() + TicketLifetime;
+        lock (_gate)
+        {
+            Purge();
+            _tickets[Hash(ticket)] = (userId, expires);
+        }
+
+        return (ticket, expires);
+    }
+
+    /// <summary>Меняет билет на сессию: билет сгорает при первом же использовании (удачном или нет). null, если билета нет или он истёк.</summary>
+    public (string Token, Guid UserId)? Redeem(string ticket)
+    {
+        lock (_gate)
+        {
+            Purge();
+            if (!_tickets.Remove(Hash(ticket), out var found))
+            {
+                return null;
+            }
+
+            var token = NewSecret();
+            _sessions[Hash(token)] = (found.UserId, Now() + SessionLifetime);
+            return (token, found.UserId);
+        }
+    }
+
+    /// <summary>Чья это сессия; null, если токена нет или он истёк.</summary>
+    public Guid? SessionUser(string token)
+    {
+        lock (_gate)
+        {
+            Purge();
+            return _sessions.TryGetValue(Hash(token), out var found) ? found.UserId : null;
+        }
+    }
+
+    private void Purge()
+    {
+        var now = Now();
+        foreach (var key in _tickets.Where(t => t.Value.ExpiresAt <= now).Select(t => t.Key).ToList())
+        {
+            _tickets.Remove(key);
+        }
+
+        foreach (var key in _sessions.Where(t => t.Value.ExpiresAt <= now).Select(t => t.Key).ToList())
+        {
+            _sessions.Remove(key);
+        }
+    }
+
+    private static string NewSecret() => Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static string Hash(string value) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
+}
+
+/// <summary>
+/// Доступ к панели Hangfire: по cookie с сессией, которую выдал сервер в обмен на одноразовый билет (<c>?ticket=</c>). На каждый запрос проверяется по базе, что владелец сессии
+/// всё ещё действующий суперадмин: снятого суперадмина панель перестаёт пускать сразу, не дожидаясь конца сессии.
+/// </summary>
+public sealed class HangfireDashboardFilter : IDashboardAsyncAuthorizationFilter
+{
+    public async Task<bool> AuthorizeAsync(DashboardContext context)
+    {
+        var http = context.GetHttpContext();
+        var access = http.RequestServices.GetRequiredService<HangfireDashboardAccess>();
+        Guid? userId = null;
+
+        if (http.Request.Query.TryGetValue("ticket", out var ticket) && !string.IsNullOrEmpty(ticket.ToString()))
+        {
+            if (access.Redeem(ticket.ToString()!) is { } session)
+            {
+                userId = session.UserId;
+                http.Response.Cookies.Append(HangfireDashboardAccess.CookieName, session.Token, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = http.Request.IsHttps,
+                    SameSite = SameSiteMode.Strict,
+                    Path = HangfireSetup.DashboardPath,
+                    MaxAge = access.SessionLifetime,
+                });
+            }
+        }
+        else if (http.Request.Cookies.TryGetValue(HangfireDashboardAccess.CookieName, out var token) && !string.IsNullOrEmpty(token))
+        {
+            userId = access.SessionUser(token);
+        }
+
+        if (userId is null)
+        {
+            return false;
+        }
+
+        var user = await http.RequestServices.GetRequiredService<SkillSwap.Application.Profile.IProfileStore>().FindUserAsync(userId.Value, http.RequestAborted);
+        return user is { Role: SkillSwap.Domain.Enums.UserRole.SuperAdmin, Status: SkillSwap.Domain.Enums.UserStatus.Active } && !user.IsRegular;
     }
 }
 

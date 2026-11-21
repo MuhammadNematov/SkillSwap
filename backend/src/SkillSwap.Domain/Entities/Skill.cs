@@ -25,6 +25,23 @@ public class Skill : BaseEntity
 
     public bool IsActive { get; private set; } = true;
 
+    /// <summary>
+    /// Добавляет синоним для поиска (при объединении предложения с навыком). Ничего не делает, если такое название или синоним уже есть, или синонимов уже максимум.
+    /// </summary>
+    /// <returns>true, если синоним добавлен.</returns>
+    public bool AddSynonym(string synonym)
+    {
+        var value = synonym.Trim().ToLowerInvariant();
+        if (value.Length == 0 || value.Length > SynonymMaxLength || Synonyms.Contains(value) || Synonyms.Length >= MaxSynonyms
+            || new[] { NameTg, NameRu, NameEn }.Any(n => n.ToLowerInvariant() == value))
+        {
+            return false;
+        }
+
+        Synonyms = [.. Synonyms, value];
+        return true;
+    }
+
     public static Skill Create(
         Guid categoryId, string nameTg, string nameRu, string nameEn, IEnumerable<string>? synonyms = null)
     {

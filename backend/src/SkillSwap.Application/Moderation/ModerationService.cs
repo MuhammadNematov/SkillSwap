@@ -103,7 +103,7 @@ public sealed class ModerationService
             await _uow.LockUsersAsync([moderatorId, peek.OpenedById, peek.AgainstUserId], token);
             var found = await _cases.FindAsync(caseId, tracked: true, token) ?? throw new NotFoundException("case_not_found", "Обращение не найдено.");
             var now = Now();
-            found.Take(moderatorId);   // не Open: 409 invalid_state_transition
+            found.Take(moderatorId, now);   // не Open: 409 invalid_state_transition
 
             _grants.Add(ChatAccessGrant.Create(found.Id, moderatorId, found.ExchangeId, GrantReason.Case, now));
             _audit.Add(new AuditEntry(moderatorId, AuditActions.CaseTaken, "Case", found.Id, new { exchangeId = found.ExchangeId, type = found.Type }));
@@ -207,7 +207,7 @@ public sealed class ModerationService
     /// Без привязанного личного аккаунта конфликта нет.
     /// </summary>
     private async Task<IReadOnlyCollection<Guid>> ConflictUsersAsync(User moderator, CancellationToken ct) =>
-        moderator.LinkedUserId is { } personal ? await _cases.GetConflictUserIdsAsync(personal, ct) : [];
+        await _cases.GetConflictUserIdsForStaffAsync(moderator.Id, ct);
 
     private static bool HasConflict(IReadOnlyCollection<Guid> conflictUsers, Case value) =>
         conflictUsers.Contains(value.OpenedById) || conflictUsers.Contains(value.AgainstUserId);

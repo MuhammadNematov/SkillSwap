@@ -119,6 +119,28 @@ public class CaseAppeal : BaseEntity
         ReviewerModeratorId = reviewerModeratorId;
     }
 
+    /// <summary>Админа, который вёл апелляцию, сняли: апелляция возвращается в общую очередь админов (до окончательного решения).</summary>
+    public void ReleaseAdmin(Guid adminId)
+    {
+        if (Outcome is not null || AdminId != adminId)
+        {
+            throw new InvalidStateTransitionException(nameof(CaseAppeal), "AdminAssigned", "AdminReleased");
+        }
+
+        AdminId = null;
+    }
+
+    /// <summary>Назначенного проверяющего сняли до заключения: апелляция снова ждёт, пока админ назначит другого. После заключения или решения не меняется.</summary>
+    public void ClearReviewer(Guid reviewerModeratorId)
+    {
+        if (Outcome is not null || ReviewerConclusion is not null || ReviewerModeratorId != reviewerModeratorId)
+        {
+            throw new InvalidStateTransitionException(nameof(CaseAppeal), "ReviewerAssigned", "ReviewerCleared");
+        }
+
+        ReviewerModeratorId = null;
+    }
+
     public void WriteConclusion(Guid moderatorId, string? conclusion)
     {
         if (ReviewerModeratorId != moderatorId)

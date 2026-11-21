@@ -21,7 +21,7 @@ public abstract class AppException : Exception
 /// <summary>HTTP 400: запрос некорректен.</summary>
 public sealed class BadRequestException : AppException
 {
-    public BadRequestException(string code, string message) : base(code, message)
+    public BadRequestException(string code, string message, IReadOnlyDictionary<string, object?>? extensions = null) : base(code, message, extensions)
     {
     }
 }

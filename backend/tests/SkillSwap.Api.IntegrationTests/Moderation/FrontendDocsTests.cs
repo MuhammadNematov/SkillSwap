@@ -8,15 +8,16 @@ namespace SkillSwap.Api.IntegrationTests.Moderation;
 /// </summary>
 public class FrontendDocsTests
 {
-    private static readonly string Doc = File.ReadAllText(DocPath());
+    /// <summary>Обе сводки вместе: уведомления этапа 7 описаны в docs/FRONTEND-ADMIN.md, этапа 6 в docs/FRONTEND-CASES.md.</summary>
+    private static readonly string Doc = File.ReadAllText(DocPath("FRONTEND-CASES.md")) + Environment.NewLine + File.ReadAllText(DocPath("FRONTEND-ADMIN.md"));
 
-    private static string DocPath()
+    private static string DocPath(string name)
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
             if (Directory.Exists(Path.Combine(dir.FullName, "docs")) && Directory.Exists(Path.Combine(dir.FullName, "backend")))
             {
-                return Path.Combine(dir.FullName, "docs", "FRONTEND-CASES.md");
+                return Path.Combine(dir.FullName, "docs", name);
             }
         }
 
@@ -24,14 +25,14 @@ public class FrontendDocsTests
     }
 
     [Fact]
-    public void Every_notification_type_of_stage_six_is_described()
+    public void Every_notification_type_from_stage_six_on_is_described()
     {
         var all = Enum.GetValues<NotificationType>().ToList();
         var stageSix = all.Skip(all.IndexOf(NotificationType.ReviewAvailable)).ToList();
 
         var missing = stageSix.Where(t => !Doc.Contains($"`{t}`")).ToList();
 
-        Assert.True(missing.Count == 0, "Не описаны в docs/FRONTEND-CASES.md: " + string.Join(", ", missing));
+        Assert.True(missing.Count == 0, "Не описаны в docs/FRONTEND-CASES.md или docs/FRONTEND-ADMIN.md: " + string.Join(", ", missing));
     }
 
     [Theory]

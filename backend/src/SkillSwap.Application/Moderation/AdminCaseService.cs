@@ -331,12 +331,7 @@ public sealed class CaseCrossChecks
     /// <summary>Есть ли у модератора конфликт интересов с обращением: его личный аккаунт или бывший партнёр личного аккаунта среди участников.</summary>
     public async Task<bool> HasConflictAsync(User moderator, Case value, CancellationToken ct)
     {
-        if (moderator.LinkedUserId is not { } personal)
-        {
-            return false;
-        }
-
-        var conflicting = await _cases.GetConflictUserIdsAsync(personal, ct);
+        var conflicting = await _cases.GetConflictUserIdsForStaffAsync(moderator.Id, ct);
         return conflicting.Contains(value.OpenedById) || conflicting.Contains(value.AgainstUserId);
     }
 }

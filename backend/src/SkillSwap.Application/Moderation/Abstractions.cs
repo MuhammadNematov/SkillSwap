@@ -55,6 +55,9 @@ public static class AuditActions
     public const string BanDecided = "BanDecided";
     public const string ReviewHidden = "ReviewHidden";
     public const string ReviewRestored = "ReviewRestored";
+    public const string CaseReleased = "CaseReleased";
+    public const string AppealAdminReleased = "AppealAdminReleased";
+    public const string AppealReviewReleased = "AppealReviewReleased";
 }
 
 /// <summary>Хранилище временных доступов модераторов к чату (таблица ChatAccessGrants).</summary>

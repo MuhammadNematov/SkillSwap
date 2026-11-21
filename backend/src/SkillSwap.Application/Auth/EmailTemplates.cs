@@ -61,6 +61,20 @@ internal static class EmailTemplates
             $"Hello, {name}!\n\nYour account has been blocked for violating the platform rules. You can no longer sign in."),
     };
 
+    /// <summary>Письмо разблокированному: аккаунт снова действует, войти нужно заново. Деталей нет.</summary>
+    public static (string Subject, string Body) AccountUnblocked(string language, string name) => language switch
+    {
+        "ru" => (
+            "SkillSwap: аккаунт разблокирован",
+            $"Здравствуйте, {name}!\n\nВаш аккаунт разблокирован. Войдите в него заново. Обмены, прерванные при блокировке, не возобновляются: вы можете начать новые."),
+        "tg" => (
+            "SkillSwap: аккаунт боз карда шуд",
+            $"Салом, {name}!\n\nАккаунти шумо боз карда шуд. Бори дигар ворид шавед. Мубодилаҳое, ки ҳангоми масдуд кардан қатъ шуда буданд, аз сар гирифта намешаванд: шумо метавонед мубодилаҳои нав оғоз кунед."),
+        _ => (
+            "SkillSwap: your account has been unblocked",
+            $"Hello, {name}!\n\nYour account has been unblocked. Please sign in again. Exchanges that were interrupted by the block are not restored: you can start new ones."),
+    };
+
     public static (string Subject, string Body) AccountDeleted(string language, string name) => language switch
     {
         "ru" => (

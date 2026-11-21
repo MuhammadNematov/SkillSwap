@@ -165,6 +165,39 @@ public enum NotificationType
 
     /// <summary>Админам: обращение просрочено, срок реакции вышел, а его никто не взял. В данных: caseId, priority, dueAt.</summary>
     CaseOverdue,
+
+    /// <summary>Пригласившему: приглашение принято, создан служебный аккаунт. В данных: invitationId, userId, userName, role.</summary>
+    StaffInvitationAccepted,
+
+    /// <summary>Сотруднику: владелец личного аккаунта подтвердил привязку. В данных: userId (личный аккаунт), userName.</summary>
+    PersonalLinkConfirmed,
+
+    /// <summary>Сотруднику: владелец личного аккаунта отказался от привязки. В данных: userId, userName.</summary>
+    PersonalLinkDeclined,
+
+    /// <summary>Админам, которые вправе решить: сотрудник просит снять привязку личного аккаунта. В данных: requestId, staffId, staffName.</summary>
+    PersonalUnlinkRequested,
+
+    /// <summary>Сотруднику: решение по запросу на снятие привязки (или привязку сняли без запроса). В данных: requestId (может быть пустым), approved.</summary>
+    PersonalUnlinkDecided,
+
+    /// <summary>Обеим сторонам: модератор, который вёл обращение, больше не может его вести (его сняли или появился конфликт интересов), обращение вернулось в очередь. Только в интерфейсе. В данных: caseId, exchangeId, role.</summary>
+    CaseReturnedToQueue,
+
+    /// <summary>Модератору: у вас забрали обращение, потому что после привязки личного аккаунта появился конфликт интересов. Только в интерфейсе. В данных: caseId, reason (conflict_of_interest).</summary>
+    CaseTakenAway,
+
+    /// <summary>Админам: проверяющего по апелляции сняли до заключения, нужно назначить другого. Только в интерфейсе. В данных: caseId, exchangeId, reason (staff_removed или conflict_of_interest).</summary>
+    AppealReviewerReleased,
+
+    /// <summary>Автору: админ одобрил предложенный навык, он появился в каталоге. Только в интерфейсе. В данных: suggestionId, name, skillId.</summary>
+    SkillSuggestionApproved,
+
+    /// <summary>Автору: предложение объединено с навыком, который уже есть в каталоге (или с только что созданным по такому же предложению). Только в интерфейсе. В данных: suggestionId, name, skillId.</summary>
+    SkillSuggestionMerged,
+
+    /// <summary>Автору: админ отклонил предложение. Только в интерфейсе. В данных: suggestionId, name, reason (может быть пустой).</summary>
+    SkillSuggestionRejected,
 }
 
 /// <summary>Тип сообщения чата (таблица Messages, раздел 13 ТЗ). В шаге 5 используются Text; остальные подключаются в шагах 6 и 7.</summary>

@@ -31,6 +31,10 @@ public class ExchangeConfiguration : IEntityTypeConfiguration<Exchange>
         // Очистка чатов (раздел 10.3 ТЗ): закрытые обмены, чаты которых ещё не вычищены.
         builder.HasIndex(e => e.ClosedAt).HasFilter("\"ChatPurgedAt\" IS NULL AND \"ClosedAt\" IS NOT NULL");
 
+        // Статистика (этап 7, шаг 8): созданные и закрытые за период (полный индекс: фильтрованный выше берёт только неочищенные чаты).
+        builder.HasIndex(e => e.CreatedAt);
+        builder.HasIndex(e => new { e.ClosedAt, e.Status }).HasFilter("\"ClosedAt\" IS NOT NULL");
+
         builder.HasOne<User>().WithMany().HasForeignKey(e => e.UserAId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<User>().WithMany().HasForeignKey(e => e.UserBId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Skill>().WithMany().HasForeignKey(e => e.SkillAId).OnDelete(DeleteBehavior.Restrict);

@@ -135,6 +135,46 @@ public class User : IdentityUser<Guid>, ITimestamped
         LinkedUserId = personal.Id;
     }
 
+    /// <summary>Служебный аккаунт снят (модератора снял админ): Active → Blocked, войти и пользоваться сервисами больше нельзя, роль остаётся для истории и журнала.</summary>
+    public void RemoveFromStaff()
+    {
+        if (IsRegular)
+        {
+            throw new Exceptions.DomainValidationException("not_staff_account", "Это не служебный аккаунт.");
+        }
+
+        if (Status != UserStatus.Active)
+        {
+            throw new Exceptions.DomainValidationException("staff_not_active", "Служебный аккаунт уже снят.");
+        }
+
+        Status = UserStatus.Blocked;
+    }
+
+    /// <summary>Админ разблокировал аккаунт: Blocked → Active. Прерванные блокировкой обмены не возвращаются, сеансы заново не открываются (нужно войти).</summary>
+    public void Unblock()
+    {
+        if (Status != UserStatus.Blocked)
+        {
+            throw new Exceptions.DomainValidationException("user_not_blocked", "Разблокировать можно только заблокированный аккаунт.");
+        }
+
+        Status = UserStatus.Active;
+    }
+
+    /// <summary>Снимает привязку личного аккаунта. Конфликт интересов после этого проверяться перестаёт.</summary>
+    /// <returns>true, если привязка была и снята этим вызовом.</returns>
+    public bool UnlinkPersonalAccount()
+    {
+        if (LinkedUserId is null)
+        {
+            return false;
+        }
+
+        LinkedUserId = null;
+        return true;
+    }
+
     /// <summary>Полных лет на указанную дату (UTC); null, если даты рождения нет (служебный аккаунт).</summary>
     public int? GetAge(DateOnly today)
     {

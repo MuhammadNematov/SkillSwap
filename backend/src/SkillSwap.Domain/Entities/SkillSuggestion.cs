@@ -61,6 +61,30 @@ public class SkillSuggestion : BaseEntity
 
     public static string Normalize(string cleanName) => cleanName.ToLowerInvariant();
 
+    /// <summary>Причина отказа необязательна, но не длиннее.</summary>
+    public const int RejectReasonMaxLength = 500;
+
+    /// <summary>Админ одобрил: по предложению создан навык <paramref name="skillId"/> (Pending → Approved).</summary>
+    public void Approve(Guid adminId, Guid skillId) => Resolve(SuggestionStatus.Approved, adminId, skillId);
+
+    /// <summary>Админ объединил с уже существующим навыком <paramref name="skillId"/> (Pending → Merged).</summary>
+    public void Merge(Guid adminId, Guid skillId) => Resolve(SuggestionStatus.Merged, adminId, skillId);
+
+    /// <summary>Админ отклонил (Pending → Rejected).</summary>
+    public void Reject(Guid adminId) => Resolve(SuggestionStatus.Rejected, adminId, null);
+
+    private void Resolve(SuggestionStatus to, Guid adminId, Guid? skillId)
+    {
+        if (Status != SuggestionStatus.Pending)
+        {
+            throw new InvalidStateTransitionException(nameof(SkillSuggestion), Status.ToString(), to.ToString());
+        }
+
+        Status = to;
+        ResolvedById = adminId;
+        ResolvedSkillId = skillId;
+    }
+
     public static SkillSuggestion Create(Guid userId, Guid categoryId, string? name)
     {
         var clean = CleanName(name);

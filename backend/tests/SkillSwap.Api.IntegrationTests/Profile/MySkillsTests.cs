@@ -392,7 +392,7 @@ public class MySkillsTests
     public async Task A_skill_that_is_in_someones_anketa_cannot_be_deleted_from_the_catalog_only_switched_off()
     {
         var person = await NewPersonAsync();
-        var admin = TestTokens.For(_factory, UserRole.Admin);
+        var admin = (await ModerationTestData.StaffAsync(_factory, UserRole.Admin)).Token;   // настоящий админ: правка каталога проверяет статус по базе
         var marker = "Used" + Guid.NewGuid().ToString("N")[..8];
         var created = await JsonAsync(await SendAsync(admin, HttpMethod.Post, "/admin/skills",
             new { categoryId = SkillCatalogSeed.It, nameTg = marker, nameRu = marker, nameEn = marker }));

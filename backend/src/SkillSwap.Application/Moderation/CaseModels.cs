@@ -110,8 +110,11 @@ public interface ICaseStore
     Task<(IReadOnlyList<Case> Items, int Total)> ListForModeratorAsync(
         ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct);
 
-    /// <summary>Личный аккаунт сотрудника и все, с кем он когда-либо вёл обмен (конфликт интересов, раздел 3 ТЗ).</summary>
-    Task<IReadOnlyCollection<Guid>> GetConflictUserIdsAsync(Guid personalUserId, CancellationToken ct);
+    /// <summary>
+    /// Все, с кем у сотрудника конфликт интересов (раздел 3 ТЗ, правило 3): **все** личные аккаунты, когда-либо привязанные к нему (история привязок, а также текущая привязка),
+    /// и все, с кем эти личные аккаунты когда-либо вели обмен. Снятие привязки конфликт не снимает.
+    /// </summary>
+    Task<IReadOnlyCollection<Guid>> GetConflictUserIdsForStaffAsync(Guid staffId, CancellationToken ct);
 
     void AddAppeal(CaseAppeal appeal);
 
@@ -138,6 +141,21 @@ public interface ICaseStore
     /// <summary>Запросы на бан, созданные по обращению (с отслеживанием).</summary>
     Task<IReadOnlyList<BanRequest>> FindBanRequestsForCaseAsync(Guid caseId, CancellationToken ct);
 
+    /// <summary>
+    /// Обращения, которые держит модератор: взятые им (InProgress, WaitingResponse) и те, где он назначен проверяющим по апелляции (AppealReview). С <paramref name="conflictUsers"/>
+    /// только те, где участвует кто-то из этих пользователей.
+    /// </summary>
+    Task<IReadOnlyList<Case>> FindHeldByModeratorAsync(Guid moderatorId, IReadOnlyCollection<Guid>? conflictUsers, bool tracked, CancellationToken ct);
+
+    /// <summary>Апелляции без окончательного решения, которые ведёт этот админ (с отслеживанием).</summary>
+    Task<IReadOnlyList<CaseAppeal>> FindUndecidedAppealsOfAdminAsync(Guid adminId, CancellationToken ct);
+
+    /// <summary>Необработанные запросы на бан по пользователю (с отслеживанием).</summary>
+    Task<IReadOnlyList<BanRequest>> FindPendingBanRequestsForUserAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Все запросы на бан по пользователю, новые сверху (только чтение).</summary>
+    Task<IReadOnlyList<BanRequest>> ListBanRequestsForUserAsync(Guid userId, CancellationToken ct);
+
     Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct);
 
     void AddWarning(Warning warning);
@@ -155,6 +173,9 @@ public interface ICaseStore
 
     /// <summary>Есть ли у пользователя обращение (как у заявителя или как у того, на кого подано), которое ещё не закрыто окончательно и не отозвано.</summary>
     Task<bool> HasActiveCaseAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Сколько обращений модератора сейчас в работе (взятые им и повторные проверки по апелляции), где участвует кто-то из <paramref name="conflictUsers"/>.</summary>
+    Task<int> CountActiveConflictsAsync(Guid moderatorId, IReadOnlyCollection<Guid> conflictUsers, CancellationToken ct);
 
     Task SaveAsync(CancellationToken ct);
 }

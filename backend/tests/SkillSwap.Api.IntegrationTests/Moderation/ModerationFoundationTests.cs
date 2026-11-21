@@ -73,17 +73,30 @@ public class ModerationFoundationTests
         var user = role == UserRole.User
             ? User.CreateRegular(AuthApi.NewEmail(), "Обычный", new DateOnly(1995, 1, 1), "ru")
             : User.CreateStaff(AuthApi.NewEmail(), "Служебный", role);
+        if (role != UserRole.User)
+        {
+            // Политики проверяют действующий служебный аккаунт по базе, поэтому он должен существовать.
+            await _factory.QueryAsync(async db =>
+            {
+                db.Users.Add(user);
+                await db.SaveChangesAsync();
+                return 0;
+            });
+        }
+
         var principal = ModerationTestData.PrincipalFor(user);
 
         Assert.Equal(moderator, await AllowedAsync(principal, null, Policies.Moderator));
         Assert.Equal(admin, await AllowedAsync(principal, null, Policies.Admin));
         Assert.Equal(staff, await AllowedAsync(principal, null, Policies.Staff));
+        Assert.Equal(role == UserRole.SuperAdmin, await AllowedAsync(principal, null, Policies.SuperAdmin));
     }
 
     [Theory]
     [InlineData(Policies.Moderator)]
     [InlineData(Policies.Admin)]
     [InlineData(Policies.Staff)]
+    [InlineData(Policies.SuperAdmin)]
     public async Task An_anonymous_caller_passes_no_staff_policy(string policy)
     {
         Assert.False(await AllowedAsync(ModerationTestData.Anonymous(), null, policy));
@@ -512,8 +525,8 @@ public class ModerationFoundationTests
         var case1 = await db1.Cases.SingleAsync(x => x.Id == c.Id);
         var case2 = await db2.Cases.SingleAsync(x => x.Id == c.Id);
 
-        case1.Take(first.Id);
-        case2.Take(second.Id);
+        case1.Take(first.Id, DateTime.UtcNow);
+        case2.Take(second.Id, DateTime.UtcNow);
         await db1.SaveChangesAsync();
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => db2.SaveChangesAsync());

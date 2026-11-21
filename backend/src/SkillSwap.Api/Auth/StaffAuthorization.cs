@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.Moderation;
+using SkillSwap.Application.Profile;
 using SkillSwap.Domain.Enums;
 using SkillSwap.Infrastructure.Auth;
 
@@ -18,11 +20,58 @@ public static class Policies
     /// <summary>Любая служебная роль (модератор, админ, суперадмин).</summary>
     public const string Staff = "Staff";
 
+    /// <summary>Только суперадмин: системные настройки, журнал аудита всей системы, панель фоновых задач.</summary>
+    public const string SuperAdmin = "SuperAdmin";
+
+    /// <summary>
+    /// Каждая служебная политика состоит из двух частей: роль в токене (быстрый отказ) и <see cref="ActiveStaffRequirement"/>: служебный аккаунт по базе действует
+    /// (не снят и не заблокирован) и его роль в базе входит в разрешённые. Вторая часть не даёт снятому или разжалованному сотруднику пользоваться ещё живым токеном
+    /// (в том числе читать чат и материалы обращений). Все маршруты /admin, /superadmin и /moderation обязаны использовать только эти политики, а не голую роль.
+    /// </summary>
     public static void Register(AuthorizationOptions options)
     {
-        options.AddPolicy(Moderator, p => p.RequireAuthenticatedUser().RequireRole(nameof(UserRole.Moderator)));
-        options.AddPolicy(Admin, p => p.RequireAuthenticatedUser().RequireRole(nameof(UserRole.Admin), nameof(UserRole.SuperAdmin)));
-        options.AddPolicy(Staff, p => p.RequireAuthenticatedUser().RequireRole(nameof(UserRole.Moderator), nameof(UserRole.Admin), nameof(UserRole.SuperAdmin)));
+        Add(options, Moderator, UserRole.Moderator);
+        Add(options, Admin, UserRole.Admin, UserRole.SuperAdmin);
+        Add(options, Staff, UserRole.Moderator, UserRole.Admin, UserRole.SuperAdmin);
+        Add(options, SuperAdmin, UserRole.SuperAdmin);
+    }
+
+    private static void Add(AuthorizationOptions options, string name, params UserRole[] roles) =>
+        options.AddPolicy(name, p => p.RequireAuthenticatedUser().RequireRole(roles.Select(r => r.ToString())).AddRequirements(new ActiveStaffRequirement(roles)));
+}
+
+/// <summary>Служебный аккаунт действует по базе и его роль входит в <paramref name="Roles"/> (раздел 3 ТЗ). Проверяется на каждый запрос, а не только при входе.</summary>
+public sealed record ActiveStaffRequirement(IReadOnlyCollection<UserRole> Roles) : IAuthorizationRequirement;
+
+/// <summary>
+/// Проверка <see cref="ActiveStaffRequirement"/>: одна на всех служебные маршруты. Токен со служебной ролью, но аккаунт по базе снят, заблокирован, удалён или роль изменилась: 403
+/// <c>staff_not_active</c> (через общий обработчик ошибок). Токен с чужой ролью (обычный пользователь) обработчик не трогает: ему отказывает проверка роли.
+/// </summary>
+public sealed class ActiveStaffHandler : AuthorizationHandler<ActiveStaffRequirement>
+{
+    private readonly IProfileStore _profiles;
+
+    public ActiveStaffHandler(IProfileStore profiles)
+    {
+        _profiles = profiles;
+    }
+
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ActiveStaffRequirement requirement)
+    {
+        if (!Guid.TryParse(context.User.FindFirstValue("sub"), out var userId)
+            || !Enum.TryParse<UserRole>(context.User.FindFirstValue(JwtAccessTokenGenerator.RoleClaim), out var claimed)
+            || !requirement.Roles.Contains(claimed))
+        {
+            return;   // не служебная роль: откажет RequireRole
+        }
+
+        var user = await _profiles.FindUserAsync(userId, CancellationToken.None);
+        if (user is null || user.IsRegular || user.Status != UserStatus.Active || !requirement.Roles.Contains(user.Role))
+        {
+            throw new ForbiddenException("staff_not_active", "Служебный аккаунт больше не действует.");
+        }
+
+        context.Succeed(requirement);
     }
 }
 

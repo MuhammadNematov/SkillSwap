@@ -8,6 +8,7 @@ using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Profile;
 using SkillSwap.Application.Reviews;
 using SkillSwap.Application.Sessions;
+using SkillSwap.Application.Staff;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
 
@@ -22,6 +23,7 @@ public sealed class BanRequestService
 {
     private readonly ICaseStore _cases;
     private readonly IExchangeStore _exchanges;
+    private readonly AccountBlocker _blocker;
     private readonly IExchangeRequestStore _requests;
     private readonly IMailSender _mail;
     private readonly LessonSessionService _lessons;
@@ -37,11 +39,12 @@ public sealed class BanRequestService
     private readonly TimeProvider _clock;
 
     public BanRequestService(
-        ICaseStore cases, IExchangeStore exchanges, IExchangeRequestStore requests, IMailSender mail, LessonSessionService lessons, ReviewScheduler reviewScheduler, IProfileStore profiles, IRefreshTokenRepository refreshTokens,
+        ICaseStore cases, IExchangeStore exchanges, IExchangeRequestStore requests, IMailSender mail, AccountBlocker blocker, LessonSessionService lessons, ReviewScheduler reviewScheduler, IProfileStore profiles, IRefreshTokenRepository refreshTokens,
         IRealtimeDisconnector disconnector, AdminCaseService admin, CaseConsequences consequences, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify, TimeProvider clock)
     {
         _cases = cases;
         _exchanges = exchanges;
+        _blocker = blocker;
         _requests = requests;
         _mail = mail;
         _lessons = lessons;
@@ -67,71 +70,38 @@ public sealed class BanRequestService
         return new BanRequestListDto(await _admin.BanDtosAsync(items, ct), page, pageSize, total);
     }
 
-    /// <summary>Одобрить запрос: аккаунт блокируется сразу, сеансы отзываются, соединения отключаются, активные и замороженные обмены прерываются (партнёру причина «партнёр недоступен»).</summary>
+    /// <summary>
+    /// Одобрить запрос: аккаунт блокируется сразу (общий путь <see cref="AccountBlocker"/>, тот же, что у ручной блокировки): сеансы отзываются, соединения отключаются, активные и
+    /// замороженные обмены прерываются (партнёру причина «партнёр недоступен»), ожидающие заявки истекают, заблокированному уходит письмо.
+    /// </summary>
     public async Task<BanRequestDto> ApproveAsync(Guid adminId, Guid banRequestId, DecideBanRequest? request, CancellationToken ct)
     {
         await RequireAdminAsync(adminId, ct);
         var peek = await _cases.FindBanRequestAsync(banRequestId, ct) ?? throw new NotFoundException("ban_request_not_found", "Запрос на блокировку не найден.");
 
-        var cancelled = new List<LessonSessionDto>();
-        var closed = new List<(Guid Id, DateTime ClosedAt)>();
-        (string Email, string Language, string Name)? letter = null;
+        BlockOutcome outcome = null!;
         await _uow.ExecuteAsync(async token =>
         {
-            // Блокируем админа, пользователя и всех партнёров по его открытым обменам; перечитываем обмены уже под блокировкой.
-            var open = await _exchanges.FindOpenForUserForUpdateAsync(peek.UserId, token);
-            var lockIds = open.SelectMany(e => new[] { e.UserAId, e.UserBId }).Append(peek.UserId).Append(adminId).ToList();
+            // Блокируем админа, пользователя, запросившего модератора и всех партнёров по открытым обменам пользователя.
+            var lockIds = (await _blocker.UsersToLockAsync(peek.UserId, token)).Append(adminId).ToList();
             if (peek.RequestedById is { } requestedBy)
             {
                 lockIds.Add(requestedBy);
             }
 
             await _uow.LockUsersAsync(lockIds, token);
-            open = await _exchanges.FindOpenForUserForUpdateAsync(peek.UserId, token);
 
             var ban = await _cases.FindBanRequestAsync(banRequestId, token) ?? throw new NotFoundException("ban_request_not_found", "Запрос на блокировку не найден.");
             var now = Now();
             ban.Approve(adminId, now);   // уже решён: 409 invalid_state_transition
-            var user = await _profiles.FindUserForUpdateAsync(ban.UserId, token) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");
-            user.Block();   // не действующий аккаунт: 400 user_not_active
-            await _refreshTokens.RevokeAllForUserAsync(user.Id, now, token);
-
-            // Ожидающие заявки заблокированного в обе стороны истекают без уведомлений отправителям (как при блокировке пользователем).
-            foreach (var pending in await _requests.FindPendingForUserForUpdateAsync(user.Id, token))
-            {
-                pending.Expire(now);
-            }
-
-            letter = user.Email is { Length: > 0 } email ? (email, user.UiLanguage, user.Name) : null;
-
-            foreach (var exchange in open)
-            {
-                exchange.AbortByBan(now);
-                closed.Add((exchange.Id, now));
-                _notify.Add(exchange.PartnerOf(user.Id), NotificationType.ExchangeAborted, new { exchangeId = exchange.Id, reason = ExchangeService.PartnerUnavailable });
-                cancelled.AddRange(await _lessons.CancelOpenAsync(exchange.Id, exchange.UserAId, exchange.UserBId, token));
-            }
-
-            _audit.Add(new AuditEntry(adminId, AuditActions.BanDecided, "User", user.Id, new { banRequestId, approved = true, comment = request?.Comment, exchangesAborted = open.Count }));
+            outcome = await _blocker.ApplyAsync(adminId, ban.UserId, now, "ban_request", request?.Comment, banRequestId, token);   // не действующий аккаунт: 400 user_not_active
+            _audit.Add(new AuditEntry(adminId, AuditActions.BanDecided, "User", ban.UserId, new { banRequestId, approved = true, comment = request?.Comment, exchangesAborted = outcome.ExchangesAborted }));
             NotifyRequester(ban, approved: true);
             await _cases.SaveAsync(token);
             return 0;
         }, ct);
 
-        _notify.Dispatch();
-        if (letter is { } l)
-        {
-            var (subject, body) = EmailTemplates.AccountBlocked(l.Language, l.Name);   // без деталей обращения
-            await _mail.SendAsync(l.Email, subject, body, CancellationToken.None);
-        }
-
-        await _disconnector.DisconnectUserAsync(peek.UserId, ct);
-        await _lessons.PublishUpdatesAsync(cancelled);
-        foreach (var (id, at) in closed)
-        {
-            _reviewScheduler.OnExchangeClosed(id, at);
-        }
-
+        await _blocker.FinishAsync(outcome, ct);
         return (await _admin.BanDtosAsync([(await _cases.FindBanRequestAsync(banRequestId, ct))!], ct))[0];
     }
 

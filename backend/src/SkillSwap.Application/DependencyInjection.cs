@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<SessionService>();
         services.AddScoped<SkillCatalogService>();
         services.AddScoped<SkillCatalogAdminService>();
+        services.AddScoped<SkillSuggestionAdminService>();
         services.AddScoped<ProfileService>();
         services.AddScoped<MySkillsService>();
         services.AddScoped<UserBlockService>();
@@ -57,6 +58,17 @@ public static class DependencyInjection
         services.AddScoped<Moderation.BanRequestService>();
         services.AddScoped<Moderation.CaseCrossChecks>();
         services.AddScoped<Moderation.CaseMaintenanceJobs>();
+        services.AddScoped<Staff.StepUpService>();
+        services.AddScoped<Staff.StaffInvitationService>();
+        services.AddScoped<Staff.PersonalLinkService>();
+        services.AddScoped<Staff.AccountBlocker>();
+        services.AddScoped<Audit.AuditJournalService>();
+        services.AddScoped<Stats.StatsService>();
+        services.AddScoped<Staff.HangfirePanelService>();
+        services.AddScoped<Settings.SystemSettingsAdminService>();
+        services.AddScoped<Staff.ModeratorCaseReleaser>();
+        services.AddScoped<Staff.ModeratorAdminService>();
+        services.AddScoped<AdminUsers.AdminUserService>();
         services.AddScoped<Moderation.ChatCleanupJobs>();
         services.AddScoped<Moderation.CaseJobs>();
         services.AddScoped<Reviews.ReviewService>();

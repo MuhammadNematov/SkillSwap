@@ -38,6 +38,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.LastActiveAt)
             .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
 
+        // Статистика (этап 7, шаг 8) фильтрует по датам регистрации и последней активности.
+        builder.HasIndex(u => u.CreatedAt);
+        builder.HasIndex(u => u.LastActiveAt).HasFilter("\"LastActiveAt\" IS NOT NULL");
+
         // Не более одного служебного аккаунта на личный (раздел 3 ТЗ).
         builder.HasIndex(u => u.LinkedUserId).IsUnique();
         builder.HasOne<User>().WithMany().HasForeignKey(u => u.LinkedUserId).OnDelete(DeleteBehavior.Restrict);

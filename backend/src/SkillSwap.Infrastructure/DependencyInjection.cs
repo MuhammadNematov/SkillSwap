@@ -43,6 +43,7 @@ public static class DependencyInjection
         // Строка подключения читается лениво (при создании DbContext), а её наличие проверяет ConnectionStringCheck
         // при старте хоста: так не важно, каким источником и в какой момент конфигурация была дополнена.
         services.AddHostedService<ConnectionStringCheck>();
+        services.AddHostedService<Persistence.DevelopmentMigrationRunner>();   // только Development: актуальная схема до сидеров и фоновых задач
         services.AddDbContext<AppDbContext>((sp, options) => options.UseNpgsql(
             sp.GetRequiredService<IConfiguration>().GetConnectionString(ConnectionStringName)));
 
@@ -142,11 +143,15 @@ public static class DependencyInjection
         services.AddScoped<ISkillCatalogReader, SkillCatalogReader>();
         services.AddScoped<ISkillCatalogRepository, SkillCatalogRepository>();
         services.AddScoped<ISkillSuggestionStore, SkillSuggestionStore>();
+        services.AddScoped<ISkillSuggestionAdminStore, SkillSuggestionAdminStore>();
         services.AddScoped<IProfileStore, ProfileStore>();
         services.AddScoped<IUserSkillStore, UserSkillStore>();
         services.AddScoped<IUserBlockStore, UserBlockStore>();
         services.AddScoped<IMatchStore, MatchStore>();
         services.AddScoped<ISystemSettingsStore, SystemSettingsStore>();
+        services.AddScoped<SkillSwap.Application.Audit.IAuditJournalStore, Audit.AuditJournalStore>();
+        services.AddScoped<SkillSwap.Application.Stats.IStatsStore, Stats.StatsStore>();
+        services.AddScoped<SkillSwap.Application.Settings.ISystemSettingsAdminStore, SystemSettingsStore>();
         services.AddScoped<IExchangeRequestStore, ExchangeRequestStore>();
         services.AddScoped<IExchangeStore, ExchangeStore>();
         services.AddScoped<INotificationStore, NotificationStore>();
@@ -160,6 +165,10 @@ public static class DependencyInjection
         services.AddScoped<SkillSwap.Application.Reviews.IReviewStore, Moderation.ReviewStore>();
         services.AddScoped<SkillSwap.Application.Moderation.ICaseStore, Moderation.CaseStore>();
         services.AddScoped<SkillSwap.Application.Moderation.IMaintenanceStore, Moderation.MaintenanceStore>();
+        services.AddScoped<SkillSwap.Application.Staff.IStaffInvitationStore, Staff.StaffInvitationStore>();
+        services.AddScoped<SkillSwap.Application.Staff.IPersonalLinkStore, Staff.PersonalLinkStore>();
+        services.AddScoped<SkillSwap.Application.AdminUsers.IAdminUserStore, AdminUsers.AdminUserStore>();
+        services.AddScoped<SkillSwap.Application.Staff.IModeratorStore, Staff.ModeratorStore>();
         services.AddScoped<SkillSwap.Application.Moderation.ICaseMessageStore, Moderation.CaseMessageStore>();
         services.AddScoped<IDashboardStore, DashboardStore>();
         services.AddScoped<IAccountStore, SkillSwap.Infrastructure.Account.AccountStore>();

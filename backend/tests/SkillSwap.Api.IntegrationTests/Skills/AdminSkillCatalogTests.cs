@@ -20,7 +20,7 @@ public class AdminSkillCatalogTests
     {
         _factory = factory;
         _client = new AuthApi(factory).Client;
-        _admin = TestTokens.For(factory, UserRole.Admin);
+        _admin = ModerationTestData.StaffAsync(factory, UserRole.Admin).GetAwaiter().GetResult().Token;   // настоящий админ: сервис проверяет статус по базе
     }
 
     private static string Marker() => "T" + Guid.NewGuid().ToString("N")[..10];
@@ -98,7 +98,7 @@ public class AdminSkillCatalogTests
     [InlineData(UserRole.SuperAdmin)]
     public async Task Admins_and_superadmins_can_read_it(UserRole role)
     {
-        var response = await SendAsync(TestTokens.For(_factory, role), HttpMethod.Get, "/admin/skill-categories");
+        var response = await SendAsync((await ModerationTestData.StaffAsync(_factory, role)).Token, HttpMethod.Get, "/admin/skill-categories");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }

@@ -450,7 +450,7 @@ public class MaintenanceTests
             var moderator = User.CreateStaff(AuthApi.NewEmail(), "Модератор", UserRole.Moderator);
             db.Users.Add(moderator);
             await db.SaveChangesAsync();
-            found.Take(moderator.Id);
+            found.Take(moderator.Id, DateTime.UtcNow);
             found.Resolve(moderator.Id, CaseDecision.NoViolation, false, Reason, Now.AddDays(-8));
             await db.SaveChangesAsync();
             return 0;
