@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Route, Routes } from 'react-router-dom'
 import {
   createCategory,
   createSkill,
@@ -15,54 +16,57 @@ import {
 } from '../../api/admin'
 import { errorMessage } from '../../api/errors'
 import { getStaff, inviteStaff, removeStaff, type StaffMember, type StaffRole } from '../../api/staff'
-import Icon from '../../components/Icon'
-import LanguageSwitcher from '../../components/LanguageSwitcher'
-import Logo from '../../components/Logo'
 import Modal from '../../components/Modal'
 import Select from '../../components/Select'
 import Spinner from '../../components/Spinner'
+import StaffShell from '../../components/StaffShell'
 import { useAuth } from '../../hooks/useAuth'
+import Notifications from '../Notifications'
+import AdminCaseDetail from './AdminCaseDetail'
+import BansTab from './BansTab'
+import CasesTab from './CasesTab'
 import { pickName } from '../../utils/localized'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
 const PAGE_SIZE = 20
+const TABS = ['cases', 'bans', 'skills', 'categories', 'staff'] as const
 
-// Админ-панель: пока только каталог навыков (категории и навыки). Остальное появится вместе с бэкендом.
-export default function Admin() {
+// Админ-панель: обращения, запросы на блокировку, каталог навыков и сотрудники
+function AdminHome() {
   const { t } = useTranslation()
-  const { user, logout } = useAuth()
-  const [tab, setTab] = useState<'skills' | 'categories' | 'staff'>('skills')
+  const [tab, setTab] = useState<(typeof TABS)[number]>('cases')
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8">
-        <Logo />
-        <div className="flex items-center gap-3">
-          <LanguageSwitcher />
-          <span className="hidden text-sm text-slate-600 sm:inline">{user?.name}</span>
-          <button className="rounded-lg p-2 text-slate-500 hover:bg-brand-50" aria-label={t('common.logout')} title={t('common.logout')} onClick={logout}>
-            <Icon name="logout" />
+    <>
+      <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{t('admin.title')}</h1>
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((k) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
+              tab === k ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
+            }`}
+          >
+            {t(`admin.tab_${k}`)}
           </button>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl space-y-5 px-4 pb-16 sm:px-8">
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{t('admin.title')}</h1>
-        <div className="flex gap-2">
-          {(['skills', 'categories', 'staff'] as const).map((k) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                tab === k ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
-              }`}
-            >
-              {t(`admin.tab_${k}`)}
-            </button>
-          ))}
-        </div>
-        {tab === 'skills' ? <SkillsTab /> : tab === 'categories' ? <CategoriesTab /> : <StaffTab />}
-      </main>
-    </div>
+        ))}
+      </div>
+      {tab === 'cases' ? <CasesTab /> : tab === 'bans' ? <BansTab /> : tab === 'skills' ? <SkillsTab /> : tab === 'categories' ? <CategoriesTab /> : <StaffTab />}
+    </>
+  )
+}
+
+export default function Admin() {
+  return (
+    <StaffShell wide>
+      <Routes>
+        <Route index element={<AdminHome />} />
+        <Route path="cases/:id" element={<AdminCaseDetail />} />
+        <Route path="notifications" element={<Notifications area="admin" />} />
+        <Route path="*" element={<AdminHome />} />
+      </Routes>
+    </StaffShell>
   )
 }
 

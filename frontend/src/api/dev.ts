@@ -27,3 +27,67 @@ export async function seedLesson(): Promise<SeedLesson> {
     throw toApiError(e)
   }
 }
+
+// POST /dev/seed-staff: модераторы и админ с готовыми access-токенами (вход без пароля и 2FA).
+// Точная форма ответа не описана, поэтому берём все объекты, где есть accessToken.
+export interface SeedStaffAccount {
+  accessToken: string
+  label: string
+  role: string
+}
+
+function collectTokens(node: unknown, out: Record<string, unknown>[]) {
+  if (Array.isArray(node)) node.forEach((n) => collectTokens(n, out))
+  else if (node && typeof node === 'object') {
+    const o = node as Record<string, unknown>
+    if (typeof o.accessToken === 'string') out.push(o)
+    Object.values(o).forEach((v) => collectTokens(v, out))
+  }
+}
+
+export async function seedStaff(): Promise<SeedStaffAccount[]> {
+  try {
+    const { data } = await axios.post<unknown>('/dev/seed-staff')
+    const found: Record<string, unknown>[] = []
+    collectTokens(data, found)
+    return found.map((o) => {
+      const label = String(o.email ?? o.name ?? o.role ?? 'staff')
+      const role = String(o.role ?? (label.includes('admin') ? 'Admin' : 'Moderator'))
+      return { accessToken: String(o.accessToken), label, role }
+    })
+  } catch (e) {
+    throw toApiError(e)
+  }
+}
+
+// POST /dev/seed-case: обращение, доведённое до нужной стадии настоящими сервисами бэкенда
+export type SeedCaseType = 'Conduct' | 'NoShowAbuse' | 'ReviewDispute'
+export type SeedCaseStage = 'Open' | 'Taken' | 'Waiting' | 'Resolved' | 'Appealed' | 'AppealReview'
+
+export interface SeedCaseResult {
+  caseId: string
+  caseUrl?: string
+  users: { role?: string; email?: string; password?: string; name?: string }[]
+}
+
+export async function seedCase(body: { type: SeedCaseType; stage: SeedCaseStage }): Promise<SeedCaseResult> {
+  try {
+    const { data } = await axios.post<Record<string, unknown>>('/dev/seed-case', body)
+    // пользователи могут лежать в users или в двух полях; берём всё, где есть почта
+    const users: SeedCaseResult['users'] = []
+    const walk = (n: unknown) => {
+      if (Array.isArray(n)) n.forEach(walk)
+      else if (n && typeof n === 'object') {
+        const o = n as Record<string, unknown>
+        if (typeof o.email === 'string' && typeof o.password === 'string') {
+          users.push({ role: o.role as string | undefined, email: o.email, password: o.password, name: o.name as string | undefined })
+        }
+        Object.values(o).forEach(walk)
+      }
+    }
+    walk(data)
+    return { caseId: String(data.caseId ?? ''), caseUrl: typeof data.caseUrl === 'string' ? data.caseUrl : undefined, users }
+  } catch (e) {
+    throw toApiError(e)
+  }
+}

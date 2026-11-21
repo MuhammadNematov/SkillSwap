@@ -6,6 +6,7 @@ import { login, loginTwoFactor, resendConfirmation } from '../../api/auth'
 import { ApiError, errorMessage, isErrorCode } from '../../api/errors'
 import type { AuthSession } from '../../api/types'
 import AuthLayout from '../../components/AuthLayout'
+import DevStaffPanel from '../../components/DevStaffPanel'
 import FormField from '../../components/FormField'
 import TwoFactorSetup from '../../components/TwoFactorSetup'
 import Turnstile, { type TurnstileHandle } from '../../components/Turnstile'
@@ -237,6 +238,7 @@ export default function Login() {
           </Link>
         </p>
       </form>
+      {import.meta.env.DEV && !USE_MOCKS && <DevStaffPanel onSession={finish} />}
     </AuthLayout>
   )
 }

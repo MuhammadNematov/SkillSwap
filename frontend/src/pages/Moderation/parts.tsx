@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { CasePerson, ModMessage } from '../../api/cases'
+import type { CasePerson, Explanation, ModMessage, ModReview } from '../../api/cases'
 import { formatDateTime } from '../../utils/dates'
 
 // Бейджи обращения для очереди и карточки (общие для модератора и админа)
@@ -63,4 +63,51 @@ export function ChatMessageRow({ m, author }: { m: ModMessage; author: string })
 export function authorName(id: string | null, people: CasePerson[], fallback: string): string {
   if (!id) return fallback
   return people.find((p) => p.id === id)?.name ?? fallback
+}
+
+// Спорный отзыв: четыре оценки, среднее, статус и текст (общий для модератора и админа)
+export function ReviewSummary({ review: r }: { review: ModReview }) {
+  const { t } = useTranslation()
+  const rows: [string, number][] = [
+    ['knowledge', r.scoreKnowledge],
+    ['explaining', r.scoreExplaining],
+    ['punctuality', r.scorePunctuality],
+    ['politeness', r.scorePoliteness],
+  ]
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-slate-600">
+        {rows.map(([k, v]) => (
+          <span key={k}>
+            {t(`reviews.criteria.${k}`)}: <b className="text-slate-900">{v}</b>
+          </span>
+        ))}
+        <span>
+          {t('moderation.reviewAverage')}: <b className="text-slate-900">{r.average.toFixed(1)}</b>
+        </span>
+        <span className="rounded-full bg-slate-100/80 px-2.5 py-0.5 text-xs font-medium text-slate-600">{t(`reviews.status.${r.status}`)}</span>
+      </div>
+      <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{r.text}</p>
+    </div>
+  )
+}
+
+// Вопросы модератора и ответы участников
+export function ExplanationItems({ items, people }: { items: Explanation[]; people: CasePerson[] }) {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.resolvedLanguage ?? 'ru'
+  const name = (id: string) => people.find((p) => p.id === id)?.name ?? t('moderation.moderator')
+  return (
+    <ul className="space-y-2">
+      {items.map((x) => (
+        <li key={x.id} className={`rounded-xl border px-3 py-2 text-sm ${x.kind === 'Question' ? 'border-brand-200 bg-brand-50' : 'border-ink-line'}`}>
+          <div className="text-xs text-slate-500">
+            {x.kind === 'Question' ? t('moderation.questionTo', { name: name(x.recipientId) }) : t('moderation.answerFrom', { name: name(x.senderId) })} · {formatDateTime(x.createdAt, lang)}
+            {x.kind === 'Question' && !x.answered && <span className="ml-2 font-semibold text-amber-700">{t('moderation.noAnswerYet')}</span>}
+          </div>
+          <p className="mt-1 whitespace-pre-wrap break-words text-slate-800">{x.text}</p>
+        </li>
+      ))}
+    </ul>
+  )
 }

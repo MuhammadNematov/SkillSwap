@@ -21,7 +21,7 @@ import Spinner from '../../components/Spinner'
 import { formatDateTime } from '../../utils/dates'
 import { CaseStatusChip } from '../Cases/parts'
 import ChatReader from './ChatReader'
-import { CaseBadges } from './parts'
+import { CaseBadges, ExplanationItems, ReviewSummary } from './parts'
 
 const errBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
 const area = 'input min-h-[96px] resize-y'
@@ -47,28 +47,10 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Scores({ c }: { c: ModCase }) {
   const { t } = useTranslation()
-  const r = c.review
-  if (!r) return null
-  const rows: [string, number][] = [
-    ['knowledge', r.scoreKnowledge],
-    ['explaining', r.scoreExplaining],
-    ['punctuality', r.scorePunctuality],
-    ['politeness', r.scorePoliteness],
-  ]
+  if (!c.review) return null
   return (
     <Section title={t('moderation.review')}>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-slate-600">
-        {rows.map(([k, v]) => (
-          <span key={k}>
-            {t(`reviews.criteria.${k}`)}: <b className="text-slate-900">{v}</b>
-          </span>
-        ))}
-        <span>
-          {t('moderation.reviewAverage')}: <b className="text-slate-900">{r.average.toFixed(1)}</b>
-        </span>
-        <span className="rounded-full bg-slate-100/80 px-2.5 py-0.5 text-xs font-medium text-slate-600">{t(`reviews.status.${r.status}`)}</span>
-      </div>
-      <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{r.text}</p>
+      <ReviewSummary review={c.review} />
     </Section>
   )
 }
@@ -78,24 +60,12 @@ function Explanations({ c }: { c: ModCase }) {
   const lang = i18n.resolvedLanguage ?? 'ru'
   const q = useQuery({ queryKey: ['modExpl', c.id], queryFn: () => getModExplanations(c.id) })
   if (q.isLoading || !q.data || q.data.items.length === 0) return null
-  const name = (id: string) => (id === c.openedBy.id ? c.openedBy.name : id === c.against.id ? c.against.name : t('moderation.moderator'))
   return (
     <Section title={t('cases.explanations')}>
       {q.data.responseDeadlineAt && c.status === 'WaitingResponse' && (
         <p className="text-sm text-amber-700">{t('moderation.waitingUntil', { time: formatDateTime(q.data.responseDeadlineAt, lang) })}</p>
       )}
-      <ul className="space-y-2">
-        {q.data.items.map((x) => (
-          <li key={x.id} className={`rounded-xl border px-3 py-2 text-sm ${x.kind === 'Question' ? 'border-brand-200 bg-brand-50' : 'border-ink-line'}`}>
-            <div className="text-xs text-slate-500">
-              {x.kind === 'Question' ? t('moderation.questionTo', { name: name(x.recipientId) }) : t('moderation.answerFrom', { name: name(x.senderId) })} ·{' '}
-              {formatDateTime(x.createdAt, lang)}
-              {x.kind === 'Question' && !x.answered && <span className="ml-2 font-semibold text-amber-700">{t('moderation.noAnswerYet')}</span>}
-            </div>
-            <p className="mt-1 whitespace-pre-wrap break-words text-slate-800">{x.text}</p>
-          </li>
-        ))}
-      </ul>
+      <ExplanationItems items={q.data.items} people={[c.openedBy, c.against]} />
     </Section>
   )
 }
