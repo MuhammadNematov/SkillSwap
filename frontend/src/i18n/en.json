@@ -636,7 +636,69 @@
     "nameTg": "Name (Tajik)",
     "synonyms": "Search synonyms",
     "synonymsHint": "comma-separated",
-    "tab_staff": "Staff"
+    "tab_staff": "Staff",
+    "tab_cases": "Cases",
+    "tab_bans": "Bans",
+    "back": "Back to cases",
+    "cases": {
+      "empty": "No cases",
+      "all": "All",
+      "filterStatus": "Status",
+      "filterType": "Type",
+      "dueAt": "Response due: {{time}}",
+      "materials": "Case materials",
+      "noEvidence": "No evidence",
+      "evidenceHint": "Only the messages attached to the case are shown. The administrator never sees the whole conversation.",
+      "warnings": "Warnings",
+      "warningTo": "{{name}}: until {{date}}",
+      "warningRevoked": "revoked",
+      "noWarnings": "No warnings",
+      "bans": "Ban requests",
+      "noBans": "No ban requests",
+      "moderator": "Moderator",
+      "notTaken": "Not taken"
+    },
+    "appeal": {
+      "title": "Appeal",
+      "waitingReviewer": "The appeal is waiting for a reviewer",
+      "pickReviewer": "Reviewing moderator",
+      "pickPlaceholder": "Choose a moderator",
+      "assign": "Assign the reviewer",
+      "assignHint": "The reviewer must differ from the author of the decision and not be a participant. They get access to the exchange conversation.",
+      "reviewing": "A second review is in progress",
+      "conclusionReady": "The reviewer’s conclusion is ready",
+      "decide": "Final decision",
+      "newDecision": "New decision",
+      "alsoWarn": "Also issue a warning to the offender",
+      "reasonPlaceholder": "Reasoning (at least 20 characters)",
+      "send": "Make the final decision",
+      "rollbackNote": "Overturning or replacing rolls back the review, the warning and the freeze. Ending an exchange and an approved ban cannot be rolled back.",
+      "outcome": {
+        "Upheld": "Uphold the decision",
+        "Overturned": "Overturn the decision",
+        "Changed": "Replace the decision"
+      }
+    },
+    "bans": {
+      "empty": "No requests",
+      "pending": "Pending",
+      "all": "All",
+      "status": {
+        "Pending": "Pending",
+        "Approved": "Approved",
+        "Rejected": "Rejected"
+      },
+      "approve": "Approve the ban",
+      "reject": "Reject",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "approveHint": "The account is blocked at once: sessions are revoked and exchanges are aborted. This cannot be undone.",
+      "rejectHint": "The exchange will be unfrozen.",
+      "user": "User",
+      "reason": "Reason for the request",
+      "system": "System (three warnings)",
+      "openCase": "Open the case"
+    }
   },
   "errors": {
     "notFound": "Page not found",
@@ -691,7 +753,7 @@
       "invalid_min_rating": "Invalid rating",
       "unknown_skill": "This skill does not exist or is disabled",
       "unknown_category": "This category does not exist",
-      "regular_account_required": "This action is for regular accounts only",
+      "regular_account_required": "This section is only for regular accounts",
       "staff_has_no_profile": "A staff account has no profile",
       "account_not_active": "The account is blocked",
       "user_not_found": "User not found or unavailable",
@@ -837,7 +899,11 @@
       "nothing_to_overturn": "The decision is already neutral, there is nothing to overturn",
       "appeal_final_decision_mismatch": "A new decision is only given when replacing it",
       "ban_request_not_found": "Ban request not found",
-      "user_not_active": "The account is no longer active"
+      "user_not_active": "The account is no longer active",
+      "admin_required": "The administrator role is required",
+      "appeal_conclusion_too_short": "The conclusion is too short (at least 20 characters)",
+      "stop_waiting_reason_too_short": "The reason is too short (at least 20 characters)",
+      "moderator_not_found": "Moderator not found"
     },
     "validation": {
       "required": "Fill in this field",
@@ -1184,7 +1250,7 @@
       "SessionNoShowMe": "You did not show up for the lesson",
       "SessionMissed": "The lesson did not take place: nobody showed up",
       "ReviewReminder": "Reminder: you can review {{userName}} for two more days",
-      "CaseResolved": "A decision was made on the case: {{decision}}",
+      "CaseResolved": "A decision was made on the case: {{decisionText}}",
       "CaseExplanationRequested": "A moderator asks for explanations on a case. Answer by {{deadlineAt}}",
       "CaseExplanationReminder": "Reminder: answer the moderator’s question on the case",
       "CaseAppealed": "An appeal was filed on the case",
@@ -1194,7 +1260,19 @@
       "WarningRevoked": "The warning was revoked",
       "ExchangeFrozen": "The exchange was frozen after a report",
       "ExchangeUnfrozen": "The exchange was unfrozen",
-      "CaseOverdue": "A case is overdue: no moderator took it in time"
+      "CaseOverdue": "A case is overdue: no moderator took it in time",
+      "CaseReturnedToWork": "A case is back in your work: {{reasonText}}",
+      "AppealReviewAssigned": "You were assigned to review an appeal",
+      "AppealConclusionReady": "The reviewer wrote a conclusion on the appeal",
+      "BanRequestDecided": "A ban request was reviewed: {{result}}"
+    },
+    "reason": {
+      "AllAnswered": "everyone answered",
+      "Expired": "the answer period ended"
+    },
+    "ban": {
+      "approved": "approved",
+      "rejected": "rejected"
     }
   },
   "settings": {
@@ -1392,6 +1470,26 @@
     "create": "Create a test lesson",
     "startsAt": "Starts: {{time}}",
     "opensAt": "entry opens at {{time}}",
-    "how": "Open the app in two browser profiles, sign in as these users and join the lesson from the calendar."
+    "how": "Open the app in two browser profiles, sign in as these users and join the lesson from the calendar.",
+    "staffTitle": "Developer mode: staff accounts",
+    "staffHint": "Creates moderators and an admin and signs in as the chosen one without a password or 2FA. Works only with a Development backend. The sign-in is lost when you reload the page.",
+    "staffCreate": "Get staff accounts",
+    "staffLogin": "Sign in: {{name}}",
+    "caseTitle": "Test case",
+    "caseType": "Type",
+    "caseStage": "Stage",
+    "caseCreate": "Create a case",
+    "caseDone": "The case was created",
+    "caseUsers": "Participants (email and password)",
+    "caseOpen": "Open in the panel",
+    "dueShort": "Deadlines are shortened in development: response 3 and 5 minutes, answer 4 minutes, appeal 6 minutes.",
+    "stage": {
+      "Open": "In the queue",
+      "Taken": "Taken",
+      "Waiting": "Waiting for explanations",
+      "Resolved": "Resolved",
+      "Appealed": "Appealed",
+      "AppealReview": "Second review"
+    }
   }
 }

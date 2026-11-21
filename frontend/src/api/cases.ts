@@ -356,8 +356,8 @@ const mockUser = (c: ModCase): CaseItem => ({
     : null,
 })
 const mockAdmin = (c: ModCase): AdminCase => ({
-  dueAt: new Date(new Date(c.createdAt).getTime() + (c.priority === 'High' ? 24 : 72) * HOUR).toISOString(),
-  isOverdue: c.status === 'Open' && new Date(c.createdAt).getTime() + (c.priority === 'High' ? 24 : 72) * HOUR < Date.now(),
+  dueAt: c.dueAt,
+  isOverdue: c.status === 'Open' && new Date(c.dueAt).getTime() < Date.now(),
   id: c.id,
   type: c.type,
   category: c.category,
@@ -658,12 +658,12 @@ export async function sendAppealConclusion({ id, conclusion }: { id: string; con
 }
 
 // ───────── Админ ─────────
-export async function getAdminCases(status?: CaseStatus | ''): Promise<AdminCase[]> {
+export async function getAdminCases(status?: CaseStatus | '', type?: CaseType | ''): Promise<AdminCase[]> {
   if (USE_MOCKS) {
     await sleep()
-    return mockCases.map(mockAdmin).filter((c) => !status || c.status === status)
+    return mockCases.map(mockAdmin).filter((c) => (!status || c.status === status) && (!type || c.type === type))
   }
-  return (await http(() => api.get<CaseList<AdminCase>>('/admin/cases', { params: { status: status || undefined, page: 1, pageSize: 50 } }))).items
+  return (await http(() => api.get<CaseList<AdminCase>>('/admin/cases', { params: { status: status || undefined, type: type || undefined, page: 1, pageSize: 50 } }))).items
 }
 
 export async function getAdminCase(id: string): Promise<AdminCaseDetail> {
@@ -726,7 +726,7 @@ export async function getBanRequests(status?: BanRequestStatus): Promise<BanRequ
   return (await http(() => api.get<CaseList<BanRequest>>('/admin/ban-requests', { params: { status, page: 1, pageSize: 50 } }))).items
 }
 
-export async function decideBan({ id, approve, comment }: { id: string; approve: boolean; comment?: string }): Promise<BanRequest> {
+export async function decideBan({ id, approve }: { id: string; approve: boolean }): Promise<BanRequest> {
   if (USE_MOCKS) {
     await sleep()
     const b = mockBans.find((x) => x.id === id)
@@ -736,5 +736,5 @@ export async function decideBan({ id, approve, comment }: { id: string; approve:
     b.decidedAt = iso()
     return { ...b }
   }
-  return http(() => api.post<BanRequest>(`/admin/ban-requests/${id}/${approve ? 'approve' : 'reject'}`, { comment: comment || null }))
+  return http(() => api.post<BanRequest>(`/admin/ban-requests/${id}/${approve ? 'approve' : 'reject'}`))
 }

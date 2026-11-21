@@ -10,8 +10,20 @@ import { useInvalidateAll } from '../../hooks/useSessionActions'
 import { formatDateTime } from '../../utils/dates'
 
 // Куда ведёт уведомление
-function targetOf(n: AppNotification): string | null {
+export type NotificationsArea = 'app' | 'moderation' | 'admin'
+
+function targetOf(n: AppNotification, area: NotificationsArea): string | null {
   const ex = n.payload.exchangeId
+  const caseId = n.payload.caseId
+  // у служебных ролей свои страницы: обычные маршруты /app им закрыты
+  if (area === 'moderation') {
+    if (n.type === 'CaseReturnedToWork' || n.type === 'AppealReviewAssigned') return caseId ? `/moderation/cases/${caseId}` : '/moderation'
+    return n.type === 'BanRequestDecided' ? '/moderation' : null
+  }
+  if (area === 'admin') {
+    if (n.type === 'CaseAppealed' || n.type === 'AppealConclusionReady' || n.type === 'CaseOverdue') return caseId ? `/admin/cases/${caseId}` : '/admin'
+    return null
+  }
   switch (n.type) {
     case 'RequestReceived':
       return '/app/exchanges?tab=incoming'
@@ -30,8 +42,6 @@ function targetOf(n: AppNotification): string | null {
     case 'CaseAppealReviewAssigned':
     case 'AppealDecided':
       return n.payload.caseId ? `/app/cases/${n.payload.caseId}` : '/app/cases'
-    case 'CaseOverdue':
-      return n.payload.caseId ? `/app/admin?case=${n.payload.caseId}` : '/app/admin'
     case 'WarningIssued':
     case 'WarningRevoked':
       return '/app/cases'
@@ -47,7 +57,7 @@ function typeKey(n: AppNotification): string {
   return n.type === 'ExchangeAborted' && n.payload.reason === 'partner_unavailable' ? 'ExchangeAbortedUnavailable' : n.type
 }
 
-export default function Notifications() {
+export default function Notifications({ area = 'app' }: { area?: NotificationsArea }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? 'ru'
   const navigate = useNavigate()
@@ -59,12 +69,26 @@ export default function Notifications() {
   const read = useMutation({ mutationFn: markRead, onSuccess: refresh })
   const readAll = useMutation({ mutationFn: markAllRead, onSuccess: refresh })
 
+  const params = (n: AppNotification) => {
+    const p = n.payload
+    const when = (v: unknown) => (v ? formatDateTime(String(v), lang) : '')
+    return {
+      ...p,
+      time: when(p.startAt),
+      deadlineAt: when(p.deadlineAt),
+      dueAt: when(p.dueAt),
+      decisionText: p.decision ? t(`cases.decision.${p.decision}`) : '',
+      reasonText: p.reason ? t(`notifications.reason.${p.reason}`, { defaultValue: String(p.reason) }) : '',
+      result: t(p.approved ? 'notifications.ban.approved' : 'notifications.ban.rejected'),
+    }
+  }
+
   if (isLoading) return <Spinner />
   const unread = data.filter((n) => !n.isRead).length
 
   function open(n: AppNotification) {
     if (!n.isRead) read.mutate(n.id)
-    const to = targetOf(n)
+    const to = targetOf(n, area)
     if (to) {
       invalidate()
       navigate(to)
@@ -95,10 +119,7 @@ export default function Notifications() {
                 <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${n.isRead ? 'bg-transparent' : 'bg-brand-600'}`} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-slate-800">
-                    {t([`notifications.types.${typeKey(n)}`, 'notifications.types.default'], {
-                      ...n.payload,
-                      time: n.payload.startAt ? formatDateTime(String(n.payload.startAt), lang) : '',
-                    })}
+                    {t([`notifications.types.${typeKey(n)}`, 'notifications.types.default'], params(n))}
                   </div>
                   <div className="mt-0.5 text-xs text-slate-400">{formatDateTime(n.createdAt, lang)}</div>
                 </div>
