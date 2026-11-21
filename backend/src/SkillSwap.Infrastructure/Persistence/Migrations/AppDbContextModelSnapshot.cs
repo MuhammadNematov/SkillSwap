@@ -311,6 +311,12 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ExplanationReminderSentAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("FirstTakenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("FirstTakenById")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("FromCall")
                         .HasColumnType("boolean");
 
@@ -361,7 +367,15 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClosedAt")
+                        .HasFilter("\"ClosedAt\" IS NOT NULL");
+
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("ModeratorId");
+
+                    b.HasIndex("OverdueMarkedAt")
+                        .HasFilter("\"OverdueMarkedAt\" IS NOT NULL");
 
                     b.HasIndex("ResolvedAt")
                         .HasFilter("\"Status\" = 'Resolved'");
@@ -375,7 +389,13 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExchangeId", "Status");
 
+                    b.HasIndex("FirstTakenById", "FirstTakenAt")
+                        .HasFilter("\"FirstTakenAt\" IS NOT NULL");
+
                     b.HasIndex("OpenedById", "CreatedAt");
+
+                    b.HasIndex("ResolvedAt", "Decision")
+                        .HasFilter("\"ResolvedAt\" IS NOT NULL");
 
                     b.HasIndex("Status", "Priority", "DueAt");
 
@@ -690,12 +710,17 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClosedAt")
                         .HasFilter("\"ChatPurgedAt\" IS NULL AND \"ClosedAt\" IS NOT NULL");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("RequestId")
                         .IsUnique();
 
                     b.HasIndex("SkillAId");
 
                     b.HasIndex("SkillBId");
+
+                    b.HasIndex("ClosedAt", "Status")
+                        .HasFilter("\"ClosedAt\" IS NOT NULL");
 
                     b.HasIndex("Status", "EndDate");
 
@@ -855,6 +880,8 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProposedById");
+
+                    b.HasIndex("StartAt");
 
                     b.HasIndex("TeacherId");
 
@@ -2236,6 +2263,11 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("LastActiveAt")
+                        .HasFilter("\"LastActiveAt\" IS NOT NULL");
 
                     b.HasIndex("LinkedUserId")
                         .IsUnique();

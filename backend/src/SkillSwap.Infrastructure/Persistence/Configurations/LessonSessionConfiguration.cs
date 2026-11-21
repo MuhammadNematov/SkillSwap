@@ -20,6 +20,7 @@ public class LessonSessionConfiguration : IEntityTypeConfiguration<LessonSession
         // Раздел 13 ТЗ: индекс (обмен, начало). Календарь и проверка пересечений ищут по статусу и времени.
         builder.HasIndex(s => new { s.ExchangeId, s.StartAt });
         builder.HasIndex(s => new { s.Status, s.StartAt });
+        builder.HasIndex(s => s.StartAt);   // статистика (этап 7, шаг 8): уроки за период
 
         builder.HasOne<Exchange>().WithMany().HasForeignKey(s => s.ExchangeId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<User>().WithMany().HasForeignKey(s => s.TeacherId).OnDelete(DeleteBehavior.NoAction);

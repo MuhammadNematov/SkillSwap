@@ -117,6 +117,12 @@ public class Case : BaseEntity
     /// <summary>До какого времени стороны должны ответить на вопрос модератора (WaitingResponse, 48 часов).</summary>
     public DateTime? ResponseDeadlineAt { get; private set; }
 
+    /// <summary>Когда обращение взяли в работу впервые (для статистики реакции). Ставится при первом взятии и при возврате в очередь и повторных взятиях не меняется; null — ещё не брали.</summary>
+    public DateTime? FirstTakenAt { get; private set; }
+
+    /// <summary>Кто взял обращение первым (модератор; сам идентификатор наружу не отдаётся, нужен для личной статистики).</summary>
+    public Guid? FirstTakenById { get; private set; }
+
     /// <summary>Когда обращение отмечено просроченным (срок реакции 24 или 72 часа вышел, а его не взяли) и админам ушло уведомление; один раз.</summary>
     public DateTime? OverdueMarkedAt { get; private set; }
 
@@ -235,12 +241,18 @@ public class Case : BaseEntity
     }
 
     /// <summary>Модератор взял в работу (Open → InProgress). Конфликт интересов проверяется до вызова: модератор не может быть участником.</summary>
-    public void Take(Guid moderatorId)
+    public void Take(Guid moderatorId, DateTime now)
     {
         RequireStatus(CaseStatus.InProgress, CaseStatus.Open);
         if (IsParty(moderatorId))
         {
             throw new DomainValidationException("conflict_of_interest", "Модератор не может рассматривать обращение, где он участник.");
+        }
+
+        if (FirstTakenAt is null)
+        {
+            FirstTakenAt = now;
+            FirstTakenById = moderatorId;
         }
 
         ModeratorId = moderatorId;

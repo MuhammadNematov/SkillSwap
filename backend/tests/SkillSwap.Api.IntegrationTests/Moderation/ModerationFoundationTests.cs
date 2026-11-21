@@ -525,8 +525,8 @@ public class ModerationFoundationTests
         var case1 = await db1.Cases.SingleAsync(x => x.Id == c.Id);
         var case2 = await db2.Cases.SingleAsync(x => x.Id == c.Id);
 
-        case1.Take(first.Id);
-        case2.Take(second.Id);
+        case1.Take(first.Id, DateTime.UtcNow);
+        case2.Take(second.Id, DateTime.UtcNow);
         await db1.SaveChangesAsync();
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => db2.SaveChangesAsync());

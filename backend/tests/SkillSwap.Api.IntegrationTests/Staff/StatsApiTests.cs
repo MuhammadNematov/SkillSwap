@@ -74,6 +74,13 @@ public class StatsApiTests
         return id;
     }
 
+    /// <summary>Как после первого взятия: колонки первого взятия обращения (при повторных взятиях они не меняются).</summary>
+    private Task FirstTakenAsync(Guid caseId, Guid moderatorId, DateTime at) => _factory.QueryAsync(async db =>
+    {
+        await db.Cases.Where(c => c.Id == caseId).ExecuteUpdateAsync(s => s.SetProperty(c => c.FirstTakenAt, at).SetProperty(c => c.FirstTakenById, moderatorId));
+        return 0;
+    });
+
     private Task AuditAsync(Guid? actor, string action, Guid? target, DateTime at, string targetType = "Case") => _factory.QueryAsync(async db =>
     {
         db.AuditLogs.Add(AuditLog.Create(actor, action, targetType, target, "{}", null, at));
@@ -164,6 +171,7 @@ public class StatsApiTests
         var moderator = await StaffAsync(UserRole.Moderator);
         var caseId = await CaseAtAsync(Now.AddHours(-2), TimeSpan.FromHours(24));
         await AuditAsync(moderator.Id, "CaseTaken", caseId, Now.AddHours(-1));
+        await FirstTakenAsync(caseId, moderator.Id, Now.AddHours(-1));
 
         var adminJson = await SendAsync(admin.Token, "/admin/stats");
         var moderatorJson = await SendAsync(moderator.Token, "/moderation/stats");
@@ -293,6 +301,8 @@ public class StatsApiTests
         await AuditAsync(first.Id, "CaseTaken", quick, created.AddHours(5));       // 5 часов: в срок
         await AuditAsync(second.Id, "CaseTaken", quick, created.AddHours(50));     // позднее взятие первым не считается
         await AuditAsync(second.Id, "CaseTaken", slow, created.AddHours(30));      // 30 часов: после срока
+        await FirstTakenAsync(quick, first.Id, created.AddHours(5));
+        await FirstTakenAsync(slow, second.Id, created.AddHours(30));
 
         var stats = await AdminStatsAsync(admin, $"?from={Iso(created.AddSeconds(-5))}&to={Iso(created.AddSeconds(60))}");
 
@@ -353,6 +363,9 @@ public class StatsApiTests
         await AuditAsync(me.Id, "CaseTaken", c, t.AddHours(1));
         await AuditAsync(colleague.Id, "CaseTaken", a, t.AddHours(2));    // чужое взятие моей статистики не меняет
         await AuditAsync(me.Id, "AppealConcluded", a, t.AddHours(3));
+        await FirstTakenAsync(a, me.Id, t);
+        await FirstTakenAsync(b, me.Id, t);
+        await FirstTakenAsync(c, colleague.Id, t.AddHours(-30));
         await AuditAsync(me.Id, "CaseTaken", Guid.NewGuid(), Now.AddDays(-60));   // вне периода
         await _factory.QueryAsync(async db =>
         {
@@ -383,6 +396,51 @@ public class StatsApiTests
         Assert.Equal(50.0, reaction.GetProperty("withinSlaPercent").GetDouble(), 0.01);
         Assert.Equal(2, others.GetProperty("taken").GetInt32());     // у коллеги свои цифры (два взятия: моё обращение a и c)
         Assert.Equal(0, others.GetProperty("resolved").GetInt32());
+    }
+
+    [Fact]
+    public async Task The_first_take_is_stored_once_and_a_second_take_after_release_does_not_change_it()
+    {
+        var first = await StaffAsync(UserRole.Moderator);
+        var second = await StaffAsync(UserRole.Moderator);
+        var id = await CaseAtAsync(Now.AddHours(-3), TimeSpan.FromHours(24));
+        var firstAt = DateTime.UtcNow.AddMinutes(-2);
+        await _factory.QueryAsync(async db =>
+        {
+            var found = await db.Cases.SingleAsync(c => c.Id == id);
+            found.Take(first.Id, firstAt);
+            found.ReleaseFromModerator(first.Id);
+            found.Take(second.Id, firstAt.AddHours(2));
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        var stored = await _factory.QueryAsync(db => db.Cases.AsNoTracking().Where(c => c.Id == id).Select(c => new { c.FirstTakenAt, c.FirstTakenById, c.ModeratorId }).SingleAsync());
+
+        Assert.Equal(firstAt, stored.FirstTakenAt!.Value, TimeSpan.FromMilliseconds(1));
+        Assert.Equal(first.Id, stored.FirstTakenById);
+        Assert.Equal(second.Id, stored.ModeratorId);
+    }
+
+    [Fact]
+    public async Task The_migration_fills_the_first_take_of_old_cases_from_the_audit_log_by_the_earliest_entry()
+    {
+        var first = await StaffAsync(UserRole.Moderator);
+        var second = await StaffAsync(UserRole.Moderator);
+        var old = await CaseAtAsync(Now.AddDays(-200), TimeSpan.FromHours(24));
+        var never = await CaseAtAsync(Now.AddDays(-200), TimeSpan.FromHours(24));
+        var firstAt = Now.AddDays(-199);
+        await AuditAsync(second.Id, "CaseTaken", old, firstAt.AddHours(9));   // позднее взятие
+        await AuditAsync(first.Id, "CaseTaken", old, firstAt);
+        await AuditAsync(first.Id, "CaseTaken", old, firstAt.AddHours(40), targetType: "Exchange");   // запись про другой объект не в счёт
+
+        await _factory.QueryAsync(async db => await db.Database.ExecuteSqlRawAsync(SkillSwap.Infrastructure.Persistence.Migrations.AddCaseFirstTakenAndStatsIndexes.BackfillSql));
+
+        var rows = await _factory.QueryAsync(db => db.Cases.AsNoTracking().Where(c => c.Id == old || c.Id == never).Select(c => new { c.Id, c.FirstTakenAt, c.FirstTakenById }).ToListAsync());
+        var filled = rows.Single(r => r.Id == old);
+        Assert.Equal(firstAt, filled.FirstTakenAt!.Value, TimeSpan.FromMilliseconds(1));
+        Assert.Equal(first.Id, filled.FirstTakenById);
+        Assert.Null(rows.Single(r => r.Id == never).FirstTakenAt);
     }
 
     private Task SetCaseStateAsync(Guid id, CaseStatus status, CaseDecision? decision, DateTime? resolvedAt, Guid? moderator = null) => _factory.QueryAsync(async db =>

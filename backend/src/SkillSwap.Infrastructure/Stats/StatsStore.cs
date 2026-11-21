@@ -83,14 +83,9 @@ public sealed class StatsStore : IStatsStore
 
     public async Task<IReadOnlyList<ReactionSample>> ReactionSamplesAsync(DateTime from, DateTime to, CancellationToken ct)
     {
-        var (since, until) = (from, to);   // «from» внутри запроса в синтаксисе LINQ читается как начало выражения
-        var firstTakes = _db.AuditLogs.AsNoTracking()
-            .Where(a => a.Action == TakenAction && a.TargetType == "Case" && a.TargetId != null)
-            .GroupBy(a => a.TargetId!.Value).Select(g => new { CaseId = g.Key, At = g.Min(a => a.CreatedAt) });
-        var rows = await (from t in firstTakes
-                          join c in _db.Cases.AsNoTracking() on t.CaseId equals c.Id
-                          where c.CreatedAt >= since && c.CreatedAt < until
-                          select new { c.CreatedAt, t.At, c.DueAt }).ToListAsync(ct);
+        var rows = await _db.Cases.AsNoTracking()
+            .Where(c => c.FirstTakenAt != null && c.CreatedAt >= from && c.CreatedAt < to)
+            .Select(c => new { c.CreatedAt, At = c.FirstTakenAt!.Value, c.DueAt }).ToListAsync(ct);
         return rows.Select(r => new ReactionSample((r.At - r.CreatedAt).TotalSeconds, r.At <= r.DueAt)).ToList();
     }
 
@@ -110,23 +105,11 @@ public sealed class StatsStore : IStatsStore
 
     public async Task<IReadOnlyList<ReactionSample>> ModeratorReactionSamplesAsync(Guid moderatorId, DateTime from, DateTime to, CancellationToken ct)
     {
-        // Его взятия за период по обращениям, у которых это взятие было первым за всё время (повторное взятие после возврата в очередь реакцией не считается).
-        var mine = await _db.AuditLogs.AsNoTracking()
-            .Where(a => a.Action == TakenAction && a.ActorId == moderatorId && a.TargetType == "Case" && a.TargetId != null && a.CreatedAt >= from && a.CreatedAt < to)
-            .GroupBy(a => a.TargetId!.Value).Select(g => new { CaseId = g.Key, At = g.Min(a => a.CreatedAt) }).ToListAsync(ct);
-        if (mine.Count == 0)
-        {
-            return [];
-        }
-
-        var ids = mine.Select(m => m.CaseId).ToList();
-        var earliest = await _db.AuditLogs.AsNoTracking()
-            .Where(a => a.Action == TakenAction && a.TargetType == "Case" && a.TargetId != null && ids.Contains(a.TargetId.Value))
-            .GroupBy(a => a.TargetId!.Value).Select(g => new { CaseId = g.Key, At = g.Min(a => a.CreatedAt) }).ToDictionaryAsync(x => x.CaseId, x => x.At, ct);
-        var first = mine.Where(m => earliest.TryGetValue(m.CaseId, out var at) && at == m.At).ToList();
-        var firstIds = first.Select(m => m.CaseId).ToList();
-        var cases = await _db.Cases.AsNoTracking().Where(c => firstIds.Contains(c.Id)).Select(c => new { c.Id, c.CreatedAt, c.DueAt }).ToDictionaryAsync(c => c.Id, ct);
-        return first.Where(m => cases.ContainsKey(m.CaseId)).Select(m => new ReactionSample((m.At - cases[m.CaseId].CreatedAt).TotalSeconds, m.At <= cases[m.CaseId].DueAt)).ToList();
+        // Обращения, которые он взял первым за всё время, и сделал это в периоде (повторное взятие после возврата в очередь реакцией не считается).
+        var rows = await _db.Cases.AsNoTracking()
+            .Where(c => c.FirstTakenById == moderatorId && c.FirstTakenAt != null && c.FirstTakenAt >= from && c.FirstTakenAt < to)
+            .Select(c => new { c.CreatedAt, At = c.FirstTakenAt!.Value, c.DueAt }).ToListAsync(ct);
+        return rows.Select(r => new ReactionSample((r.At - r.CreatedAt).TotalSeconds, r.At <= r.DueAt)).ToList();
     }
 
     /// <summary>Словарь по всем значениям перечисления: отсутствующие получают 0, форма ответа не зависит от данных.</summary>

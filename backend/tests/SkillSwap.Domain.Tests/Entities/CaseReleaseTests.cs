@@ -15,7 +15,7 @@ public class CaseReleaseTests
     private static Case Taken()
     {
         var c = Case.Open(CaseType.Conduct, CaseCategory.Insults, Guid.NewGuid(), null, Opener, Against, "Собеседник регулярно оскорбляет меня в чате.", false, false, Now);
-        c.Take(Moderator);
+        c.Take(Moderator, Now);
         return c;
     }
 
@@ -44,8 +44,24 @@ public class CaseReleaseTests
         Assert.Equal(CaseStatus.Open, c.Status);
         Assert.Null(c.ResponseDeadlineAt);
         Assert.Null(c.ExplanationReminderSentAt);
-        c.Take(Guid.NewGuid());   // следующий модератор берёт обычным способом
+        c.Take(Guid.NewGuid(), DateTime.UtcNow);   // следующий модератор берёт обычным способом
         Assert.Equal(CaseStatus.InProgress, c.Status);
+    }
+
+    [Fact]
+    public void The_first_take_is_remembered_once_and_does_not_change_after_a_release()
+    {
+        var c = Case.Open(CaseType.Conduct, CaseCategory.Insults, Guid.NewGuid(), null, Opener, Against, "Собеседник регулярно оскорбляет меня в чате.", false, false, Now);
+        Assert.Null(c.FirstTakenAt);
+
+        c.Take(Moderator, Now.AddHours(3));
+        c.ReleaseFromModerator(Moderator);
+        var other = Guid.NewGuid();
+        c.Take(other, Now.AddHours(10));
+
+        Assert.Equal(Now.AddHours(3), c.FirstTakenAt);
+        Assert.Equal(Moderator, c.FirstTakenById);
+        Assert.Equal(other, c.ModeratorId);
     }
 
     [Fact]
