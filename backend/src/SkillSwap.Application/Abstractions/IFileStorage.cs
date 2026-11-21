@@ -1,5 +1,8 @@
 namespace SkillSwap.Application.Abstractions;
 
+/// <summary>Описание объекта в бакете из перечисления (без содержимого).</summary>
+public sealed record StoredObject(string Key, DateTime LastModifiedUtc, long Size);
+
 /// <summary>Объект, прочитанный из хранилища.</summary>
 public sealed record StoredFile(Stream Content, string ContentType, long Length);
 
@@ -12,6 +15,9 @@ public interface IFileStorage
 
     /// <summary>Читает объект; null, если его нет. Поток нужно освободить.</summary>
     Task<StoredFile?> GetAsync(string key, CancellationToken ct);
+
+    /// <summary>Перечисляет объекты, ключи которых начинаются с <paramref name="prefix"/> (страницами по мере чтения). Нужна сверке бакета с таблицей вложений.</summary>
+    IAsyncEnumerable<StoredObject> ListAsync(string prefix, CancellationToken ct);
 
     /// <summary>Удаляет объект; если его нет, ничего не происходит.</summary>
     Task DeleteAsync(string key, CancellationToken ct);

@@ -27,6 +27,7 @@ public static class StaffAuditActions
     public const string PersonalAccountLinked = "PersonalAccountLinked";
     public const string PersonalAccountUnlinked = "PersonalAccountUnlinked";
     public const string PersonalLinkRequested = "PersonalLinkRequested";
+    public const string PersonalLinkRequestCancelled = "PersonalLinkRequestCancelled";
     public const string PersonalLinkDeclined = "PersonalLinkDeclined";
     public const string PersonalUnlinkRequested = "PersonalUnlinkRequested";
     public const string PersonalUnlinkRejected = "PersonalUnlinkRejected";

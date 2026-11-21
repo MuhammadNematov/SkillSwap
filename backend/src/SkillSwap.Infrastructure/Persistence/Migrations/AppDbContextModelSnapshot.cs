@@ -1071,6 +1071,8 @@ namespace SkillSwap.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("IsRead", "CreatedAt");
+
                     b.HasIndex("UserId", "ExchangeId")
                         .IsUnique()
                         .HasFilter("\"Type\" = 'NewMessages' AND NOT \"IsRead\"");

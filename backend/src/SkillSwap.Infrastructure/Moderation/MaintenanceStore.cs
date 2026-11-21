@@ -18,6 +18,15 @@ public sealed class MaintenanceStore : IMaintenanceStore
         _db = db;
     }
 
+    public async Task<int> DeleteOldNotificationsAsync(bool read, DateTime olderThan, int limit, CancellationToken ct)
+    {
+        var ids = _db.Notifications.AsNoTracking().Where(n => n.IsRead == read && n.CreatedAt < olderThan).OrderBy(n => n.CreatedAt).Select(n => n.Id).Take(limit);
+        return await _db.Notifications.Where(n => ids.Contains(n.Id)).ExecuteDeleteAsync(ct);
+    }
+
+    public async Task<IReadOnlySet<string>> FindAttachmentKeysAsync(IReadOnlyCollection<string> keys, CancellationToken ct) =>
+        (await _db.Attachments.AsNoTracking().Where(a => keys.Contains(a.StorageKey)).Select(a => a.StorageKey).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
+
     public async Task<IReadOnlyList<Guid>> ListExpiredWaitingAsync(DateTime now, CancellationToken ct)
     {
         var before = now - Grace;

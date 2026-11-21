@@ -15,6 +15,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 
         // Список «мои уведомления», «только непрочитанные» и счётчик для значка (раздел 13 ТЗ).
         builder.HasIndex(n => new { n.UserId, n.IsRead, n.CreatedAt });
+        builder.HasIndex(n => new { n.IsRead, n.CreatedAt });   // ночная очистка старых уведомлений (этап 7, шаг 9)
 
         // Одно непрочитанное уведомление «новые сообщения» на обмен и получателя: защита от дублей при одновременных сообщениях.
         builder.HasIndex(n => new { n.UserId, n.ExchangeId }).IsUnique().HasFilter("\"Type\" = 'NewMessages' AND NOT \"IsRead\"");
