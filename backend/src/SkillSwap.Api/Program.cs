@@ -71,6 +71,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
     app.MapLiveKitDevTools();   // тестовая страница и выдача токена: только в Development
     app.MapLessonSeedDevTools();   // данные для ручной проверки видеокомнаты: только в Development
+    app.MapAdminSeedDevTools();   // данные для панелей админа и суперадмина: только в Development
     app.MapCaseSeedDevTools();   // служебные аккаунты и обращения на любой стадии для ручной проверки модерации: только в Development
 }
 

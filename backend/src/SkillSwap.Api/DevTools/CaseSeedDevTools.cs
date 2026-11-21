@@ -45,7 +45,7 @@ public sealed record SeedCaseRequest(string? Type, string? Stage, string? Decisi
 public sealed record StaffCodeRequest(string? Email);
 
 /// <summary>
-/// Данные для ручной проверки обращений и модерации (только Development, как и <c>/dev/seed-lesson</c>): <c>POST /dev/seed-staff</c> создаёт (при первом вызове) модераторов и админа
+/// Данные для ручной проверки обращений и модерации (только Development, как и <c>/dev/seed-lesson</c>): <c>POST /dev/seed-staff</c> создаёт (при первом вызове) модераторов, админа и суперадмина
 /// и выдаёт на них токены; <c>POST /dev/seed-case</c> создаёт двух пользователей, обмен с перепиской и обращение, доведённое до нужной стадии <b>через настоящие сервисы</b>
 /// (подача, взятие, вопросы, решение, апелляция, назначение проверяющего), поэтому ставятся и настоящие уведомления, письма и фоновые задачи.
 /// Служебные аккаунты входят через 2FA, а в разработке настраивать её каждый раз неудобно, поэтому вместо входа выдаются access-токены (живут недолго: вызовите маршрут снова).
@@ -56,6 +56,7 @@ public static class CaseSeedDevTools
     public const string ModeratorEmail = "dev-moderator@example.com";
     public const string SecondModeratorEmail = "dev-moderator-2@example.com";
     public const string AdminEmail = "dev-admin@example.com";
+    public const string SuperAdminEmail = "dev-superadmin@example.com";
 
     private static readonly string[] ConductMessages =
     [
@@ -83,11 +84,13 @@ public static class CaseSeedDevTools
         var moderator = await EnsureStaffAsync(http, ModeratorEmail, "Модератор (dev)", UserRole.Moderator);
         var second = await EnsureStaffAsync(http, SecondModeratorEmail, "Модератор 2 (dev)", UserRole.Moderator);
         var admin = await EnsureStaffAsync(http, AdminEmail, "Админ (dev)", UserRole.Admin);
+        var superAdmin = await EnsureStaffAsync(http, SuperAdminEmail, "Суперадмин (dev)", UserRole.SuperAdmin);
         return Results.Ok(new
         {
             moderator = Describe(moderator, tokens, clock),
             secondModerator = Describe(second, tokens, clock),
             admin = Describe(admin, tokens, clock),
+            superAdmin = Describe(superAdmin, tokens, clock),
             hint = StaffHint,
         });
     }
@@ -98,10 +101,10 @@ public static class CaseSeedDevTools
         + "поэтому в ответе два кода: текущий и следующий (codes), для третьего подождите до 30 секунд или запросите заново: curl -X POST http://localhost:5023/dev/staff-code "
         + "-H \"Content-Type: application/json\" -d '{\"email\":\"dev-admin@example.com\"}'. Резервные коды (recoveryCodes) показываются один раз, при включении 2FA. Токены живут недолго: вызовите маршрут снова.";
 
-    private sealed record Staff(User User, string Key, IReadOnlyList<string>? RecoveryCodes);
+    internal sealed record Staff(User User, string Key, IReadOnlyList<string>? RecoveryCodes);
 
     /// <summary>Создаёт (или приводит в порядок) служебный аккаунт разработки: известный пароль, включённая 2FA с ключом, который можно прочитать.</summary>
-    private static async Task<Staff> EnsureStaffAsync(HttpContext http, string email, string name, UserRole role)
+    internal static async Task<Staff> EnsureStaffAsync(HttpContext http, string email, string name, UserRole role)
     {
         var users = http.RequestServices.GetRequiredService<UserManager<User>>();
         var recovery = http.RequestServices.GetRequiredService<IRecoveryCodeStore>();
@@ -145,7 +148,7 @@ public static class CaseSeedDevTools
         return new Staff(user, key!, codes);
     }
 
-    private static object Describe(Staff staff, IAccessTokenGenerator tokens, TimeProvider clock)
+    internal static object Describe(Staff staff, IAccessTokenGenerator tokens, TimeProvider clock)
     {
         var now = clock.GetUtcNow();
         var step = Totp.StepAt(now);
