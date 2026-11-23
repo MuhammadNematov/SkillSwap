@@ -678,6 +678,55 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 4. **Брандмауэр Windows:** разрешить входящие TCP 5023, 5173, 7880, 7881 и UDP 7882.
 5. **Камера и микрофон на телефоне требуют защищённого адреса (HTTPS)**: на `http://192.168.1.50:5173` браузер не даст доступ к ним (исключение только у `localhost`). Варианты: туннель с HTTPS к фронтенду (например `cloudflared tunnel --url http://localhost:5173`; тогда `Frontend:BaseUrl` и `VITE_API_URL` тоже на HTTPS-адреса), либо в Chrome на телефоне флаг `chrome://flags/#unsafely-treat-insecure-origin-as-secure` с адресом `http://192.168.1.50:5173`. Мобильные операторы и TURN на 443/TLS проверяются на боевом VPS (`docs/DEFERRED.md`).
 
+### Проверка с другого устройства по HTTPS (только Development)
+
+Камеру, микрофон и `Secure`-cookie (refresh-токен) браузер разрешает только на `https` или `localhost`. Поэтому для проверки
+со второго ноутбука в той же сети фронтенд работает по HTTPS с самоподписанным сертификатом, а всё, что видит браузер,
+идёт через тот же адрес `https://<IP>:5173`: API и хабы как раньше, сигнальный канал LiveKit (`/livekit` → `localhost:7880`,
+WebSocket) и файлы хранилища (`/skillswap/…` → `localhost:3900`). Бэкенд, Garage и сигнальный порт LiveKit наружу не открываются.
+Медиа LiveKit идёт напрямую по UDP 7882 (TCP 7881 запасной), поэтому в `livekit.yaml` нужен LAN-адрес.
+
+1. **LAN-адрес Mac:** `ipconfig getifaddr en0` (ниже `192.168.0.63`).
+2. **Сертификат** (вне репозитория, на год, адреса в SAN):
+   ```
+   mkdir -p ~/.skillswap/dev-https && cd ~/.skillswap/dev-https
+   cat > san.cnf <<'CNF'
+   [req]
+   distinguished_name = dn
+   x509_extensions = v3
+   prompt = no
+   [dn]
+   CN = SkillSwap dev
+   [v3]
+   basicConstraints = critical,CA:FALSE
+   keyUsage = critical,digitalSignature,keyEncipherment
+   extendedKeyUsage = serverAuth
+   subjectAltName = IP:192.168.0.63,IP:127.0.0.1,DNS:localhost
+   CNF
+   openssl req -x509 -newkey rsa:2048 -sha256 -days 365 -nodes -config san.cnf -keyout key.pem -out cert.pem
+   ```
+3. **Фронтенд** (`frontend/.env`): `DEV_HTTPS_KEY=<путь>/key.pem`, `DEV_HTTPS_CERT=<путь>/cert.pem`. Запуск:
+   `npx vite --config vite.config.ts --host 0.0.0.0`. Без этих переменных dev-сервер работает по http, как раньше.
+4. **Бэкенд** (user-secrets, только Development):
+   ```
+   dotnet user-secrets set "Frontend:BaseUrl" "https://192.168.0.63:5173"        # ссылки в письмах, CORS
+   dotnet user-secrets set "Storage:PublicEndpoint" "https://192.168.0.63:5173"  # подписанные ссылки на файлы
+   dotnet user-secrets set "LiveKit:Url" "wss://192.168.0.63:5173/livekit"       # адрес, который получает браузер
+   dotnet user-secrets set "LiveKit:ApiUrl" "http://localhost:7880"              # сам бэкенд ходит в LiveKit напрямую
+   ```
+   `LiveKit:ApiUrl` обязателен: иначе бэкенд вызывал бы API LiveKit по `LiveKit:Url` и упёрся бы в самоподписанный сертификат.
+   Подписанные ссылки хранилища считаются для адреса браузера, поэтому прокси Vite не меняет у них `Host`.
+5. **LiveKit:** `node_ip: 192.168.0.63` в `backend/livekit.yaml`, затем `docker compose restart livekit`. **Не коммитить**,
+   вернуть: `git checkout backend/livekit.yaml`.
+6. **Файрвол macOS** (если включён): входящие для `node` (TCP 5173) и Docker (UDP 7882, TCP 7881).
+7. **Браузер:** открыть `https://192.168.0.63:5173` на обоих ноутбуках (и на Mac тоже, а не `localhost`: CORS и подписанные
+   ссылки настроены на этот адрес). Предупреждение о сертификате: Chrome — «Дополнительные» → «Перейти на сайт»
+   (или набрать `thisisunsafe` на странице предупреждения); Safari — «Показать подробности» → «посетить этот веб-сайт»;
+   Firefox — «Дополнительно» → «Принять риск и продолжить».
+
+Вернуться к обычной локальной работе: убрать `DEV_HTTPS_*` из `frontend/.env`, удалить четыре user-secrets выше
+(`dotnet user-secrets remove …`), вернуть `livekit.yaml`.
+
 ## Отзывы (этап 6, шаг 1): контракт для фронтенда
 
 Тег **Reviews**. Отзывы слепые и взаимные (раздел 8.1 ТЗ). Только обычные аккаунты (служебному 403 `regular_account_required`), чужой обмен 404 `exchange_not_found`.
