@@ -42,5 +42,12 @@ public sealed class SmtpOptions
     /// <summary>Сколько ждать сервер, секунд.</summary>
     public int TimeoutSeconds { get; set; } = 30;
 
+    /// <summary>
+    /// Проверять отзыв TLS-сертификата SMTP-сервера (по умолчанию да). Выключать только локально: macOS проверяет отзыв
+    /// лишь по OCSP, а у части серверов (например, smtp.gmail.com) в сертификате только CRL, и MailKit рвёт соединение.
+    /// Вне Development и Testing значение false не даёт приложению запуститься (<c>SmtpStartupCheck</c>).
+    /// </summary>
+    public bool CheckCertificateRevocation { get; set; } = true;
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Host);
 }

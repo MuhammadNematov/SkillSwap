@@ -70,6 +70,18 @@ dotnet user-secrets set "DataProtection:CertificatePassword" "<пароль>"
 На macOS сертификат загружается с `DefaultKeySet`, а не `EphemeralKeySet` (macOS эфемерные ключи не поддерживает);
 на Linux и Windows поведение прежнее.
 
+**Настоящая почта (например, Gmail) с macOS.** Два препятствия, оба только локальные:
+
+- Порт 587 бывает закрыт провайдером (таймаут подключения). Тогда `Smtp:Port=465` и `Smtp:Security=SslOnConnect`.
+- macOS проверяет отзыв сертификата только по OCSP, а в сертификате `smtp.gmail.com` есть лишь адрес CRL. Проверка
+  заканчивается «статус неизвестен», и MailKit рвёт соединение (`SslHandshakeException`, «remote certificate was rejected»).
+  Тогда `dotnet user-secrets set "Smtp:CheckCertificateRevocation" "false"`: при старте в журнале будет предупреждение.
+  Вне Development и Testing приложение с этой настройкой **не запустится** (`SmtpStartupCheck`). На Linux (боевой сервер)
+  .NET проверяет CRL сам, настройка там не нужна.
+
+Для Gmail нужен пароль приложения (аккаунт Google → безопасность → двухэтапная аутентификация → пароли приложений), а не
+обычный пароль; `Smtp:FromAddress` должен совпадать с `Smtp:User`.
+
 **Боевой сервер:** сертификат выпускается один раз и приходит в приложение из переменных окружения, файлов в репозитории нет.
 Удобнее base64 вместо пути к файлу:
 

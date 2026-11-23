@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using SkillSwap.Application.Options;
@@ -15,21 +16,38 @@ public sealed class SmtpStartupCheck : IHostedService
 
     private readonly SmtpOptions _options;
     private readonly IHostEnvironment _environment;
+    private readonly ILogger<SmtpStartupCheck> _logger;
 
-    public SmtpStartupCheck(IOptions<SmtpOptions> options, IHostEnvironment environment)
+    public SmtpStartupCheck(IOptions<SmtpOptions> options, IHostEnvironment environment, ILogger<SmtpStartupCheck> logger)
     {
         _options = options.Value;
         _environment = environment;
+        _logger = logger;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
         Validate(_options, _environment.IsDevelopment() || _environment.IsEnvironment("Testing"), _environment.EnvironmentName);
+
+        if (!_options.CheckCertificateRevocation)
+        {
+            _logger.LogWarning(
+                "Проверка отзыва сертификата SMTP-сервера выключена (Smtp:CheckCertificateRevocation=false). " +
+                "Только для локальной разработки; вне Development приложение с этой настройкой не запустится.");
+        }
+
         return Task.CompletedTask;
     }
 
     public static void Validate(SmtpOptions options, bool isDevelopmentLike, string environmentName)
     {
+        if (!options.CheckCertificateRevocation && !isDevelopmentLike)
+        {
+            throw new InvalidOperationException(
+                $"В окружении {environmentName} задано Smtp:CheckCertificateRevocation=false: отозванный (например, украденный) " +
+                "сертификат почтового сервера был бы принят. Уберите настройку: эта проверка выключается только в Development.");
+        }
+
         if (!options.IsConfigured)
         {
             if (isDevelopmentLike)
