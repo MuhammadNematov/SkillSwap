@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="..\..\scripts\create-app-role.sql" Link="scripts\create-app-role.sql" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\src\SkillSwap.Api\SkillSwap.Api.csproj" />
   </ItemGroup>
 

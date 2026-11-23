@@ -30,7 +30,11 @@ public sealed class SmtpMailTransport : IMailTransport
         message.Subject = subject;
         message.Body = new TextPart("plain") { Text = body };
 
-        using var client = new SmtpClient { Timeout = _options.TimeoutSeconds * 1000 };
+        using var client = new SmtpClient
+        {
+            Timeout = _options.TimeoutSeconds * 1000,
+            CheckCertificateRevocation = _options.CheckCertificateRevocation,
+        };
         await client.ConnectAsync(_options.Host!, _options.Port, Map(_options.Security), cancellationToken);
 
         if (!string.IsNullOrEmpty(_options.User))

@@ -55,6 +55,33 @@ openssl pkcs12 -export -inkey dp.key -in dp.crt -out dataprotection.pfx -passout
 rm dp.key dp.crt
 ```
 
+**macOS.** Системный `/usr/bin/openssl` — это LibreSSL, команды выше с ним работают как есть. Если стоит OpenSSL 3
+(например, из Homebrew) и приложение при старте пишет «неверный пароль или это не файл PFX», пересоздай PFX
+с флагом `-legacy` у `openssl pkcs12 -export` (OpenSSL 3 по умолчанию шифрует PFX по-новому, AES-256).
+Каталог и user-secrets:
+
+```
+mkdir -p ~/.skillswap && cd ~/.skillswap   # здесь выполняем команды выше, файл назови dataprotection-dev.pfx
+cd <репозиторий>/backend/src/SkillSwap.Api
+dotnet user-secrets set "DataProtection:CertificatePath" "$HOME/.skillswap/dataprotection-dev.pfx"
+dotnet user-secrets set "DataProtection:CertificatePassword" "<пароль>"
+```
+
+На macOS сертификат загружается с `DefaultKeySet`, а не `EphemeralKeySet` (macOS эфемерные ключи не поддерживает);
+на Linux и Windows поведение прежнее.
+
+**Настоящая почта (например, Gmail) с macOS.** Два препятствия, оба только локальные:
+
+- Порт 587 бывает закрыт провайдером (таймаут подключения). Тогда `Smtp:Port=465` и `Smtp:Security=SslOnConnect`.
+- macOS проверяет отзыв сертификата только по OCSP, а в сертификате `smtp.gmail.com` есть лишь адрес CRL. Проверка
+  заканчивается «статус неизвестен», и MailKit рвёт соединение (`SslHandshakeException`, «remote certificate was rejected»).
+  Тогда `dotnet user-secrets set "Smtp:CheckCertificateRevocation" "false"`: при старте в журнале будет предупреждение.
+  Вне Development и Testing приложение с этой настройкой **не запустится** (`SmtpStartupCheck`). На Linux (боевой сервер)
+  .NET проверяет CRL сам, настройка там не нужна.
+
+Для Gmail нужен пароль приложения (аккаунт Google → безопасность → двухэтапная аутентификация → пароли приложений), а не
+обычный пароль; `Smtp:FromAddress` должен совпадать с `Smtp:User`.
+
 **Боевой сервер:** сертификат выпускается один раз и приходит в приложение из переменных окружения, файлов в репозитории нет.
 Удобнее base64 вместо пути к файлу:
 
@@ -848,6 +875,68 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 **Сидеры (только Development, скрыты в OpenAPI, вне Development 404).**
 - `POST /dev/seed-staff`: один раз создаёт модератора `dev-moderator@example.com`, второго модератора `dev-moderator-2@example.com` и админа `dev-admin@example.com`; в ответе `accessToken` каждого (служебным вход требует 2FA, для разработки выдаются токены; пароль виден только при создании).
 - `POST /dev/seed-case` `{ type, stage, decision }` (все поля необязательны): двое новых пользователей (вход по почте и паролю, токены тоже есть), обмен с перепиской (последние два сообщения приложены как доказательства) и обращение, доведённое до стадии (`Open`, `Taken`, `Waiting`, `Resolved`, `Appealed`, `AppealReview`) **настоящими сервисами**: подача, взятие, вопросы, решение, апелляция, назначение проверяющего. Поэтому появляются настоящие уведомления, письма и фоновые задачи с сокращёнными сроками. Тип `ReviewDispute` создаёт закрытый обмен с засчитанным уроком и двумя опубликованными отзывами (урок и закрытие записываются напрямую, отзывы через сервис).
+
+## Сидеры админских сценариев и итог этапа 7 (шаг 10): для бэкенда
+
+**Сидеры (только Development, в схему и Scalar не попадают).** `POST /dev/seed-staff` теперь создаёт и **суперадмина** `dev-superadmin@example.com` (пароль `Dev-staff-pass-1`, 2FA с известным ключом, как у остальных); форма ответа прежняя, добавлено поле `superAdmin` (фронтенд собирает токены по всем объектам с `accessToken`, поэтому новый аккаунт подхватывается без правок). Новый `POST /dev/seed-admin` (`AdminSeedDevTools`): весь служебный состав плюс данные для каждого админского экрана (личные пользователи, предложения навыков, запрос на бан, приглашение с готовой ссылкой, запрос на привязку с готовой ссылкой); описание ответа в `FRONTEND-ADMIN.md`, раздел 10. Тесты: `AdminSeedDevToolsTests` (суперадмин и его права, данные и работающие ссылки, повторный вызов, отсутствие вне Development).
+
+**Проверка на настоящем стеке** (Development, PostgreSQL, Garage, Mailpit, Hangfire; приложение запущено с `dotnet run`, обращения по HTTP): сидеры; чтение админских разделов (пользователи, модераторы, приглашения, предложения навыков, запросы на бан, журнал админа и суперадмина, статистика админа и модератора, настройки); админ не открывает суперадминский маршрут (403); блокировка и разблокировка пользователя; панель Hangfire суперадмином: билет → сессия → страница 200, без cookie 401; ссылки приглашения и привязки из сидера открываются. В Hangfire зарегистрированы четыре повторяющиеся задачи (`cases-sweep`, `chat-cleanup`, `notification-cleanup`, `bucket-reconciliation`). Сверка бакета и очистка уведомлений проверяются интеграционными тестами на том же Garage и PostgreSQL (Testcontainers).
+
+**Документы для запуска.** Что нужно сделать на боевом сервере: `docs/RELEASE-CHECKLIST.md` (по порядку, у каждого пункта где описано и как проверить). Чем реализация отличается от ТЗ v2.2: `docs/TZ-CHANGES.md`.
+
+## Уборка, права БД и отзыв запросов (этап 7, шаг 9): для бэкенда
+
+### Ночные задачи
+
+Расписание в `RecurringCatalog` (UTC, регистрируется при запуске сервера Hangfire): сверка обращений каждый час, очистка чатов 03:30, **очистка уведомлений 04:15**, **сверка бакета 04:45**. Настройки секции `Maintenance` (`MaintenanceOptions`, проверяются при запуске: приложение с недопустимыми значениями не стартует):
+
+| Ключ | По умолчанию | Что делает |
+| --- | --- | --- |
+| `Maintenance:Notifications:ReadRetentionDays` | 90 | Сколько дней хранятся прочитанные уведомления |
+| `Maintenance:Notifications:UnreadRetentionDays` | 180 | Сколько дней хранятся непрочитанные |
+| `Maintenance:Notifications:BatchSize` | 1000 | Сколько уведомлений удаляется одним запросом |
+| `Maintenance:Notifications:MaxBatchesPerRun` | 100 | Сколько пачек каждого вида за ночь; остальное доберёт следующая |
+| `Maintenance:BucketReconciliation:DeleteOrphans` | **false** | Удалять ли файлы-сироты; **false: только отчёт** |
+| `Maintenance:BucketReconciliation:MinAgeHours` | 24 | Файлы моложе не трогаются (файл кладётся раньше, чем появляется строка в базе) |
+| `Maintenance:BucketReconciliation:MaxOrphansPerRun` | 1000 | Предел сирот за запуск (в отчёте и при удалении) |
+| `Maintenance:BucketReconciliation:CheckBatchSize` | 500 | Сколько ключей сверяется с базой одним запросом |
+
+Переменные окружения: `Maintenance__BucketReconciliation__DeleteOrphans=true` и так далее.
+
+**Очистка уведомлений** (`NotificationCleanupJobs`). Возраст считается от времени создания (у обновлённого счётчика непрочитанных сообщений от последнего обновления). Удаляется пачками `DELETE ... WHERE Id IN (старейшие N)` (индекс `IX_Notifications_IsRead_CreatedAt`), чтобы таблица не блокировалась надолго; за запуск не больше `MaxBatchesPerRun` пачек каждого вида. Если что-то удалено, в аудит пишется `NotificationsPurged` (сколько прочитанных и непрочитанных, какие сроки), если нет, запись не пишется. Сбой одного вида не ломает запуск: уже удалённое остаётся удалённым.
+
+**Сверка бакета** (`BucketReconciliationJobs`). Перечисляются объекты с префиксом `exchanges/` (это вложения чатов; `IFileStorage.ListAsync`), старше `MinAgeHours` проверяются пачками по базе (`Attachments.StorageKey`); у кого строки нет, тот сирота. **Первый запуск на боевой среде только отчёт** (по умолчанию так и есть): сироты не удаляются, в журнал аудита пишется `BucketReconciled` (`mode: report`, сколько просмотрено, сколько моложе суток, сколько сирот и их размер, образец до 50 ключей) и в лог каждый ключ. Порядок на боевой среде: дождаться первого отчёта (`/superadmin/audit`, действие `BucketReconciled`), сверить с ожиданиями (сироты должны быть оборванными загрузками и хвостами очистки чатов), затем включить `DeleteOrphans=true` и перезапустить; отчёт станет `mode: delete` со счётчиками `deleted` и `failed`. Если хранилище или база недоступны, сверка прерывается без отчёта и без удаления. Аватары и выгрузки данных не сверяются.
+
+### Права роли приложения на боевой базе
+
+Журнал аудита защищён двумя слоями: триггер запрещает UPDATE, DELETE и TRUNCATE для **любой** роли (в том числе владельца) в любой среде, а на боевой базе приложение работает под отдельной ролью `skillswap_app`, у которой на `AuditLogs` вообще нет этих прав. Скрипт: `backend/scripts/create-app-role.sql` (проверяется тестом `AppRolePermissionsTests` на настоящем PostgreSQL).
+
+Порядок при деплое (боевая база создана, владелец схемы `skillswap_owner`, он же применяет миграции):
+
+```
+# 1. Один раз: создать роль приложения (пароль из хранилища секретов, в репозитории его нет).
+psql -d skillswap -U skillswap_owner -c "CREATE ROLE skillswap_app LOGIN PASSWORD '<пароль>';"
+
+# 2. Каждый деплой: применить миграции строкой ВЛАДЕЛЬЦА (не приложения).
+ConnectionStrings__Default="Host=...;Database=skillswap;Username=skillswap_owner;Password=..." \
+  dotnet ef database update --project src/SkillSwap.Infrastructure --startup-project src/SkillSwap.Api
+
+# 3. Каждый деплой после миграций: выдать права (скрипт можно запускать повторно).
+psql -v ON_ERROR_STOP=1 -d skillswap -U skillswap_owner -f backend/scripts/create-app-role.sql
+
+# 4. Приложение запускается со строкой роли skillswap_app.
+ConnectionStrings__Default="Host=...;Database=skillswap;Username=skillswap_app;Password=..."
+```
+
+Что получает роль: на все таблицы `public` SELECT, INSERT, UPDATE, DELETE (и на будущие таблицы по умолчанию); на `AuditLogs` только SELECT и INSERT (повторный запуск скрипта отбирает лишнее, выданное вручную); на `__EFMigrationsHistory` только SELECT (в боевой среде приложение схему не меняет); схему `hangfire` (очередь фоновых задач) роль создаёт и меняет сама. Создавать таблицы в `public` роль не может. **Проверка после первого деплоя** (под ролью приложения): `UPDATE "AuditLogs" SET "Action" = "Action" WHERE false;` должно ответить `permission denied for table AuditLogs`, а `INSERT` в журнал приложение делает при каждом действии. Если миграции применяет роль, отличная от запускающей скрипт, `ALTER DEFAULT PRIVILEGES` не сработает для её новых таблиц: запускать скрипт после каждого деплоя (п. 3) обязательно.
+
+### Отзыв запросов заблокированного и снятого
+
+`PendingStaffRequestsRevoker` вызывается внутри транзакции из `AccountBlocker.ApplyAsync` (ручная блокировка и одобренный бан) и из `ModeratorAdminService.RemoveCoreAsync` (снятие модератора и админа). Отзывает всё, что ещё действует (не принято, не отклонено, не отменено, срок не вышел): **приглашения сотрудников**, отправленные этим аккаунтом (`StaffInvitation.Revoke`: ссылка из письма перестаёт работать, служебный аккаунт по ней не создаётся) и **запросы на привязку личного аккаунта**, где аккаунт служебный (`StaffId`) или личный (`PersonalUserId`; `PersonalLinkRequest.Cancel`). **Письма получателям не уходят** и уведомлений нет. Каждый отзыв пишется в аудит (`StaffInvitationRevoked` или `PersonalLinkRequestCancelled`, исполнитель тот, кто заблокировал или снял, в деталях `reason`: `account_blocked` или `staff_removed`), а в записях `UserBlocked` и `StaffRemoved` есть счётчики `invitationsRevoked` и `linkRequestsCancelled`. Истёкшие, принятые и отозванные ранее записи не меняются, чужие запросы тоже.
+
+### Тесты
+
+`HousekeepingTests` (очистка: сроки, настройки, пачки и предел запуска, аудит; сверка: отчёт по умолчанию, удаление с флагом, возраст файла, предел за запуск, чужие префиксы, недоступное хранилище, расписание), `AppRolePermissionsTests` (права роли на настоящем PostgreSQL), `PendingRequestsRevocationTests` (блокировка, снятие модератора и админа, ссылки перестают работать, писем нет).
 
 ## Статистика (этап 7, шаг 8): для бэкенда
 

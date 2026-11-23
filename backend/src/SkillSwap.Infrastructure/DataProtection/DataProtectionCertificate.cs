@@ -56,7 +56,10 @@ public static class DataProtectionCertificate
         try
         {
             // Эфемерный набор ключей: закрытый ключ живёт только в памяти процесса, на диск/в профиль пользователя не пишется.
-            certificate = X509CertificateLoader.LoadPkcs12(bytes, options.CertificatePassword, X509KeyStorageFlags.EphemeralKeySet);
+            // macOS EphemeralKeySet не поддерживает (PlatformNotSupportedException) — там берём DefaultKeySet
+            // (.NET кладёт ключ во временную связку ключей). Боевой сервер — Linux, на нём остаётся эфемерный набор.
+            var keyStorage = OperatingSystem.IsMacOS() ? X509KeyStorageFlags.DefaultKeySet : X509KeyStorageFlags.EphemeralKeySet;
+            certificate = X509CertificateLoader.LoadPkcs12(bytes, options.CertificatePassword, keyStorage);
         }
         catch (CryptographicException)
         {

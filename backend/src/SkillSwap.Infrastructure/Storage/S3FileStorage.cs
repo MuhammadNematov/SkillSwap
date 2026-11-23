@@ -73,6 +73,31 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
         }
     }
 
+    public async IAsyncEnumerable<StoredObject> ListAsync(string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        string? token = null;
+        do
+        {
+            ListObjectsV2Response page;
+            try
+            {
+                page = await _client.ListObjectsV2Async(new ListObjectsV2Request { BucketName = _options.Bucket, Prefix = prefix, ContinuationToken = token }, ct);
+            }
+            catch (Exception ex) when (ex is AmazonServiceException or AmazonClientException or HttpRequestException or TaskCanceledException or TimeoutException && !ct.IsCancellationRequested)
+            {
+                throw Unavailable(ex);
+            }
+
+            foreach (var item in page.S3Objects ?? [])
+            {
+                yield return new StoredObject(item.Key, DateTime.SpecifyKind(item.LastModified ?? DateTime.UtcNow, DateTimeKind.Utc), item.Size ?? 0);
+            }
+
+            token = page.IsTruncated == true ? page.NextContinuationToken : null;
+        }
+        while (token is not null);
+    }
+
     public Task DeleteAsync(string key, CancellationToken ct) =>
         Guard(() => _client.DeleteObjectAsync(_options.Bucket, key, ct));
 

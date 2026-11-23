@@ -54,6 +54,9 @@ public interface IPersonalLinkStore
     /// <summary>Запросы сотрудника, которые ещё не подтверждены, не отклонены и не отменены (с отслеживанием): действующие и истёкшие.</summary>
     Task<IReadOnlyList<PersonalLinkRequest>> ListOpenByStaffAsync(Guid staffId, CancellationToken ct);
 
+    /// <summary>Действующие запросы, где этот аккаунт служебный или личный (с отслеживанием): не подтверждены, не отклонены, не отменены, срок не вышел.</summary>
+    Task<IReadOnlyList<PersonalLinkRequest>> ListPendingInvolvingAsync(Guid userId, DateTime now, CancellationToken ct);
+
     /// <summary>Сколько запросов сотрудник отправил с указанного времени (лимит против спама на чужие почты).</summary>
     Task<int> CountRequestedSinceAsync(Guid staffId, DateTime since, CancellationToken ct);
 

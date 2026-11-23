@@ -21,6 +21,8 @@ builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Ad
 builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
 builder.Services.Configure<SkillSwap.Application.Options.LessonTimingOptions>(builder.Configuration.GetSection(SkillSwap.Application.Options.LessonTimingOptions.SectionName));
 builder.Services.Configure<SkillSwap.Application.Options.CaseTimingOptions>(builder.Configuration.GetSection(SkillSwap.Application.Options.CaseTimingOptions.SectionName));
+builder.Services.AddOptions<SkillSwap.Application.Options.MaintenanceOptions>().Bind(builder.Configuration.GetSection(SkillSwap.Application.Options.MaintenanceOptions.SectionName))
+    .Validate(o => o.Validate() is null, "Maintenance: недопустимые значения (сроки, размеры пачек и возраст файла не могут быть меньше 1).").ValidateOnStart();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
@@ -69,6 +71,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
     app.MapLiveKitDevTools();   // тестовая страница и выдача токена: только в Development
     app.MapLessonSeedDevTools();   // данные для ручной проверки видеокомнаты: только в Development
+    app.MapAdminSeedDevTools();   // данные для панелей админа и суперадмина: только в Development
     app.MapCaseSeedDevTools();   // служебные аккаунты и обращения на любой стадии для ручной проверки модерации: только в Development
 }
 

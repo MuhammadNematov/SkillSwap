@@ -28,6 +28,9 @@ public sealed class StaffInvitationStore : IStaffInvitationStore
     public Task<StaffInvitation?> FindOpenByEmailAsync(string normalizedEmail, CancellationToken ct) =>
         _db.StaffInvitations.AsNoTracking().FirstOrDefaultAsync(i => i.Email == normalizedEmail && i.AcceptedAt == null && i.RevokedAt == null, ct);
 
+    public async Task<IReadOnlyList<StaffInvitation>> ListPendingByInviterAsync(Guid inviterId, DateTime now, CancellationToken ct) =>
+        await _db.StaffInvitations.Where(i => i.InvitedById == inviterId && i.AcceptedAt == null && i.RevokedAt == null && i.ExpiresAt >= now).ToListAsync(ct);
+
     public async Task<(IReadOnlyList<StaffInvitation> Items, int Total)> ListAsync(
         IReadOnlyCollection<UserRole> roles, StaffInvitationStatus? status, DateTime now, int page, int pageSize, CancellationToken ct)
     {

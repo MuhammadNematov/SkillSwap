@@ -47,6 +47,15 @@ public interface IMaintenanceStore
     /// после этого. Если сообщений не осталось, отмечает обмен вычищенным.
     /// </summary>
     Task<PurgeResult> PurgeExchangeAsync(Guid exchangeId, DateTime now, CancellationToken ct);
+
+    /// <summary>
+    /// Удаляет не больше <paramref name="limit"/> уведомлений, созданных раньше <paramref name="olderThan"/>: прочитанных (<paramref name="read"/> = true) или непрочитанных.
+    /// Возвращает, сколько удалено.
+    /// </summary>
+    Task<int> DeleteOldNotificationsAsync(bool read, DateTime olderThan, int limit, CancellationToken ct);
+
+    /// <summary>Какие из этих ключей есть в таблице вложений (<c>Attachments.StorageKey</c>).</summary>
+    Task<IReadOnlySet<string>> FindAttachmentKeysAsync(IReadOnlyCollection<string> keys, CancellationToken ct);
 }
 
 /// <summary>Расписание страховочных задач (раздел 11.1 ТЗ). Регистрируется при запуске сервера фоновых задач.</summary>
@@ -54,6 +63,8 @@ public static class RecurringCatalog
 {
     public const string SweepId = "cases-sweep";
     public const string ChatCleanupId = "chat-cleanup";
+    public const string NotificationCleanupId = "notification-cleanup";
+    public const string BucketReconciliationId = "bucket-reconciliation";
 
     /// <summary>Каждый час: сверка обращений.</summary>
     public const string SweepCron = "0 * * * *";
@@ -61,10 +72,18 @@ public static class RecurringCatalog
     /// <summary>Каждую ночь (UTC): очистка чатов.</summary>
     public const string ChatCleanupCron = "30 3 * * *";
 
+    /// <summary>Каждую ночь (UTC): очистка старых уведомлений.</summary>
+    public const string NotificationCleanupCron = "15 4 * * *";
+
+    /// <summary>Каждую ночь (UTC): сверка бакета с таблицей вложений (после очистки чатов, чтобы подобрать то, что она не смогла удалить).</summary>
+    public const string BucketReconciliationCron = "45 4 * * *";
+
     public static void Register(IBackgroundJobs jobs)
     {
         jobs.Recurring<CaseMaintenanceJobs>(SweepId, j => j.SweepAsync(), SweepCron);
         jobs.Recurring<ChatCleanupJobs>(ChatCleanupId, j => j.PurgeAsync(), ChatCleanupCron);
+        jobs.Recurring<NotificationCleanupJobs>(NotificationCleanupId, j => j.PurgeAsync(), NotificationCleanupCron);
+        jobs.Recurring<BucketReconciliationJobs>(BucketReconciliationId, j => j.ReconcileAsync(), BucketReconciliationCron);
     }
 }
 

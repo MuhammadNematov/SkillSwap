@@ -36,10 +36,12 @@ public sealed class AccountBlocker
     private readonly INotificationPublisher _notify;
     private readonly IMailSender _mail;
     private readonly IAuditLog _audit;
+    private readonly PendingStaffRequestsRevoker _pending;
 
     public AccountBlocker(
         IExchangeStore exchanges, IExchangeRequestStore requests, IProfileStore profiles, IRefreshTokenRepository refreshTokens, LessonSessionService lessons,
-        ReviewScheduler reviewScheduler, IRealtimeDisconnector disconnector, INotificationPublisher notify, IMailSender mail, IAuditLog audit)
+        ReviewScheduler reviewScheduler, IRealtimeDisconnector disconnector, INotificationPublisher notify, IMailSender mail, IAuditLog audit,
+        PendingStaffRequestsRevoker pending)
     {
         _exchanges = exchanges;
         _requests = requests;
@@ -51,6 +53,7 @@ public sealed class AccountBlocker
         _notify = notify;
         _mail = mail;
         _audit = audit;
+        _pending = pending;
     }
 
     /// <summary>Кого заблокировать в транзакции перед блокировкой аккаунта: самого пользователя и всех партнёров по его активным и замороженным обменам.</summary>
@@ -86,7 +89,9 @@ public sealed class AccountBlocker
             cancelled.AddRange(await _lessons.CancelOpenAsync(exchange.Id, exchange.UserAId, exchange.UserBId, ct));
         }
 
-        _audit.Add(new AuditEntry(actorId, StaffAuditActions.UserBlocked, "User", user.Id, new { source, reason, banRequestId, exchangesAborted = open.Count }));
+        // Запросы на привязку этого аккаунта и его приглашения больше не должны работать; письма получателям не уходят.
+        var revoked = await _pending.RevokeAsync(actorId, user.Id, now, PendingStaffRequestsRevoker.AccountBlockedReason, ct);
+        _audit.Add(new AuditEntry(actorId, StaffAuditActions.UserBlocked, "User", user.Id, new { source, reason, banRequestId, exchangesAborted = open.Count, invitationsRevoked = revoked.Invitations, linkRequestsCancelled = revoked.LinkRequests }));
         return new BlockOutcome(user.Id, user.Email, user.UiLanguage, user.Name, cancelled, closed, open.Count);
     }
 

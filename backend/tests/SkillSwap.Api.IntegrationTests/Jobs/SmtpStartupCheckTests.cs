@@ -1,4 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SkillSwap.Application.Options;
 using SkillSwap.Infrastructure.Email;
 
@@ -97,15 +101,78 @@ public class SmtpStartupCheckTests
         Assert.Throws<InvalidOperationException>(() => SmtpStartupCheck.Validate(options, isDevelopmentLike: false, "Production"));
     }
 
+    // Smtp:CheckCertificateRevocation=false нужен только для разработки на macOS (Gmail: в сертификате только CRL).
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Disabled_revocation_check_does_not_start_outside_development(string environment)
+    {
+        var options = Valid();
+        options.CheckCertificateRevocation = false;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => SmtpStartupCheck.Validate(options, isDevelopmentLike: false, environment));
+        Assert.Contains("Smtp:CheckCertificateRevocation", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Testing")]
+    public async Task Disabled_revocation_check_starts_in_development_with_a_warning(string environment)
+    {
+        var options = Valid();
+        options.CheckCertificateRevocation = false;
+        var logger = new ListLogger();
+
+        await new SmtpStartupCheck(Options.Create(options), new FakeEnvironment(environment), logger).StartAsync(CancellationToken.None);
+
+        var warning = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, warning.Level);
+        Assert.Contains("Smtp:CheckCertificateRevocation=false", warning.Message);
+        Assert.DoesNotContain(options.Password!, warning.Message);   // пароль в журнал не попадает
+    }
+
+    [Fact]
+    public async Task With_the_revocation_check_on_there_is_no_warning()
+    {
+        var logger = new ListLogger();
+
+        await new SmtpStartupCheck(Options.Create(Valid()), new FakeEnvironment("Production"), logger).StartAsync(CancellationToken.None);
+
+        Assert.Empty(logger.Entries);
+    }
+
     [Fact]
     public void Defaults_are_safe()
     {
         var o = new SmtpOptions();
 
+        Assert.True(o.CheckCertificateRevocation);          // отзыв сертификата проверяется
+
         Assert.False(o.IsConfigured);                       // без хоста письма идут только в консоль
         Assert.Equal(SmtpSecurity.StartTls, o.Security);    // по умолчанию с шифрованием
         Assert.Equal(587, o.Port);
         Assert.Null(o.Password);                            // секретов в коде нет
+    }
+
+    private sealed class FakeEnvironment(string name) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = name;
+        public string ApplicationName { get; set; } = "SkillSwap";
+        public string ContentRootPath { get; set; } = "/";
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class ListLogger : ILogger<SmtpStartupCheck>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception)));
     }
 }
 
@@ -125,6 +192,17 @@ public class SmtpStartupIntegrationTests
         var ex = Assert.ThrowsAny<Exception>(() => _ = app.Services);
 
         Assert.Contains("Smtp:Host", Flatten(ex));
+    }
+
+    [Fact]
+    public void The_application_refuses_to_start_in_production_with_the_revocation_check_off()
+    {
+        using var app = _factory.WithSettings("Production",
+            ("Smtp:Host", "smtp.example.com"), ("Smtp:Security", "StartTls"), ("Smtp:CheckCertificateRevocation", "false"));
+
+        var ex = Assert.ThrowsAny<Exception>(() => _ = app.Services);
+
+        Assert.Contains("Smtp:CheckCertificateRevocation", Flatten(ex));
     }
 
     [Fact]

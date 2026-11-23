@@ -59,10 +59,12 @@ public sealed class ModeratorAdminService
     private readonly IAuditLog _audit;
     private readonly INotificationPublisher _notify;
     private readonly TimeProvider _clock;
+    private readonly PendingStaffRequestsRevoker _pending;
 
     public ModeratorAdminService(
         IModeratorStore store, ICaseStore cases, IProfileStore profiles, StepUpService stepUp, ModeratorCaseReleaser releaser, PersonalLinkService links,
-        IRefreshTokenRepository refreshTokens, IRealtimeDisconnector disconnector, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify, TimeProvider clock)
+        IRefreshTokenRepository refreshTokens, IRealtimeDisconnector disconnector, IUnitOfWork uow, IAuditLog audit, INotificationPublisher notify, TimeProvider clock,
+        PendingStaffRequestsRevoker pending)
     {
         _store = store;
         _cases = cases;
@@ -76,6 +78,7 @@ public sealed class ModeratorAdminService
         _audit = audit;
         _notify = notify;
         _clock = clock;
+        _pending = pending;
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -173,6 +176,7 @@ public sealed class ModeratorAdminService
             }
 
             unlinked = await _links.UnlinkForRemovalAsync(actor, targetId, t);
+            var revoked = await _pending.RevokeAsync(actorId, targetId, now, PendingStaffRequestsRevoker.StaffRemovedReason, t);   // приглашения снятого и его запросы на привязку, без писем
             _audit.Add(new AuditEntry(actorId, StaffAuditActions.StaffRemoved, "User", targetId, new
             {
                 reason,
@@ -181,6 +185,8 @@ public sealed class ModeratorAdminService
                 appealReviewsReturned = summary.AppealsReturned,
                 appealsReturnedToAdmins = adminAppeals,
                 personalUnlinked = unlinked,
+                invitationsRevoked = revoked.Invitations,
+                linkRequestsCancelled = revoked.LinkRequests,
             }));
             await _cases.SaveAsync(t);
             return 0;

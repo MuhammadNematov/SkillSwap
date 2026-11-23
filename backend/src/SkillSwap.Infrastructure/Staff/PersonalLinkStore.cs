@@ -25,6 +25,9 @@ public sealed class PersonalLinkStore : IPersonalLinkStore
     public async Task<IReadOnlyList<PersonalLinkRequest>> ListOpenByStaffAsync(Guid staffId, CancellationToken ct) =>
         await _db.PersonalLinkRequests.Where(r => r.StaffId == staffId && r.ConfirmedAt == null && r.DeclinedAt == null && r.CancelledAt == null).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<PersonalLinkRequest>> ListPendingInvolvingAsync(Guid userId, DateTime now, CancellationToken ct) =>
+        await _db.PersonalLinkRequests.Where(r => (r.StaffId == userId || r.PersonalUserId == userId) && r.ConfirmedAt == null && r.DeclinedAt == null && r.CancelledAt == null && r.ExpiresAt >= now).ToListAsync(ct);
+
     public Task<int> CountRequestedSinceAsync(Guid staffId, DateTime since, CancellationToken ct) =>
         // Время создания в базе ставится по настоящим часам, а срок запроса по часам приложения: считаем по сроку (создан не раньше since).
         _db.PersonalLinkRequests.CountAsync(r => r.StaffId == staffId && r.ExpiresAt >= since + PersonalLinkRequest.Lifetime, ct);

@@ -56,6 +56,9 @@ public interface IStaffInvitationStore
     /// <summary>Приглашение на этот адрес, которое ещё не принято и не отозвано (действующее или истёкшее).</summary>
     Task<StaffInvitation?> FindOpenByEmailAsync(string normalizedEmail, CancellationToken ct);
 
+    /// <summary>Действующие (не принятые, не отозванные, не истёкшие) приглашения, отправленные этим аккаунтом (с отслеживанием).</summary>
+    Task<IReadOnlyList<StaffInvitation>> ListPendingByInviterAsync(Guid inviterId, DateTime now, CancellationToken ct);
+
     Task<(IReadOnlyList<StaffInvitation> Items, int Total)> ListAsync(IReadOnlyCollection<UserRole> roles, StaffInvitationStatus? status, DateTime now, int page, int pageSize, CancellationToken ct);
 
     Task SaveAsync(CancellationToken ct);

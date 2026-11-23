@@ -42,6 +42,8 @@ public static class AuditActions
     public const string CaseOverdue = "CaseOverdue";
     public const string ChatPurged = "ChatPurged";
     public const string EvidenceReleased = "EvidenceReleased";
+    public const string NotificationsPurged = "NotificationsPurged";
+    public const string BucketReconciled = "BucketReconciled";
     public const string CaseAppealed = "CaseAppealed";
     public const string AppealReviewAssigned = "AppealReviewAssigned";
     public const string AppealConcluded = "AppealConcluded";

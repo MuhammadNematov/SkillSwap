@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<Staff.StepUpService>();
         services.AddScoped<Staff.StaffInvitationService>();
         services.AddScoped<Staff.PersonalLinkService>();
+        services.AddScoped<Staff.PendingStaffRequestsRevoker>();
         services.AddScoped<Staff.AccountBlocker>();
         services.AddScoped<Audit.AuditJournalService>();
         services.AddScoped<Stats.StatsService>();
@@ -70,6 +71,8 @@ public static class DependencyInjection
         services.AddScoped<Staff.ModeratorAdminService>();
         services.AddScoped<AdminUsers.AdminUserService>();
         services.AddScoped<Moderation.ChatCleanupJobs>();
+        services.AddScoped<Moderation.NotificationCleanupJobs>();
+        services.AddScoped<Moderation.BucketReconciliationJobs>();
         services.AddScoped<Moderation.CaseJobs>();
         services.AddScoped<Reviews.ReviewService>();
         services.AddScoped<Reviews.ReviewJobs>();
