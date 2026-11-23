@@ -56,6 +56,7 @@ export default function App() {
           <Route path="exchanges" element={<Exchanges />} />
           <Route path="exchanges/:id" element={<ExchangeDetail />} />
           <Route path="messages" element={<Messages />} />
+          <Route path="messages/:id" element={<Messages />} />
           <Route path="reviews" element={<Reviews />} />
           <Route path="cases" element={<Cases />} />
           <Route path="cases/:id" element={<CaseDetail />} />

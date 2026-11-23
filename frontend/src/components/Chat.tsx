@@ -17,7 +17,7 @@ import SessionProposalModal from './SessionProposalModal'
 
 // Чат обмена. Транспорт — SignalR (/hubs/chat); в режиме моков — заглушки.
 // Голосовые сообщения (запись до 2 минут) добавим позже.
-export default function Chat({ exchange }: { exchange: Exchange }) {
+export default function Chat({ exchange, fill = false }: { exchange: Exchange; fill?: boolean }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? 'ru'
   const readOnly = exchange.chat ? exchange.chat.mode !== 'ReadWrite' : exchange.status !== 'Active'
@@ -279,7 +279,7 @@ export default function Chat({ exchange }: { exchange: Exchange }) {
   }
 
   return (
-    <div className="card flex h-[560px] flex-col p-0">
+    <div className={`card flex flex-col p-0 ${fill ? 'h-full min-h-0' : 'h-[560px]'}`}>
       <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <p className="pt-10 text-center text-sm text-slate-400">{t('chat.empty')}</p>

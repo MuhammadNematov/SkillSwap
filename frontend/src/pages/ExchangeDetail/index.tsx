@@ -60,55 +60,65 @@ export default function ExchangeDetail() {
         {t('exchange.back')}
       </Link>
 
-      <section className="card flex flex-wrap items-center gap-4">
-        <Avatar name={exchange.partner.name} className="h-14 w-14" />
-        <div className="min-w-0 flex-1">
-          <Link to={`/app/users/${exchange.partner.id}`} className="text-xl font-bold text-slate-900 hover:text-brand-700">
-            {exchange.partner.name}
-          </Link>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-            <SkillChip name={exchange.mySkill} />
-            <Icon name="swap" className="h-4 w-4 text-slate-400" />
-            <SkillChip name={exchange.partnerSkill} tone="green" />
+      <section className="card overflow-hidden p-0">
+        <div className="flex flex-wrap items-center gap-4 p-5">
+          <Avatar name={exchange.partner.name} className="h-16 w-16" />
+          <div className="min-w-0 flex-1">
+            <Link to={`/app/users/${exchange.partner.id}`} className="text-2xl font-extrabold text-slate-900 hover:text-brand-700">
+              {exchange.partner.name}
+            </Link>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+              <SkillChip name={exchange.mySkill} />
+              <Icon name="swap" className="h-4 w-4 text-slate-400" />
+              <SkillChip name={exchange.partnerSkill} tone="green" />
+            </div>
+          </div>
+          <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700">{t(`exchangeStatus.${exchange.status}`)}</span>
+          <button className="btn-secondary px-3 py-1.5" onClick={() => setComplaining(true)}>
+            {t('cases.complain')}
+          </button>
+        </div>
+
+        {/* Счёт уроков и срок обмена: самое важное сразу под именем партнёра */}
+        <div className="grid gap-px border-t border-ink-line bg-ink-line md:grid-cols-5">
+          <div className="bg-brand-50 p-5 md:col-span-3">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <span>{t('exchange.balance')}</span>
+              <span className="normal-case tracking-normal text-slate-400">{t('exchange.balanceHint')}</span>
+            </div>
+            <div className="mt-3 flex items-center justify-center gap-5 sm:gap-8">
+              <div className="text-center">
+                <div className="text-5xl font-extrabold leading-none text-brand-700 sm:text-6xl">{exchange.myLessons}</div>
+                <div className="mt-1.5 text-sm font-semibold text-slate-600">{t('exchange.you')}</div>
+              </div>
+              <div className="text-3xl font-bold text-slate-300">:</div>
+              <div className="text-center">
+                <div className="text-5xl font-extrabold leading-none text-emerald-600 sm:text-6xl">{exchange.partnerLessons}</div>
+                <div className="mt-1.5 max-w-[140px] truncate text-sm font-semibold text-slate-600">{exchange.partner.name}</div>
+              </div>
+            </div>
+            <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-slate-200/70">
+              <div className="bg-brand-600 transition-all" style={{ width: `${myShare}%` }} />
+              <div className="bg-emerald-500 transition-all" style={{ width: `${100 - myShare}%` }} />
+            </div>
+            {imbalance && <p className="mt-3 rounded-lg bg-amber-50/80 px-3 py-2 text-sm text-amber-800">{t('exchange.balanceWarning')}</p>}
+          </div>
+          <div className="flex flex-col justify-center bg-brand-50 p-5 md:col-span-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('exchange.term')}</div>
+            <div className="mt-2 flex items-end justify-between">
+              <span className="text-4xl font-extrabold leading-none text-slate-900">{daysLeft}</span>
+              <span className="text-sm font-semibold text-slate-500">{Math.round(percent)}%</span>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">{t('exchange.daysLeft', { count: daysLeft })}</p>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-200/70">
+              <div className="h-full bg-brand-600 transition-all" style={{ width: `${percent}%` }} />
+            </div>
           </div>
         </div>
-        <span className="rounded-full bg-surface px-3 py-1 text-sm font-medium text-slate-700">{t(`exchangeStatus.${exchange.status}`)}</span>
-        <button className="btn-secondary px-3 py-1.5" onClick={() => setComplaining(true)}>
-          {t('cases.complain')}
-        </button>
       </section>
 
       <div className="grid gap-5 lg:grid-cols-5">
         <div className="space-y-5 lg:col-span-2">
-          <section className="card">
-            <h2 className="font-bold text-slate-900">{t('exchange.balance')}</h2>
-            <div className="mt-3 text-center text-4xl font-extrabold text-brand-700">
-              {exchange.myLessons} : {exchange.partnerLessons}
-            </div>
-            <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-200/70">
-              <div className="bg-brand-600" style={{ width: `${myShare}%` }} />
-              <div className="bg-emerald-500" style={{ width: `${100 - myShare}%` }} />
-            </div>
-            <div className="mt-2 flex justify-between text-xs text-slate-500">
-              <span>{t('exchange.you')}</span>
-              <span>{exchange.partner.name}</span>
-            </div>
-            <p className="mt-2 text-xs text-slate-400">{t('exchange.balanceHint')}</p>
-            {imbalance && <p className="mt-3 rounded-lg bg-amber-50/80 px-3 py-2 text-sm text-amber-800">{t('exchange.balanceWarning')}</p>}
-          </section>
-
-          <section className="card">
-            <h2 className="font-bold text-slate-900">{t('exchange.term')}</h2>
-            <div className="mt-3 flex justify-between text-sm text-slate-600">
-              <span>{t('exchange.progress')}</span>
-              <span>{Math.round(percent)}%</span>
-            </div>
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200/70">
-              <div className="h-full bg-brand-600" style={{ width: `${percent}%` }} />
-            </div>
-            <p className="mt-2 text-sm text-slate-500">{t('exchange.daysLeft', { count: daysLeft })}</p>
-          </section>
-
           <section className="card">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-bold text-slate-900">{t('exchange.plan')}</h2>

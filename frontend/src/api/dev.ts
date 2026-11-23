@@ -91,3 +91,13 @@ export async function seedCase(body: { type: SeedCaseType; stage: SeedCaseStage 
     throw toApiError(e)
   }
 }
+
+// POST /dev/staff-code: текущий и следующий код 2FA служебного аккаунта без приложения-аутентификатора
+export async function getStaffCode(email: string): Promise<{ codes: string[]; secondsLeft: number }> {
+  try {
+    const { data } = await axios.post<{ codes?: string[]; secondsLeft?: number }>('/dev/staff-code', { email })
+    return { codes: data.codes ?? [], secondsLeft: data.secondsLeft ?? 0 }
+  } catch (e) {
+    throw toApiError(e)
+  }
+}
