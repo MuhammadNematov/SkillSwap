@@ -55,6 +55,21 @@ openssl pkcs12 -export -inkey dp.key -in dp.crt -out dataprotection.pfx -passout
 rm dp.key dp.crt
 ```
 
+**macOS.** Системный `/usr/bin/openssl` — это LibreSSL, команды выше с ним работают как есть. Если стоит OpenSSL 3
+(например, из Homebrew) и приложение при старте пишет «неверный пароль или это не файл PFX», пересоздай PFX
+с флагом `-legacy` у `openssl pkcs12 -export` (OpenSSL 3 по умолчанию шифрует PFX по-новому, AES-256).
+Каталог и user-secrets:
+
+```
+mkdir -p ~/.skillswap && cd ~/.skillswap   # здесь выполняем команды выше, файл назови dataprotection-dev.pfx
+cd <репозиторий>/backend/src/SkillSwap.Api
+dotnet user-secrets set "DataProtection:CertificatePath" "$HOME/.skillswap/dataprotection-dev.pfx"
+dotnet user-secrets set "DataProtection:CertificatePassword" "<пароль>"
+```
+
+На macOS сертификат загружается с `DefaultKeySet`, а не `EphemeralKeySet` (macOS эфемерные ключи не поддерживает);
+на Linux и Windows поведение прежнее.
+
 **Боевой сервер:** сертификат выпускается один раз и приходит в приложение из переменных окружения, файлов в репозитории нет.
 Удобнее base64 вместо пути к файлу:
 
