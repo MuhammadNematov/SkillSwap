@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import LanguageSwitcher from './LanguageSwitcher'
 import Logo from './Logo'
+import AuthFloaters from './AuthFloaters'
+import AuthInfo from './AuthInfo'
 import PhoneSwapScene from './PhoneSwapScene'
 
 interface Props {
@@ -12,7 +14,7 @@ interface Props {
 }
 
 // Общая рамка для входа, регистрации и писем: слева форма, справа витрина продукта (как в дизайне).
-// По бокам формы стоят два небольших 3D-персонажа, в правой панели бесконечно летают навыки.
+// В правой панели: короткое описание, как это работает, и бесконечно летающие навыки.
 export default function AuthLayout({ title, subtitle, children }: Props) {
   const { t } = useTranslation()
   return (
@@ -31,27 +33,18 @@ export default function AuthLayout({ title, subtitle, children }: Props) {
             <div className={subtitle ? '' : 'mt-7'}>{children}</div>
           </div>
         </div>
+        <div className="relative z-10 mb-2 hidden xl:hidden [@media(min-height:700px)]:block">
+          <AuthInfo compact />
+        </div>
         <p className="relative z-10 text-center text-xs text-ink-soft">{t('authPromo.footer')}</p>
-
-        {/* 3D-модели без фона по бокам формы */}
-        <img
-          src="/characters/boy.webp"
-          alt=""
-          draggable={false}
-          className="pointer-events-none absolute bottom-14 left-[2%] hidden w-[clamp(110px,calc(50vw-250px),230px)] xl:w-[clamp(90px,calc(25vw-230px),240px)] drop-shadow-[0_12px_14px_rgba(23,20,61,.25)] md:block"
-        />
-        <img
-          src="/characters/girl.webp"
-          alt=""
-          draggable={false}
-          className="pointer-events-none absolute bottom-14 right-[2%] hidden w-[clamp(120px,calc(53vw-260px),250px)] xl:w-[clamp(100px,calc(26vw-235px),260px)] drop-shadow-[0_12px_14px_rgba(23,20,61,.25)] md:block"
-        />
+        <AuthFloaters />
       </section>
 
       <section className="hidden min-h-0 flex-1 basis-[480px] flex-col justify-between overflow-hidden rounded-2xl border border-ink-line bg-brand-100/60 p-10 xl:flex">
-        <div>
+        <div className="space-y-5">
           <h2 className="max-w-[440px] text-[38px] font-extrabold leading-[1.1] tracking-tight text-ink">{t('authPromo.title')}</h2>
-          <p className="mt-4 max-w-[380px] text-[15px] leading-relaxed text-ink-soft">{t('authPromo.text')}</p>
+          <p className="max-w-[420px] text-[15px] leading-relaxed text-ink-soft">{t('authPromo.text')}</p>
+          <AuthInfo />
         </div>
         <PhoneSwapScene />
       </section>

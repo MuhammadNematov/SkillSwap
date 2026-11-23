@@ -2,7 +2,9 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import Icon, { type IconName } from '../../components/Icon'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
+import AuthFloaters from '../../components/AuthFloaters'
 import Logo from '../../components/Logo'
+import SubjectMarquee from '../../components/SubjectMarquee'
 import SwapStage from '../../components/SwapScene'
 import { useAuth } from '../../hooks/useAuth'
 import { homeForRole } from '../../utils/roles'
@@ -28,6 +30,13 @@ const FEATURES: { key: 'f1' | 'f2' | 'f3' | 'f4' | 'f5' | 'f6' | 'f7' | 'f8'; ic
   { key: 'f3', icon: 'scale' },
   { key: 'f4', icon: 'star' },
   ...FEATURES_MORE,
+]
+
+const HERO_FACTS: { key: 'free' | 'video' | 'mutual' | 'safe'; icon: IconName }[] = [
+  { key: 'free', icon: 'bolt' },
+  { key: 'video', icon: 'video' },
+  { key: 'mutual', icon: 'swap' },
+  { key: 'safe', icon: 'scale' },
 ]
 
 const STATS = ['s1', 's2', 's3', 's4'] as const
@@ -92,6 +101,8 @@ export default function Landing() {
 
       {/* Герой: парень слева, девушка справа, между ними бесконечный обмен навыками */}
       <section className="relative overflow-hidden">
+        <div className="relative">
+        <AuthFloaters count={26} className="block opacity-70" />
         <SwapStage centerWidth={720} links={false} className="min-h-[680px]">
           <div className="w-full px-4 py-16 text-center md:py-24 lg:pb-32">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">{t('landing.badge')}</p>
@@ -111,8 +122,18 @@ export default function Landing() {
                 {t('landing.cta.more')}
               </a>
             </div>
+            <ul className="mx-auto mt-8 flex max-w-2xl flex-wrap justify-center gap-3">
+              {HERO_FACTS.map((f) => (
+                <li key={f.key} className="flex items-center gap-2 rounded-full border border-ink-line bg-surface/90 px-4 py-2 text-sm font-semibold text-ink">
+                  <Icon name={f.icon} className="h-4 w-4 text-brand-600" />
+                  {t(`landing.heroFacts.${f.key}`)}
+                </li>
+              ))}
+            </ul>
           </div>
         </SwapStage>
+        </div>
+        <SubjectMarquee />
 
         {/* Цифры из ТЗ */}
         <div className="mx-auto grid max-w-6xl gap-4 px-4 pb-20 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">

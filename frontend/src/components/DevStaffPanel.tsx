@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toSession } from '../api/auth'
-import { seedCase, seedStaff, type SeedCaseStage, type SeedCaseType } from '../api/dev'
+import { getStaffCode, seedCase, seedStaff, type SeedCaseStage, type SeedCaseType } from '../api/dev'
 import { errorMessage } from '../api/errors'
 import type { AuthSession } from '../api/types'
 
@@ -18,6 +18,7 @@ export default function DevStaffPanel({ onSession }: { onSession: (s: AuthSessio
 
   const staff = useMutation({ mutationFn: seedStaff })
   const signIn = useMutation({ mutationFn: (token: string) => toSession({ accessToken: token, user: { id: '', email: '', name: '', role: '', uiLanguage: 'ru' } }), onSuccess: onSession })
+  const code = useMutation({ mutationFn: () => getStaffCode('dev-admin@example.com') })
   const made = useMutation({ mutationFn: () => seedCase({ type, stage }) })
 
   return (
@@ -40,6 +41,19 @@ export default function DevStaffPanel({ onSession }: { onSession: (s: AuthSessio
           ))}
         </div>
       )}
+
+      <div className="space-y-2 border-t border-ink-line pt-3">
+        <p className="text-xs text-ink-soft">{t('dev.staffPassword')}</p>
+        <button type="button" className="btn-secondary" disabled={code.isPending} onClick={() => code.mutate()}>
+          {code.isPending ? t('common.loading') : t('dev.staffCode')}
+        </button>
+        {code.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage(t, code.error)}</p>}
+        {code.data && (
+          <p className="font-mono text-sm text-ink">
+            {code.data.codes.join(' / ')} <span className="text-xs text-ink-soft">({t('dev.staffCodeLeft', { s: code.data.secondsLeft })})</span>
+          </p>
+        )}
+      </div>
 
       <div className="space-y-2 border-t border-ink-line pt-3">
         <h3 className="text-sm font-bold text-ink">{t('dev.caseTitle')}</h3>

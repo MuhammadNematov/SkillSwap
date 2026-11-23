@@ -64,6 +64,12 @@ api.interceptors.response.use(
         onAuthFailure?.()
       }
     }
+    // Служебный аккаунт снят или заблокирован: токен ещё жив, но сервер отвечает 403 staff_not_active. Сразу разлогиниваем.
+    const body = error.response?.data as { code?: string } | undefined
+    if (error.response?.status === 403 && body?.code === 'staff_not_active') {
+      setAccessToken(null)
+      onAuthFailure?.()
+    }
     return Promise.reject(error)
   },
 )

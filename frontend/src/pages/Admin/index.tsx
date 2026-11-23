@@ -15,16 +15,15 @@ import {
   type AdminSkill,
 } from '../../api/admin'
 import { errorMessage } from '../../api/errors'
-import { getStaff, inviteStaff, removeStaff, type StaffMember, type StaffRole } from '../../api/staff'
 import Modal from '../../components/Modal'
 import Select from '../../components/Select'
 import Spinner from '../../components/Spinner'
 import StaffShell from '../../components/StaffShell'
-import { useAuth } from '../../hooks/useAuth'
 import Notifications from '../Notifications'
 import AdminCaseDetail from './AdminCaseDetail'
 import BansTab from './BansTab'
 import CasesTab from './CasesTab'
+import StaffTab from './StaffTab'
 import { pickName } from '../../utils/localized'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
@@ -359,87 +358,5 @@ function SkillModal({ skill, categories, onClose }: { skill: AdminSkill | null; 
         </div>
       </form>
     </Modal>
-  )
-}
-
-// ───────── Сотрудники ─────────
-function StaffTab() {
-  const { t } = useTranslation()
-  const { user } = useAuth()
-  const qc = useQueryClient()
-  const isSuper = user?.role === 'SuperAdmin'
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState<StaffRole>('Moderator')
-  const [link, setLink] = useState<string | null>(null)
-  const list = useQuery({ queryKey: ['admin', 'staff'], queryFn: getStaff })
-  const invite = useMutation({
-    mutationFn: () => inviteStaff(email.trim(), role),
-    onSuccess: (r) => {
-      setEmail('')
-      setLink(r.token ? `${window.location.origin}/staff-invitation/${r.token}` : null)
-      qc.invalidateQueries({ queryKey: ['admin', 'staff'] })
-    },
-  })
-  const remove = useMutation({ mutationFn: (m: StaffMember) => removeStaff(m), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'staff'] }) })
-  // Админов снимает только суперадмин
-  const canRemove = (m: StaffMember) => m.id !== user?.id && (m.role === 'Moderator' || isSuper)
-
-  return (
-    <section className="card space-y-4">
-      <form
-        className="flex flex-wrap items-center gap-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (email.trim()) invite.mutate()
-        }}
-      >
-        <input className="input max-w-xs flex-1" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        {isSuper && (
-          <Select
-            className="w-44"
-            value={role}
-            ariaLabel={t('staff.role')}
-            onChange={(v) => setRole(v as StaffRole)}
-            options={[
-              { value: 'Moderator', label: t('staff.role_Moderator') },
-              { value: 'Admin', label: t('staff.role_Admin') },
-            ]}
-          />
-        )}
-        <button className="btn-primary px-4 py-2" disabled={!email.trim() || invite.isPending}>
-          {t('staff.invite')}
-        </button>
-      </form>
-      {invite.isError && <p className={errorBox}>{errorMessage(t, invite.error)}</p>}
-      {invite.isSuccess && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{t('staff.sent')}</p>}
-      {link && (
-        <p className="break-all rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          {t('staff.mockLink')} <a className="underline" href={link}>{link}</a>
-        </p>
-      )}
-      {remove.isError && <p className={errorBox}>{errorMessage(t, remove.error)}</p>}
-      {list.isLoading ? (
-        <Spinner />
-      ) : (
-        <ul className="space-y-2">
-          {(list.data ?? []).map((m) => (
-            <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-slate-900">{m.name}</div>
-                <div className="text-xs text-slate-400">
-                  {m.email} · {t(`staff.role_${m.role}`)}
-                  {!m.twoFactorEnabled && ` · ${t('staff.no2fa')}`}
-                </div>
-              </div>
-              {canRemove(m) && (
-                <button className="text-sm font-medium text-red-600 hover:underline" disabled={remove.isPending} onClick={() => remove.mutate(m)}>
-                  {t('staff.remove')}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   )
 }
