@@ -24,13 +24,15 @@ import AdminCaseDetail from './AdminCaseDetail'
 import BansTab from './BansTab'
 import CasesTab from './CasesTab'
 import StaffTab from './StaffTab'
+import SuggestionsTab from './SuggestionsTab'
+import UsersTab from './UsersTab'
 import { pickName } from '../../utils/localized'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
 const PAGE_SIZE = 20
-const TABS = ['cases', 'bans', 'skills', 'categories', 'staff'] as const
+const TABS = ['cases', 'bans', 'users', 'suggestions', 'skills', 'categories', 'staff'] as const
 
-// Админ-панель: обращения, запросы на блокировку, каталог навыков и сотрудники
+// Админ-панель: обращения, запросы на блокировку, пользователи, предложения навыков, каталог навыков и сотрудники
 function AdminHome() {
   const { t } = useTranslation()
   const [tab, setTab] = useState<(typeof TABS)[number]>('cases')
@@ -51,7 +53,21 @@ function AdminHome() {
           </button>
         ))}
       </div>
-      {tab === 'cases' ? <CasesTab /> : tab === 'bans' ? <BansTab /> : tab === 'skills' ? <SkillsTab /> : tab === 'categories' ? <CategoriesTab /> : <StaffTab />}
+      {tab === 'cases' ? (
+        <CasesTab />
+      ) : tab === 'bans' ? (
+        <BansTab />
+      ) : tab === 'users' ? (
+        <UsersTab />
+      ) : tab === 'suggestions' ? (
+        <SuggestionsTab />
+      ) : tab === 'skills' ? (
+        <SkillsTab />
+      ) : tab === 'categories' ? (
+        <CategoriesTab />
+      ) : (
+        <StaffTab />
+      )}
     </>
   )
 }

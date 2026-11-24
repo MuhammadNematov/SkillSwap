@@ -161,6 +161,47 @@ export async function removeModerator(id: string, req: { reason: string; confirm
   return { casesReturned: data.casesReturned, appealReviewsReturned: data.appealReviewsReturned, personalUnlinked: data.personalUnlinked }
 }
 
+// ───────── Админы (список и снятие: только суперадмин) ─────────
+export interface AdminAccount {
+  id: string
+  name: string
+  email: string | null
+  removed: boolean
+  createdAt: string
+  personalLinked: boolean
+}
+export interface RemoveAdminResult {
+  appealsReturned: number // апелляции, которые вёл админ, вернулись в общую очередь админов
+  personalUnlinked: boolean
+}
+
+let mockAdmins: AdminAccount[] = [
+  { id: 'adm-1', name: 'Админ Тест', email: 'admin2@test.com', removed: false, createdAt: daysAgo(60), personalLinked: false },
+  { id: 'adm-2', name: 'Бывший Админ', email: 'gone-admin@test.com', removed: true, createdAt: daysAgo(120), personalLinked: false },
+]
+
+// GET /admin/staff/admins?removed= (только суперадмин: админу 403 superadmin_required)
+export async function getAdmins(removed: boolean): Promise<AdminAccount[]> {
+  if (USE_MOCKS) {
+    await sleep()
+    return mockAdmins.filter((a) => a.removed === removed)
+  }
+  const data = await http(() => api.get<{ items: AdminAccount[] }>('/admin/staff/admins', { params: { removed, pageSize: 50 } }))
+  return data.items
+}
+
+// POST /admin/staff/admins/{id}/remove (только суперадмин, пароль и код 2FA)
+export async function removeAdmin(id: string, req: { reason: string; confirmation: Confirmation }): Promise<RemoveAdminResult> {
+  if (USE_MOCKS) {
+    await sleep()
+    checkMockConfirmation(req.confirmation)
+    mockAdmins = mockAdmins.map((a) => (a.id === id ? { ...a, removed: true } : a))
+    return { appealsReturned: 0, personalUnlinked: false }
+  }
+  const data = await http(() => api.post<RemoveAdminResult>(`/admin/staff/admins/${id}/remove`, req))
+  return { appealsReturned: data.appealsReturned, personalUnlinked: data.personalUnlinked }
+}
+
 // GET /staff-invitations/{token} (без входа)
 export async function getStaffInvitation(token: string): Promise<InvitationPreview> {
   if (USE_MOCKS) {

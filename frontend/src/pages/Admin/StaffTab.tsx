@@ -3,14 +3,18 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { errorMessage } from '../../api/errors'
 import {
+  getAdmins,
   getInvitations,
   getModerators,
   inviteStaff,
+  removeAdmin,
   removeModerator,
   resendInvitation,
   revokeInvitation,
+  type AdminAccount,
   type Confirmation,
   type Moderator,
+  type RemoveAdminResult,
   type RemoveModeratorResult,
   type StaffInvitation,
   type StaffRole,
@@ -28,6 +32,7 @@ type Action =
   | { kind: 'revoke'; inv: StaffInvitation }
   | { kind: 'resend'; inv: StaffInvitation }
   | { kind: 'remove'; mod: Moderator }
+  | { kind: 'removeAdmin'; admin: AdminAccount } // только суперадмин
 
 // ───────── Сотрудники: приглашения и модераторы. Все действия подтверждаются паролем и кодом 2FA ─────────
 export default function StaffTab() {
@@ -46,9 +51,12 @@ export default function StaffTab() {
 
   const invitations = useQuery({ queryKey: ['admin', 'invitations'], queryFn: () => getInvitations() })
   const moderators = useQuery({ queryKey: ['admin', 'moderators', showRemoved], queryFn: () => getModerators(showRemoved) })
+  // Админов видит и снимает только суперадмин (у админа список даёт 403). Фильтр «Действующие/Снятые» общий для модераторов и админов.
+  const admins = useQuery({ queryKey: ['admin', 'admins', showRemoved], queryFn: () => getAdmins(showRemoved), enabled: isSuper })
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['admin', 'invitations'] })
     qc.invalidateQueries({ queryKey: ['admin', 'moderators'] })
+    qc.invalidateQueries({ queryKey: ['admin', 'admins'] })
   }
 
   function close() {
@@ -71,6 +79,9 @@ export default function StaffTab() {
     } else if (action.kind === 'resend') {
       await resendInvitation(action.inv.id, c, lang)
       setNotice(t('staff.resent'))
+    } else if (action.kind === 'removeAdmin') {
+      const r: RemoveAdminResult = await removeAdmin(action.admin.id, { reason: reason.trim(), confirmation: c })
+      setNotice(t('staff.removedAdminResult', { appeals: r.appealsReturned }) + (r.personalUnlinked ? ` ${t('staff.personalUnlinked')}` : ''))
     } else {
       const r: RemoveModeratorResult = await removeModerator(action.mod.id, { reason: reason.trim(), confirmation: c })
       setNotice(t('staff.removedResult', { cases: r.casesReturned, appeals: r.appealReviewsReturned }) + (r.personalUnlinked ? ` ${t('staff.personalUnlinked')}` : ''))
@@ -192,12 +203,44 @@ export default function StaffTab() {
         )}
       </div>
 
+      {isSuper && (
+        <div className="space-y-2">
+          <h3 className="font-bold text-slate-900">{t('staff.admins')}</h3>
+          {admins.isLoading ? (
+            <Spinner />
+          ) : admins.isError ? (
+            <p className={errorBox}>{errorMessage(t, admins.error)}</p>
+          ) : (admins.data ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500">{t('staff.noAdmins')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {admins.data!.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-slate-900">{a.name}</div>
+                    <div className="text-xs text-slate-400">
+                      {a.email ?? '—'}
+                      {a.personalLinked && ` · ${t('staff.linked')}`}
+                    </div>
+                  </div>
+                  {!a.removed && (
+                    <button className="text-sm font-medium text-red-600 hover:underline" onClick={() => setAction({ kind: 'removeAdmin', admin: a })}>
+                      {t('staff.remove')}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {action && (
         <ConfirmAction
           title={t(`staff.title_${action.kind}`)}
           submitLabel={t(`staff.submit_${action.kind}`)}
-          danger={action.kind === 'remove' || action.kind === 'revoke'}
-          extraValid={action.kind !== 'remove' || reasonValid}
+          danger={action.kind === 'remove' || action.kind === 'removeAdmin' || action.kind === 'revoke'}
+          extraValid={(action.kind !== 'remove' && action.kind !== 'removeAdmin') || reasonValid}
           onSubmit={run}
           onClose={close}
         >
@@ -205,9 +248,11 @@ export default function StaffTab() {
             <p className="text-sm text-slate-600">{t('staff.confirmInvite', { email: email.trim(), role: t(`staff.role_${role}`) })}</p>
           )}
           {(action.kind === 'revoke' || action.kind === 'resend') && <p className="break-all text-sm text-slate-600">{action.inv.email}</p>}
-          {action.kind === 'remove' && (
+          {(action.kind === 'remove' || action.kind === 'removeAdmin') && (
             <>
-              <p className="text-sm text-slate-600">{t('staff.removeWarning', { name: action.mod.name })}</p>
+              <p className="text-sm text-slate-600">
+                {action.kind === 'remove' ? t('staff.removeWarning', { name: action.mod.name }) : t('staff.removeAdminWarning', { name: action.admin.name })}
+              </p>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">{t('staff.reason')}</span>
                 <textarea className="input min-h-[80px]" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
