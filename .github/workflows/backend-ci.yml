@@ -6,8 +6,10 @@ on:
   push:
     branches: [main]
     # Пуши, которые не трогают бэкенд (например, только frontend/), тесты не запускают.
+    # Исключение: frontend/src/App.tsx. Тест FrontendLinkRoutesTests сверяет с ним ссылки из писем, и переименованный маршрут не должен ломать их молча.
     paths:
       - "backend/**"
+      - "frontend/src/App.tsx"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
