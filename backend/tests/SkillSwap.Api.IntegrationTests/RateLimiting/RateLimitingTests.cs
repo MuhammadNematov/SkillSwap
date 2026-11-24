@@ -495,6 +495,32 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
         await RateLimitAssert.RateLimitedAsync(await api.RefreshAsync(refresh), Minute);
     }
 
+    // Фронтенд при 429 ждёт Retry-After и повторяет запрос, а не разлогинивает. Это работает, только если отказанный запрос не тратит refresh-токен
+    // (ротация не произошла, токен не помечен использованным) и после паузы тот же токен принимается: сеанс остаётся живым.
+    [Fact]
+    public async Task A_refresh_rejected_by_the_limit_does_not_spend_the_token_so_a_retry_after_the_pause_keeps_the_session()
+    {
+        var api = NewClient();
+        var (_, refresh) = await api.LoginTokensAsync(await NewClient().RegisterConfirmedUserAsync());
+        for (var i = 0; i < 30; i++)
+        {
+            var response = await api.RefreshAsync(refresh);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            refresh = AuthApi.RefreshTokenFrom(response)!;
+        }
+
+        // Несколько попыток подряд (как нетерпеливые вкладки) отклоняются с Retry-After и ничего не ломают
+        for (var i = 0; i < 3; i++)
+        {
+            await RateLimitAssert.RateLimitedAsync(await api.RefreshAsync(refresh), Minute);
+        }
+
+        _factory.Clock.Advance(TimeSpan.FromSeconds(Minute));
+        var retry = await api.RefreshAsync(refresh);
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+        Assert.NotNull(AuthApi.RefreshTokenFrom(retry));
+    }
+
     [Fact]
     public async Task The_2fa_setup_and_verify_share_the_login_counter()
     {
