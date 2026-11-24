@@ -2,3 +2,8 @@ node_modules
 dist
 *.local
 .env
+
+# Собранные файлы TypeScript (конфиг Vite один: vite.config.ts)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
