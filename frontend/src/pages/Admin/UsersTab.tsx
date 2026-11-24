@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
@@ -14,21 +14,21 @@ import {
 } from '../../api/adminUsers'
 import { errorMessage } from '../../api/errors'
 import Modal from '../../components/Modal'
-import Select from '../../components/Select'
-import Spinner from '../../components/Spinner'
+import EmptyState from '../../components/staff/EmptyState'
+import FilterBar from '../../components/staff/FilterBar'
+import { SkeletonList } from '../../components/staff/Skeleton'
+import Tag, { type TagTone } from '../../components/staff/Tag'
+import Icon from '../../components/Icon'
+import { useUrlParams } from '../../hooks/useUrlParams'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
 const PAGE_SIZE = 20
 
-const STATUS_TONE: Record<AdminUserStatus, string> = {
-  Active: 'bg-emerald-100/80 text-emerald-700',
-  Blocked: 'bg-red-100/80 text-red-700',
-  Deleted: 'bg-slate-100/80 text-slate-600',
-}
+const STATUS_TONE: Record<AdminUserStatus, TagTone> = { Active: 'green', Blocked: 'red', Deleted: 'gray' }
 
 function StatusBadge({ status }: { status: AdminUserStatus }) {
   const { t } = useTranslation()
-  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[status]}`}>{t(`adminUsers.status_${status}`)}</span>
+  return <Tag tone={STATUS_TONE[status]}>{t(`adminUsers.status_${status}`)}</Tag>
 }
 
 // Окно с обязательной причиной (10–500 символов, пишется в журнал аудита, пользователю не показывается).
@@ -115,7 +115,7 @@ function UserDetail({ id, onBack }: { id: string; onBack: () => void }) {
       ← {t('adminUsers.back')}
     </button>
   )
-  if (card.isLoading) return <section className="card space-y-3">{back}<Spinner /></section>
+  if (card.isLoading) return <section className="card space-y-3">{back}<SkeletonList rows={3} label={t('common.loading')} /></section>
   if (card.isError || !card.data)
     return (
       <section className="card space-y-3">
@@ -283,7 +283,8 @@ function UserRow({ u, onOpen }: { u: AdminUserListItem; onOpen: () => void }) {
   const lang = i18n.resolvedLanguage ?? 'ru'
   return (
     <li>
-      <button className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-brand-50 px-3 py-2.5 text-left transition hover:bg-brand-100" onClick={onOpen}>
+      <button className="row-link group w-full text-left" onClick={onOpen}>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-slate-900">{u.name}</span>
@@ -300,19 +301,33 @@ function UserRow({ u, onOpen }: { u: AdminUserListItem; onOpen: () => void }) {
         <div className="w-full text-xs text-slate-400 sm:w-auto">
           {u.lastActiveAt ? t('adminUsers.lastActive', { date: new Date(u.lastActiveAt).toLocaleDateString(lang) }) : t('adminUsers.neverActive')}
         </div>
+        </div>
+        <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-ink-faint transition group-hover:translate-x-0.5 group-hover:text-brand-600" />
       </button>
     </li>
   )
 }
 
 // ───────── Пользователи: поиск, фильтр по статусу, карточка (docs/FRONTEND-ADMIN.md, раздел 4) ─────────
+const USER_KEYS = ['status'] as const
+
 export default function UsersTab() {
   const { t } = useTranslation()
+  const { values, set, reset } = useUrlParams(USER_KEYS)
+  const status = values.status as AdminUserStatus | ''
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<AdminUserStatus | ''>('')
   const [page, setPage] = useState(1)
   const [openId, setOpenId] = useState<string | null>(null)
+
+  // Поиск идёт на сервер с небольшой задержкой после последнего символа
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(input)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(id)
+  }, [input])
 
   const list = useQuery({
     queryKey: ['adminUsers', search, status, page],
@@ -323,43 +338,57 @@ export default function UsersTab() {
   if (openId) return <UserDetail id={openId} onBack={() => setOpenId(null)} />
 
   const total = list.data?.totalCount ?? 0
+  const clear = () => {
+    reset()
+    setInput('')
+    setSearch('')
+    setPage(1)
+  }
   return (
-    <section className="card space-y-3">
-      <form
-        className="flex flex-wrap items-center gap-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          setSearch(input)
-          setPage(1)
-        }}
-      >
-        <input className="input max-w-sm flex-1" placeholder={t('adminUsers.search')} value={input} onChange={(e) => setInput(e.target.value)} />
-        <button className="btn-primary px-4 py-2">{t('adminUsers.find')}</button>
-        <Select
-          className="w-52"
-          value={status}
-          ariaLabel={t('admin.status')}
-          onChange={(v) => {
-            setStatus(v as AdminUserStatus | '')
-            setPage(1)
-          }}
-          options={[
-            { value: '', label: t('adminUsers.status_all') },
-            { value: 'Active', label: t('adminUsers.status_Active') },
-            { value: 'Blocked', label: t('adminUsers.status_Blocked') },
-            { value: 'Deleted', label: t('adminUsers.status_Deleted') },
-          ]}
-        />
-      </form>
+    <div className="space-y-4">
+      <FilterBar
+        search={input}
+        onSearch={setInput}
+        searchPlaceholder={t('adminUsers.search')}
+        filters={[
+          {
+            key: 'status',
+            label: t('admin.status'),
+            value: status,
+            onChange: (v) => {
+              set('status', v)
+              setPage(1)
+            },
+            options: [
+              { value: '', label: t('adminUsers.status_all') },
+              { value: 'Active', label: t('adminUsers.status_Active') },
+              { value: 'Blocked', label: t('adminUsers.status_Blocked') },
+              { value: 'Deleted', label: t('adminUsers.status_Deleted') },
+            ],
+          },
+        ]}
+        onReset={clear}
+      />
 
       {list.isLoading ? (
-        <Spinner />
+        <SkeletonList label={t('common.loading')} />
       ) : list.isError ? (
         <p className={errorBox}>{errorMessage(t, list.error)}</p>
       ) : (list.data?.items ?? []).length === 0 ? (
-        <p className="text-sm text-slate-500">{t('adminUsers.empty')}</p>
+        <EmptyState
+          icon="users"
+          title={t('adminUsers.empty')}
+          hint={t('staffUi.nothingFoundHint')}
+          action={
+            (status || search) && (
+              <button className="btn-secondary" onClick={clear}>
+                {t('staffUi.filters.reset')}
+              </button>
+            )
+          }
+        />
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {list.data!.items.map((u) => (
             <UserRow key={u.id} u={u} onOpen={() => setOpenId(u.id)} />
           ))}
@@ -377,6 +406,6 @@ export default function UsersTab() {
           </button>
         </div>
       </div>
-    </section>
+    </div>
   )
 }

@@ -4,14 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { decideBan, getBanRequests, type BanRequest, type BanRequestStatus } from '../../api/cases'
 import { errorMessage } from '../../api/errors'
-import Spinner from '../../components/Spinner'
+import EmptyState from '../../components/staff/EmptyState'
+import FilterBar from '../../components/staff/FilterBar'
+import { SkeletonList } from '../../components/staff/Skeleton'
+import Tag, { type TagTone } from '../../components/staff/Tag'
+import { useUrlParams } from '../../hooks/useUrlParams'
 import { formatDateTime } from '../../utils/dates'
 
-const TONE: Record<BanRequestStatus, string> = {
-  Pending: 'bg-amber-100/80 text-amber-700',
-  Approved: 'bg-red-100/80 text-red-700',
-  Rejected: 'bg-slate-100/80 text-slate-600',
-}
+const TONE: Record<BanRequestStatus, TagTone> = { Pending: 'amber', Approved: 'red', Rejected: 'gray' }
 
 // Один запрос на блокировку; решение принимает только админ. Одобрение блокирует аккаунт сразу, поэтому с подтверждением.
 export function BanCard({ ban }: { ban: BanRequest }) {
@@ -32,7 +32,7 @@ export function BanCard({ ban }: { ban: BanRequest }) {
     <div className="card space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-bold text-slate-900">{ban.userName}</span>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE[ban.status]}`}>{t(`admin.bans.status.${ban.status}`)}</span>
+        <Tag tone={TONE[ban.status]}>{t(`admin.bans.status.${ban.status}`)}</Tag>
         <span className="text-xs text-slate-400">{formatDateTime(ban.createdAt, lang)}</span>
       </div>
       <div>
@@ -77,29 +77,65 @@ export function BanCard({ ban }: { ban: BanRequest }) {
   )
 }
 
+const BAN_KEYS = ['status'] as const
+
+// Запросы на блокировку: по умолчанию ждущие решения. Статус хранится в адресе (/admin/bans?status=Approved), «all» — все.
 export default function BansTab() {
   const { t } = useTranslation()
-  const [status, setStatus] = useState<BanRequestStatus | ''>('Pending')
-  const { data = [], isLoading, error } = useQuery({ queryKey: ['adminBans', status], queryFn: () => getBanRequests(status || undefined) })
+  const { values, set, reset } = useUrlParams(BAN_KEYS)
+  const [q, setQ] = useState('')
+  const status = (values.status || 'Pending') as BanRequestStatus | 'all'
+  const { data = [], isLoading, error } = useQuery({ queryKey: ['adminBans', status], queryFn: () => getBanRequests(status === 'all' ? undefined : status) })
+  const needle = q.trim().toLowerCase()
+  const shown = needle ? data.filter((b) => [b.userName, b.reason].some((x) => x.toLowerCase().includes(needle))) : data
+  const isDefault = status === 'Pending'
+  const clear = () => {
+    reset()
+    setQ('')
+  }
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <button className={`chip ${status === 'Pending' ? 'chip-on' : ''}`} onClick={() => setStatus('Pending')}>
-          {t('admin.bans.pending')}
-        </button>
-        <button className={`chip ${status === '' ? 'chip-on' : ''}`} onClick={() => setStatus('')}>
-          {t('admin.bans.all')}
-        </button>
-      </div>
+      <FilterBar
+        search={q}
+        onSearch={setQ}
+        searchPlaceholder={t('staffUi.searchBans')}
+        filters={[
+          {
+            key: 'status',
+            label: t('admin.status'),
+            // «Ждут решения» — состояние по умолчанию, поэтому как выбранный фильтр не показывается
+            value: isDefault ? '' : status,
+            onChange: (v) => set('status', v),
+            options: [
+              { value: '', label: t('admin.bans.pending') },
+              { value: 'all', label: t('admin.bans.all') },
+              { value: 'Approved', label: t('admin.bans.status.Approved') },
+              { value: 'Rejected', label: t('admin.bans.status.Rejected') },
+            ],
+          },
+        ]}
+        onReset={clear}
+      />
       {isLoading ? (
-        <Spinner />
+        <SkeletonList rows={3} label={t('common.loading')} />
       ) : error ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage(t, error)}</p>
-      ) : data.length === 0 ? (
-        <div className="card text-sm text-slate-500">{t('admin.bans.empty')}</div>
+      ) : shown.length === 0 ? (
+        <EmptyState
+          icon={needle ? 'search' : 'ban'}
+          title={needle ? t('staffUi.nothingFound') : t('admin.bans.empty')}
+          hint={needle ? t('staffUi.nothingFoundHint') : t('staffUi.admin.bansEmptyHint')}
+          action={
+            !isDefault || needle ? (
+              <button className="btn-secondary" onClick={clear}>
+                {t('staffUi.filters.reset')}
+              </button>
+            ) : undefined
+          }
+        />
       ) : (
         <div className="space-y-3">
-          {data.map((b) => (
+          {shown.map((b) => (
             <BanCard key={b.id} ban={b} />
           ))}
         </div>

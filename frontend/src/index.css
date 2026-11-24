@@ -58,6 +58,24 @@
 .dark .text-emerald-700, .dark .text-emerald-800 { color: rgb(110 231 183); }
 .dark img[src*="/characters/"] { filter: brightness(.92); }
 
+/* Метки статусов: фон и текст заданы парой для каждой темы (контраст не ниже 4.5:1, проверено расчётом). Не смешивать с прозрачными bg-*-100/80. */
+:root {
+  --tag-red-bg: 254 226 226; --tag-red-fg: 153 27 27;
+  --tag-amber-bg: 254 243 199; --tag-amber-fg: 146 64 14;
+  --tag-green-bg: 209 250 229; --tag-green-fg: 6 95 70;
+  --tag-brand-bg: 238 233 255; --tag-brand-fg: 74 42 154;
+  --tag-gray-bg: 241 245 249; --tag-gray-fg: 51 65 85;
+}
+.dark {
+  --tag-red-bg: 94 31 40; --tag-red-fg: 254 202 202;
+  --tag-amber-bg: 92 62 12; --tag-amber-fg: 253 230 138;
+  --tag-green-bg: 14 74 58; --tag-green-fg: 167 243 208;
+  --tag-brand-bg: 54 46 108; --tag-brand-fg: 221 214 254;
+  --tag-gray-bg: 52 49 82; --tag-gray-fg: 214 211 240;
+}
+/* Старые прозрачные красные и серые подложки без пары для тёмной темы: подтягиваем к безопасным значениям */
+.dark .bg-red-100\/80 { background-color: rgb(var(--tag-red-bg)); }
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -86,6 +104,21 @@
   }
   .chip {
     @apply inline-flex h-9 items-center rounded-lg border border-brand-200 bg-surface px-3.5 text-[13px] font-semibold text-ink transition hover:border-brand-300 hover:text-brand-600;
+  }
+  .tag {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .tag-red { background-color: rgb(var(--tag-red-bg)); color: rgb(var(--tag-red-fg)); }
+  .tag-amber { background-color: rgb(var(--tag-amber-bg)); color: rgb(var(--tag-amber-fg)); }
+  .tag-green { background-color: rgb(var(--tag-green-bg)); color: rgb(var(--tag-green-fg)); }
+  .tag-brand { background-color: rgb(var(--tag-brand-bg)); color: rgb(var(--tag-brand-fg)); }
+  .tag-gray { background-color: rgb(var(--tag-gray-bg)); color: rgb(var(--tag-gray-fg)); }
+  /* Строка списка, по которой можно кликнуть: рамка и стрелка «›» подсвечиваются при наведении и фокусе */
+  .row-link {
+    @apply card flex items-center gap-3 transition hover:border-brand-300 hover:shadow-card focus-visible:border-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-ink-line;
   }
   .chip-on {
     @apply border-brand-600 bg-brand-600 text-white hover:text-white;

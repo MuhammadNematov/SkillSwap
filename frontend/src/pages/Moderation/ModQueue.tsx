@@ -1,65 +1,87 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
-import { getModCases, type ModScope } from '../../api/cases'
+import { getModCases, type CaseType, type ModScope } from '../../api/cases'
 import { errorMessage } from '../../api/errors'
-import Spinner from '../../components/Spinner'
-import { formatDateTime } from '../../utils/dates'
-import { CaseStatusChip } from '../Cases/parts'
-import { CaseBadges } from './parts'
+import CaseRow from '../../components/staff/CaseRow'
+import EmptyState from '../../components/staff/EmptyState'
+import FilterBar from '../../components/staff/FilterBar'
+import { SkeletonList } from '../../components/staff/Skeleton'
+import { useUrlParams } from '../../hooks/useUrlParams'
 
-const SCOPES: ModScope[] = ['Queue', 'Mine', 'Appeals']
+const TYPES: CaseType[] = ['Conduct', 'NoShowAbuse', 'ReviewDispute']
+const KEYS = ['type'] as const
 
-// Очередь модератора: свободные обращения, мои в работе и апелляции, которые мне назначили на проверку
-export default function ModQueue() {
-  const { t, i18n } = useTranslation()
-  const lang = i18n.resolvedLanguage ?? 'ru'
-  const [scope, setScope] = useState<ModScope>('Queue')
+// Список обращений модератора: свободные (очередь), мои в работе или апелляции на проверке. Раздел выбирается в меню слева.
+export default function ModQueue({ scope }: { scope: ModScope }) {
+  const { t } = useTranslation()
+  const { values, set, reset } = useUrlParams(KEYS)
+  const [q, setQ] = useState('')
   const { data = [], isLoading, error } = useQuery({ queryKey: ['modCases', scope], queryFn: () => getModCases(scope) })
 
+  // Поиск и тип применяются к уже загруженным обращениям (до 50): сервер для списка модератора их не принимает
+  const needle = q.trim().toLowerCase()
+  const shown = data.filter(
+    (c) =>
+      (!values.type || c.type === values.type) &&
+      (!needle || [c.description, c.openedBy.name, c.against.name].some((x) => x.toLowerCase().includes(needle))),
+  )
+  const filtered = !!values.type || !!needle
+  const clear = () => {
+    reset()
+    setQ('')
+  }
+
   return (
-    <>
-      <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{t('moderation.title')}</h1>
-      <div className="flex flex-wrap gap-2">
-        {SCOPES.map((k) => (
-          <button key={k} className={`chip ${scope === k ? 'chip-on' : ''}`} onClick={() => setScope(k)}>
-            {t(`moderation.scope.${k}`)}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-4">
+      <FilterBar
+        search={q}
+        onSearch={setQ}
+        searchPlaceholder={t('staffUi.searchCases')}
+        filters={[
+          {
+            key: 'type',
+            label: t('admin.cases.filterType'),
+            value: values.type,
+            onChange: (v) => set('type', v),
+            options: [{ value: '', label: t('staffUi.filters.allTypes') }, ...TYPES.map((k) => ({ value: k, label: t(`cases.type.${k}`) }))],
+          },
+        ]}
+        onReset={clear}
+      />
 
       {isLoading ? (
-        <Spinner />
+        <SkeletonList label={t('common.loading')} />
       ) : error ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage(t, error)}</p>
       ) : data.length === 0 ? (
-        <div className="card text-sm text-slate-500">{t(`moderation.empty.${scope}`)}</div>
+        <EmptyState icon={scope === 'Queue' ? 'inbox' : scope === 'Mine' ? 'folder' : 'appeal'} title={t(`moderation.empty.${scope}`)} hint={t(`staffUi.mod.emptyHint.${scope}`)} />
+      ) : shown.length === 0 ? (
+        <EmptyState
+          icon="search"
+          title={t('staffUi.nothingFound')}
+          hint={t('staffUi.nothingFoundHint')}
+          action={
+            filtered && (
+              <button className="btn-secondary" onClick={clear}>
+                {t('staffUi.filters.reset')}
+              </button>
+            )
+          }
+        />
       ) : (
         <ul className="space-y-3">
-          {data.map((c) => (
+          {shown.map((c) => (
             <li key={c.id}>
-              <Link to={`/moderation/cases/${c.id}`} className="card block transition hover:bg-brand-50">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-slate-900">{t(`cases.type.${c.type}`)}</span>
-                  <CaseStatusChip status={c.status} />
-                  <CaseBadges priority={c.priority} overdue={c.isOverdue} fromCall={c.fromCall} />
-                </div>
-                <div className="mt-1 text-sm text-slate-600">{t(`cases.categories.${c.category}`)}</div>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-500">{c.description}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-                  <span>
-                    {c.openedBy.name} → {c.against.name}
-                  </span>
-                  <span>{formatDateTime(c.createdAt, lang)}</span>
-                  {c.status === 'Open' && <span>{t('moderation.dueAt', { time: formatDateTime(c.dueAt, lang) })}</span>}
-                  {c.pendingQuestions > 0 && <span className="font-semibold text-amber-700">{t('moderation.pendingAnswers', { count: c.pendingQuestions })}</span>}
-                </div>
-              </Link>
+              <CaseRow
+                to={`/moderation/cases/${c.id}`}
+                c={c}
+                footer={c.pendingQuestions > 0 && <span className="font-semibold text-amber-700">{t('moderation.pendingAnswers', { count: c.pendingQuestions })}</span>}
+              />
             </li>
           ))}
         </ul>
       )}
-    </>
+    </div>
   )
 }

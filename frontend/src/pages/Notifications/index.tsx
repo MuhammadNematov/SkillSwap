@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { markAllRead, markRead } from '../../api/notifications'
 import type { AppNotification } from '../../api/types'
-import Spinner from '../../components/Spinner'
+import { SkeletonList } from '../../components/staff/Skeleton'
 import { useNotifications } from '../../hooks/useNotifications'
 import { getMyId } from '../../api/identity'
 import { useInvalidateAll } from '../../hooks/useSessionActions'
@@ -83,7 +83,7 @@ export default function Notifications({ area = 'app' }: { area?: NotificationsAr
     }
   }
 
-  if (isLoading) return <Spinner />
+  if (isLoading) return <SkeletonList rows={3} label={t('common.loading')} />
   const unread = data.filter((n) => !n.isRead).length
 
   function open(n: AppNotification) {

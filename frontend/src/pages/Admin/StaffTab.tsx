@@ -22,7 +22,7 @@ import {
 import type { UiLanguage } from '../../api/types'
 import ConfirmAction from '../../components/ConfirmAction'
 import Select from '../../components/Select'
-import Spinner from '../../components/Spinner'
+import { SkeletonList } from '../../components/staff/Skeleton'
 import { useAuth } from '../../hooks/useAuth'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
@@ -128,7 +128,7 @@ export default function StaffTab() {
       <div className="space-y-2">
         <h3 className="font-bold text-slate-900">{t('staff.invitations')}</h3>
         {invitations.isLoading ? (
-          <Spinner />
+          <SkeletonList rows={3} label={t('common.loading')} />
         ) : invitations.isError ? (
           <p className={errorBox}>{errorMessage(t, invitations.error)}</p>
         ) : (invitations.data ?? []).length === 0 ? (
@@ -171,7 +171,7 @@ export default function StaffTab() {
           </button>
         </div>
         {moderators.isLoading ? (
-          <Spinner />
+          <SkeletonList rows={3} label={t('common.loading')} />
         ) : moderators.isError ? (
           <p className={errorBox}>{errorMessage(t, moderators.error)}</p>
         ) : (moderators.data ?? []).length === 0 ? (
@@ -207,7 +207,7 @@ export default function StaffTab() {
         <div className="space-y-2">
           <h3 className="font-bold text-slate-900">{t('staff.admins')}</h3>
           {admins.isLoading ? (
-            <Spinner />
+            <SkeletonList rows={3} label={t('common.loading')} />
           ) : admins.isError ? (
             <p className={errorBox}>{errorMessage(t, admins.error)}</p>
           ) : (admins.data ?? []).length === 0 ? (

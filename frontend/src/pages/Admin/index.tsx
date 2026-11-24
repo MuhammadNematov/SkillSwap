@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import {
   createCategory,
   createSkill,
@@ -17,10 +17,11 @@ import {
 import { errorMessage } from '../../api/errors'
 import Modal from '../../components/Modal'
 import Select from '../../components/Select'
-import Spinner from '../../components/Spinner'
-import StaffShell from '../../components/StaffShell'
+import { SkeletonList } from '../../components/staff/Skeleton'
+import StaffLayout from '../../components/staff/StaffLayout'
 import Notifications from '../Notifications'
 import AdminCaseDetail from './AdminCaseDetail'
+import AdminOverview from './Overview'
 import BansTab from './BansTab'
 import CasesTab from './CasesTab'
 import StaffTab from './StaffTab'
@@ -30,58 +31,25 @@ import { pickName } from '../../utils/localized'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
 const PAGE_SIZE = 20
-const TABS = ['cases', 'bans', 'users', 'suggestions', 'skills', 'categories', 'staff'] as const
 
-// Админ-панель: обращения, запросы на блокировку, пользователи, предложения навыков, каталог навыков и сотрудники
-function AdminHome() {
-  const { t } = useTranslation()
-  const [tab, setTab] = useState<(typeof TABS)[number]>('cases')
-
-  return (
-    <>
-      <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{t('admin.title')}</h1>
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((k) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-              tab === k ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
-            }`}
-          >
-            {t(`admin.tab_${k}`)}
-          </button>
-        ))}
-      </div>
-      {tab === 'cases' ? (
-        <CasesTab />
-      ) : tab === 'bans' ? (
-        <BansTab />
-      ) : tab === 'users' ? (
-        <UsersTab />
-      ) : tab === 'suggestions' ? (
-        <SuggestionsTab />
-      ) : tab === 'skills' ? (
-        <SkillsTab />
-      ) : tab === 'categories' ? (
-        <CategoriesTab />
-      ) : (
-        <StaffTab />
-      )}
-    </>
-  )
-}
-
+// Админ-кабинет: каждый раздел меню — свой адрес (/admin/cases, /admin/bans, …), фильтры хранятся в адресной строке
 export default function Admin() {
   return (
-    <StaffShell wide>
-      <Routes>
-        <Route index element={<AdminHome />} />
+    <Routes>
+      <Route element={<StaffLayout />}>
+        <Route index element={<AdminOverview />} />
+        <Route path="cases" element={<CasesTab />} />
         <Route path="cases/:id" element={<AdminCaseDetail />} />
+        <Route path="bans" element={<BansTab />} />
+        <Route path="users" element={<UsersTab />} />
+        <Route path="suggestions" element={<SuggestionsTab />} />
+        <Route path="skills" element={<SkillsTab />} />
+        <Route path="categories" element={<CategoriesTab />} />
+        <Route path="staff" element={<StaffTab />} />
         <Route path="notifications" element={<Notifications area="admin" />} />
-        <Route path="*" element={<AdminHome />} />
-      </Routes>
-    </StaffShell>
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Route>
+    </Routes>
   )
 }
 
@@ -95,7 +63,7 @@ function CategoriesTab() {
   const remove = useMutation({ mutationFn: deleteCategory, onSuccess: refresh })
   const toggle = useMutation({ mutationFn: (c: AdminCategory) => updateCategory({ ...c, isActive: !c.isActive }), onSuccess: refresh })
 
-  if (isLoading) return <Spinner />
+  if (isLoading) return <SkeletonList rows={3} label={t('common.loading')} />
   return (
     <section className="card space-y-3">
       <div className="flex items-center justify-between">
@@ -258,7 +226,7 @@ function SkillsTab() {
       )}
 
       {list.isLoading ? (
-        <Spinner />
+        <SkeletonList rows={3} label={t('common.loading')} />
       ) : (list.data?.items ?? []).length === 0 ? (
         <p className="text-sm text-slate-500">{t('onboarding.nothingFound')}</p>
       ) : (

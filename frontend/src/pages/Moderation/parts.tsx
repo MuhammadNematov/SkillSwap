@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CasePerson, Explanation, ModMessage, ModReview } from '../../api/cases'
+import Tag from '../../components/staff/Tag'
 import { formatDateTime } from '../../utils/dates'
 
 // Бейджи обращения для очереди и карточки (общие для модератора и админа)
@@ -8,9 +9,9 @@ export function CaseBadges({ priority, overdue, fromCall }: { priority: string; 
   const { t } = useTranslation()
   return (
     <>
-      {priority === 'High' && <span className="rounded-full bg-red-100/80 px-2.5 py-0.5 text-xs font-medium text-red-700">{t('moderation.priorityHigh')}</span>}
-      {overdue && <span className="rounded-full bg-red-100/80 px-2.5 py-0.5 text-xs font-medium text-red-700">{t('moderation.overdue')}</span>}
-      {fromCall && <span className="rounded-full bg-brand-100/80 px-2.5 py-0.5 text-xs font-medium text-brand-700">{t('cases.fromCallBadge')}</span>}
+      {priority === 'High' && <Tag tone="red">{t('moderation.priorityHigh')}</Tag>}
+      {overdue && <Tag tone="red">{t('moderation.overdue')}</Tag>}
+      {fromCall && <Tag tone="brand">{t('cases.fromCallBadge')}</Tag>}
     </>
   )
 }
@@ -33,10 +34,10 @@ export function ChatMessageRow({ m, author }: { m: ModMessage; author: string })
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
         <span className="font-semibold text-slate-800">{author}</span>
         <span>{formatDateTime(m.createdAt, lang)}</span>
-        {m.isEvidence && <span className="rounded-full bg-amber-100/80 px-2 py-0.5 font-medium text-amber-700">{t('moderation.chat.evidence')}</span>}
-        {m.deletedAt && <span className="rounded-full bg-red-100/80 px-2 py-0.5 font-medium text-red-700">{t('moderation.chat.deleted', { time: formatDateTime(m.deletedAt, lang) })}</span>}
+        {m.isEvidence && <Tag tone="amber">{t('moderation.chat.evidence')}</Tag>}
+        {m.deletedAt && <Tag tone="red">{t('moderation.chat.deleted', { time: formatDateTime(m.deletedAt, lang) })}</Tag>}
         {m.editedAt && !m.deletedAt && <span>{t('moderation.chat.edited')}</span>}
-        {m.paymentWarning && <span className="rounded-full bg-amber-100/80 px-2 py-0.5 font-medium text-amber-700">{t('moderation.chat.paymentWarning')}</span>}
+        {m.paymentWarning && <Tag tone="amber">{t('moderation.chat.paymentWarning')}</Tag>}
       </div>
       <p className={`mt-1 whitespace-pre-wrap break-words text-sm ${m.deletedAt ? 'text-slate-500' : 'text-slate-800'}`}>{body || '—'}</p>
       {m.revisions.length > 0 && (
@@ -85,7 +86,7 @@ export function ReviewSummary({ review: r }: { review: ModReview }) {
         <span>
           {t('moderation.reviewAverage')}: <b className="text-slate-900">{r.average.toFixed(1)}</b>
         </span>
-        <span className="rounded-full bg-slate-100/80 px-2.5 py-0.5 text-xs font-medium text-slate-600">{t(`reviews.status.${r.status}`)}</span>
+        <Tag tone="gray">{t(`reviews.status.${r.status}`)}</Tag>
       </div>
       <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{r.text}</p>
     </div>

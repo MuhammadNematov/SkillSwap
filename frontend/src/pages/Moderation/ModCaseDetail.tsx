@@ -17,7 +17,7 @@ import {
   type ModCase,
 } from '../../api/cases'
 import { errorMessage } from '../../api/errors'
-import Spinner from '../../components/Spinner'
+import { SkeletonList } from '../../components/staff/Skeleton'
 import { formatDateTime } from '../../utils/dates'
 import { CaseStatusChip } from '../Cases/parts'
 import ChatReader from './ChatReader'
@@ -250,7 +250,7 @@ export default function ModCaseDetail() {
   const { data: c, isLoading, error } = useQuery({ queryKey: ['modCase', id], queryFn: () => getModCase(id) })
   const take = useMutation({ mutationFn: takeCase, onSuccess: refresh })
 
-  if (isLoading) return <Spinner />
+  if (isLoading) return <SkeletonList rows={3} label={t('common.loading')} />
   if (error || !c) return <p className={errBox}>{errorMessage(t, error)}</p>
 
   const working = c.isMine && (c.status === 'InProgress' || c.status === 'WaitingResponse')
@@ -258,7 +258,7 @@ export default function ModCaseDetail() {
 
   return (
     <>
-      <Link to="/moderation" className="text-sm font-medium text-brand-600 hover:underline">
+      <Link to="/moderation/queue" className="text-sm font-medium text-brand-600 hover:underline">
         ← {t('moderation.back')}
       </Link>
 

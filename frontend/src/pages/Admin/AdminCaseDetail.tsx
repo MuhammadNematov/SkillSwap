@@ -14,7 +14,7 @@ import {
   type CaseDecision,
 } from '../../api/cases'
 import { errorMessage } from '../../api/errors'
-import Spinner from '../../components/Spinner'
+import { SkeletonList } from '../../components/staff/Skeleton'
 import { formatDateTime } from '../../utils/dates'
 import { CaseStatusChip } from '../Cases/parts'
 import { CaseBadges, ChatMessageRow, ExplanationItems, ReviewSummary, authorName } from '../Moderation/parts'
@@ -142,7 +142,7 @@ export default function AdminCaseDetail() {
     qc.invalidateQueries({ queryKey: ['adminBans'] })
   }
 
-  if (isLoading) return <Spinner />
+  if (isLoading) return <SkeletonList rows={3} label={t('common.loading')} />
   if (error || !data) return <p className={errBox}>{errorMessage(t, error)}</p>
 
   const c = data.case
@@ -153,7 +153,7 @@ export default function AdminCaseDetail() {
 
   return (
     <>
-      <Link to="/admin" className="text-sm font-medium text-brand-600 hover:underline">
+      <Link to="/admin/cases" className="text-sm font-medium text-brand-600 hover:underline">
         ← {t('admin.back')}
       </Link>
 

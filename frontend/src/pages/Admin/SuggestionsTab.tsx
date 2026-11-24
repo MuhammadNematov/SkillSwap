@@ -14,19 +14,18 @@ import {
 } from '../../api/skillSuggestions'
 import Modal from '../../components/Modal'
 import Select from '../../components/Select'
-import Spinner from '../../components/Spinner'
+import EmptyState from '../../components/staff/EmptyState'
+import FilterBar from '../../components/staff/FilterBar'
+import { SkeletonList } from '../../components/staff/Skeleton'
+import Tag, { type TagTone } from '../../components/staff/Tag'
+import { useUrlParams } from '../../hooks/useUrlParams'
 import { pickName } from '../../utils/localized'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
 const PAGE_SIZE = 20
 const STATUSES: SuggestionStatus[] = ['Pending', 'Approved', 'Merged', 'Rejected']
 
-const TONE: Record<SuggestionStatus, string> = {
-  Pending: 'bg-amber-100/80 text-amber-700',
-  Approved: 'bg-emerald-100/80 text-emerald-700',
-  Merged: 'bg-sky-100/80 text-sky-700',
-  Rejected: 'bg-slate-100/80 text-slate-600',
-}
+const TONE: Record<SuggestionStatus, TagTone> = { Pending: 'amber', Approved: 'green', Merged: 'brand', Rejected: 'gray' }
 
 type Action = { kind: 'approve' | 'merge' | 'reject'; suggestion: Suggestion; skill?: SimilarSkill }
 
@@ -180,7 +179,7 @@ function MergeModal({ s, preselected, onDone, onClose }: { s: Suggestion; presel
       {skills.isError ? (
         <p className={errorBox}>{errorMessage(t, skills.error)}</p>
       ) : options.length === 0 ? (
-        skills.isLoading ? <Spinner /> : <p className="text-sm text-slate-500">{t('onboarding.nothingFound')}</p>
+        skills.isLoading ? <SkeletonList rows={3} label={t('common.loading')} /> : <p className="text-sm text-slate-500">{t('onboarding.nothingFound')}</p>
       ) : (
         <div>
           <span className="mb-1 block text-sm font-medium text-slate-700">{t('suggestions.chooseSkill')}</span>
@@ -229,7 +228,7 @@ function SuggestionCard({ s, onAction }: { s: Suggestion; onAction: (a: Action) 
     <div className="card space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="break-words text-base font-bold text-slate-900">{s.name}</span>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE[s.status]}`}>{t(`suggestions.status_${s.status}`)}</span>
+        <Tag tone={TONE[s.status]}>{t(`suggestions.status_${s.status}`)}</Tag>
         {pending && s.sameNameCount > 1 && (
           <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">{t('suggestions.sameName', { count: s.sameNameCount - 1 })}</span>
         )}
@@ -280,13 +279,16 @@ function SuggestionCard({ s, onAction }: { s: Suggestion; onAction: (a: Action) 
   )
 }
 
+const SUGGESTION_KEYS = ['status', 'category'] as const
+
 // ───────── Предложения навыков: очередь и разобранные (docs/FRONTEND-ADMIN.md, раздел 6) ─────────
 export default function SuggestionsTab() {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? 'ru'
   const qc = useQueryClient()
-  const [status, setStatus] = useState<SuggestionStatus>('Pending')
-  const [categoryId, setCategoryId] = useState('')
+  const { values, set, reset } = useUrlParams(SUGGESTION_KEYS)
+  const status = (values.status || 'Pending') as SuggestionStatus
+  const categoryId = values.category
   const [page, setPage] = useState(1)
   const [action, setAction] = useState<Action | null>(null)
 
@@ -305,37 +307,54 @@ export default function SuggestionsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {STATUSES.map((st) => (
-          <button
-            key={st}
-            className={`chip ${status === st ? 'chip-on' : ''}`}
-            onClick={() => {
-              setStatus(st)
+      <FilterBar
+        filters={[
+          {
+            key: 'status',
+            label: t('admin.status'),
+            // «Не разобраны» — состояние по умолчанию, как выбранный фильтр не показывается
+            value: status === 'Pending' ? '' : status,
+            onChange: (v) => {
+              set('status', v)
               setPage(1)
-            }}
-          >
-            {t(`suggestions.tab_${st}`)}
-          </button>
-        ))}
-        <Select
-          className="ml-auto w-52"
-          value={categoryId}
-          ariaLabel={t('onboarding.category')}
-          onChange={(v) => {
-            setCategoryId(v)
-            setPage(1)
-          }}
-          options={[{ value: '', label: t('onboarding.allCategories') }, ...(cats.data ?? []).map((c) => ({ value: c.id, label: pickName({ tg: c.nameTg, ru: c.nameRu, en: c.nameEn }, lang) }))]}
-        />
-      </div>
+            },
+            options: STATUSES.map((st) => ({ value: st === 'Pending' ? '' : st, label: t(`suggestions.tab_${st}`) })),
+          },
+          {
+            key: 'category',
+            label: t('onboarding.category'),
+            value: categoryId,
+            className: 'w-52',
+            onChange: (v) => {
+              set('category', v)
+              setPage(1)
+            },
+            options: [{ value: '', label: t('onboarding.allCategories') }, ...(cats.data ?? []).map((c) => ({ value: c.id, label: pickName({ tg: c.nameTg, ru: c.nameRu, en: c.nameEn }, lang) }))],
+          },
+        ]}
+        onReset={() => {
+          reset()
+          setPage(1)
+        }}
+      />
 
       {list.isLoading ? (
-        <Spinner />
+        <SkeletonList rows={3} label={t('common.loading')} />
       ) : list.isError ? (
         <p className={errorBox}>{errorMessage(t, list.error)}</p>
       ) : (list.data?.items ?? []).length === 0 ? (
-        <div className="card text-sm text-slate-500">{t('suggestions.empty')}</div>
+        <EmptyState
+          icon="lightbulb"
+          title={status === 'Pending' && !categoryId ? t('suggestions.emptyPending') : t('suggestions.empty')}
+          hint={t('staffUi.admin.suggestionsEmptyHint')}
+          action={
+            (status !== 'Pending' || categoryId) && (
+              <button className="btn-secondary" onClick={reset}>
+                {t('staffUi.filters.reset')}
+              </button>
+            )
+          }
+        />
       ) : (
         <div className="space-y-3">
           {list.data!.items.map((s) => (

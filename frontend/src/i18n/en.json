@@ -1814,7 +1814,8 @@
     "rejectHint": "The suggestion “{{name}}” will be rejected. The author can suggest the same name again.",
     "rejectReason": "Reason (optional, the author will see it)",
     "submitReject": "Reject",
-    "searchSkill": "Search a skill in the category"
+    "searchSkill": "Search a skill in the category",
+    "emptyPending": "No new suggestions"
   },
   "languagePicker": {
     "none": "No languages selected yet",
@@ -1825,5 +1826,72 @@
     "popular": "Popular",
     "search": "Find a language…",
     "noResults": "No such language in the list"
+  },
+  "staffUi": {
+    "nav": {
+      "overview": "Overview",
+      "queue": "Queue",
+      "mine": "My cases",
+      "modAppeals": "Appeals",
+      "notifications": "Notifications",
+      "cases": "Cases",
+      "bans": "Bans",
+      "users": "Users",
+      "suggestions": "Skill suggestions",
+      "skills": "Skills",
+      "categories": "Categories",
+      "staff": "Staff"
+    },
+    "role": {
+      "SuperAdmin": "Super admin",
+      "Admin": "Admin",
+      "Moderator": "Moderator",
+      "User": "User"
+    },
+    "newWork": "New: {{count}}",
+    "dueAt": "Take before {{time}}",
+    "searchCases": "Search by text and names",
+    "searchBans": "Search by name and reason",
+    "nothingFound": "Nothing found",
+    "nothingFoundHint": "Change the search or reset the filters.",
+    "filters": {
+      "active": "Active filters",
+      "remove": "Remove filter: {{name}}",
+      "reset": "Reset",
+      "allTypes": "All types",
+      "allStatuses": "All statuses"
+    },
+    "admin": {
+      "intro": "What needs your attention. Click a card to open the section with the right filter already set.",
+      "cases": "Cases awaiting a decision",
+      "casesHint": "New, nobody has taken them yet",
+      "bans": "Ban requests",
+      "bansHint": "Waiting for your decision",
+      "suggestions": "Skill suggestions",
+      "suggestionsHint": "Not reviewed yet",
+      "appeals": "Appeals",
+      "appealsHint": "Waiting for a reviewer to be assigned",
+      "blocked": "Active bans",
+      "blockedHint": "Blocked accounts",
+      "casesEmptyHint": "When users file cases, they will show up here.",
+      "bansEmptyHint": "Requests come from moderators and after three warnings.",
+      "suggestionsEmptyHint": "Suggestions come from users who cannot find a skill in the catalog."
+    },
+    "mod": {
+      "intro": "Your work for today. Click a card to open the list.",
+      "queue": "Free in the queue",
+      "queueHint": "Available to take",
+      "mine": "My cases in progress",
+      "mineHint": "Taken by you, not closed",
+      "appeals": "Appeals to review",
+      "appealsHint": "Assigned to you",
+      "takeNext": "Take next",
+      "queueEmpty": "No free cases",
+      "emptyHint": {
+        "Queue": "New cases will appear here, urgent ones first.",
+        "Mine": "Take a case from the queue and it will appear here.",
+        "Appeals": "Appeals the admin assigns to you for a second review will appear here."
+      }
+    }
   }
 }
