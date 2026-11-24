@@ -98,7 +98,7 @@ export default function AppHome() {
           <h2 className="text-lg font-bold text-slate-900">{t('dashboard.nextLesson')}</h2>
           {lesson ? (
             <div className="mt-4 flex items-center gap-4">
-              <Avatar name={lesson.partnerName} className="h-14 w-14" />
+              <Avatar name={lesson.partnerName} src={lesson.partnerAvatarUrl} className="h-14 w-14" />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold text-slate-900">{lesson.title}</div>
                 <div className="mt-1 flex items-center gap-1.5 text-sm text-brand-600">
@@ -142,7 +142,7 @@ export default function AppHome() {
           <ul className="mt-4 divide-y divide-ink-line">
             {data.recommended.map((p) => (
               <li key={p.id} className="flex items-center gap-3 py-3">
-                <Avatar name={p.name} />
+                <Avatar name={p.name} src={p.avatarUrl} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold text-slate-900">{p.name}</div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500">

@@ -68,7 +68,7 @@ export default function Exchanges() {
     return (
       <article key={r.id} className="card">
         <div className="flex items-start gap-3">
-          <Avatar name={r.partner.name} className="h-12 w-12" />
+          <Avatar name={r.partner.name} src={r.partner.avatarUrl} className="h-12 w-12" />
           <div className="min-w-0 flex-1">
             <Link to={`/app/users/${r.partner.id}`} className="font-bold text-slate-900 hover:text-brand-700">
               {r.partner.name}
@@ -145,7 +145,7 @@ export default function Exchanges() {
             return (
               <Link key={e.id} to={`/app/exchanges/${e.id}`} className="card block transition hover:bg-surface">
                 <div className="flex items-center gap-3">
-                  <Avatar name={e.partner.name} className="h-12 w-12" />
+                  <Avatar name={e.partner.name} src={e.partner.avatarUrl} className="h-12 w-12" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-bold text-slate-900">{e.partner.name}</div>
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${EXCHANGE_TONE[e.status]}`}>

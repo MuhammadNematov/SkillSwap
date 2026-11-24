@@ -62,7 +62,7 @@ export default function ExchangeDetail() {
 
       <section className="card overflow-hidden p-0">
         <div className="flex flex-wrap items-center gap-4 p-5">
-          <Avatar name={exchange.partner.name} className="h-16 w-16" />
+          <Avatar name={exchange.partner.name} src={exchange.partner.avatarUrl} className="h-16 w-16" />
           <div className="min-w-0 flex-1">
             <Link to={`/app/users/${exchange.partner.id}`} className="text-2xl font-extrabold text-slate-900 hover:text-brand-700">
               {exchange.partner.name}

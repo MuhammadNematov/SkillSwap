@@ -57,7 +57,7 @@ export default function Reviews() {
         ) : (
           toWrite.map(({ exchange, state }) => (
             <div key={exchange.id} className="card flex items-center gap-3">
-              <Avatar name={exchange.partner.name} className="h-11 w-11" />
+              <Avatar name={exchange.partner.name} src={exchange.partner.avatarUrl} className="h-11 w-11" />
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">{exchange.partner.name}</div>
                 {state.deadlineAt && <div className="text-xs text-slate-400">{t('reviews.deadline', { date: formatDateTime(state.deadlineAt, lang) })}</div>}
@@ -79,7 +79,7 @@ export default function Reviews() {
             return (
               <article key={exchange.id} className="card space-y-3">
                 <div className="flex items-center gap-3">
-                  <Avatar name={exchange.partner.name} className="h-10 w-10" />
+                  <Avatar name={exchange.partner.name} src={exchange.partner.avatarUrl} className="h-10 w-10" />
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold text-slate-900">{exchange.partner.name}</div>
                     <div className="text-xs text-slate-400">

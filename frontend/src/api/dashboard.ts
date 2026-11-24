@@ -13,6 +13,7 @@ export interface DashboardLesson {
   title: string
   startsAt: string // UTC, ISO 8601
   partnerName: string
+  partnerAvatarUrl?: string | null
 }
 
 export interface RecommendedPartner {
@@ -21,6 +22,7 @@ export interface RecommendedPartner {
   skills: string[]
   rating: number
   online: boolean
+  avatarUrl?: string | null
 }
 
 export type ActionType = 'AnswerRequest' | 'AnswerSession' | 'ConfirmSession' | 'FinishExchange' | 'AnswerExtension' | 'WriteReview'
@@ -49,7 +51,7 @@ interface DashboardDto {
     exchangeId: string
     startAt: string
     topic: string | null
-    partner: { name: string }
+    partner: { name: string; avatarUrl?: string | null }
   } | null
   counters: { activeExchanges: number; unreadMessages: number }
   rating: { average: number | null }
@@ -77,13 +79,14 @@ export async function getDashboard(): Promise<DashboardData> {
       rating: dto.rating.average,
       unreadMessages: dto.counters.unreadMessages,
       actions: dto.actionsNeeded,
-      nextLesson: n ? { id: n.id, title: n.topic ?? n.partner.name, startsAt: n.startAt, partnerName: n.partner.name } : null,
+      nextLesson: n ? { id: n.id, title: n.topic ?? n.partner.name, startsAt: n.startAt, partnerName: n.partner.name, partnerAvatarUrl: n.partner.avatarUrl } : null,
       recommended: matches.slice(0, 3).map((m) => ({
         id: m.user.id,
         name: m.user.name,
         skills: m.teaches.map((x) => x.name),
         rating: m.user.ratingAvg ?? 0,
         online: false,
+        avatarUrl: m.user.avatarUrl,
       })),
     }
   }
