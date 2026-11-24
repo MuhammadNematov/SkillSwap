@@ -1,4 +1,4 @@
-import { api, setAccessToken } from './client'
+import { api, refreshAuth, setAccessToken } from './client'
 import { USE_MOCKS } from './config'
 import { toApiError } from './errors'
 import {
@@ -103,8 +103,8 @@ export async function register(req: RegisterRequest): Promise<void> {
 // На заглушках сеанса после перезагрузки нет (как будто cookie не было).
 export async function refreshSession(): Promise<AuthSession | null> {
   if (USE_MOCKS) return null
-  const { data } = await api.post<AuthResponse>('/auth/refresh')
-  return toSession(data)
+  // Общий обновитель (single-flight, пауза при 429, блокировка между вкладками): api/refreshCoordinator.ts
+  return toSession(await refreshAuth())
 }
 
 export async function logoutRequest(): Promise<void> {
