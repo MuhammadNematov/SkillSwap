@@ -21,15 +21,29 @@ export class ApiError extends Error {
   }
 }
 
+// Ответ без поля `code` (его не отдал наш бэкенд): определяем причину по статусу.
+// Если вместо JSON пришла страница (например, HTML от dev-сервера Vite без прокси, 404/502), API не отвечает.
+function codeWithoutBody(status: number, data: unknown, contentType: string): string {
+  if (status === 429) return 'rate_limited'
+  const isJson = contentType.includes('json') && typeof data === 'object' && data !== null
+  if (!isJson && (status === 404 || status === 502 || status === 503 || status === 504)) return 'api_unreachable'
+  if (isJson && 'errors' in (data as object) && status === 400) return 'validation_failed' // ошибка разбора запроса от ASP.NET
+  if (status === 502 || status === 503 || status === 504) return 'service_unavailable'
+  if (status >= 500) return 'internal_error'
+  const byStatus: Record<number, string> = { 400: 'bad_request', 401: 'unauthorized', 403: 'forbidden', 404: 'NOT_FOUND', 409: 'conflict', 413: 'payload_too_large' }
+  return byStatus[status] ?? 'UNKNOWN'
+}
+
 export function toApiError(e: unknown): ApiError {
   if (e instanceof ApiError) return e
   if (axios.isAxiosError(e)) {
     const data = (e.response?.data ?? {}) as Record<string, unknown>
     const status = e.response?.status
+    const contentType = String(e.response?.headers?.['content-type'] ?? '')
     const code =
       (typeof data.code === 'string' && data.code) ||
-      (status === 429 ? 'rate_limited' : e.response ? 'UNKNOWN' : 'NETWORK_ERROR')
-    return new ApiError(code, status ?? 0, data)
+      (e.response ? codeWithoutBody(status ?? 0, e.response.data, contentType) : 'NETWORK_ERROR')
+    return new ApiError(code, status ?? 0, typeof e.response?.data === 'object' && e.response?.data !== null ? data : {})
   }
   return new ApiError('UNKNOWN', 0)
 }
