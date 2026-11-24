@@ -1040,7 +1040,8 @@
       "invalid_name": "Invalid name",
       "out_of_range": "The value is out of the allowed range",
       "synonym_too_long": "A synonym is too long (up to 60 characters)",
-      "too_many_synonyms": "Too many synonyms (up to 20)"
+      "too_many_synonyms": "Too many synonyms (up to 20)",
+      "date_too_early": "Enter a real date of birth (year 1900 or later)"
     },
     "pageCrashed": "The page failed to load",
     "pageCrashedHint": "Something went wrong while showing the page. Reload it or go back.",
