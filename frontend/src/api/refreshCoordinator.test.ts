@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createRefreshCoordinator, RefreshFatalError, type ChannelLike, type LockManagerLike, type RefreshFailure } from './refreshCoordinator.ts'
+import { classifyFailure, createRefreshCoordinator, RefreshFatalError, retryTransient, type ChannelLike, type LockManagerLike, type RefreshFailure } from './refreshCoordinator.ts'
 
 class HttpError extends Error {
   status?: number
@@ -214,4 +214,44 @@ test('без Web Locks и BroadcastChannel работает в пределах 
   let calls = 0
   const c = createRefreshCoordinator({ request: async () => ++calls, classify, locks: null, channel: null })
   assert.equal(await c.refresh(), 1)
+})
+
+test('retryTransient: 429 и 5xx повторяются, 401 и 404 возвращаются сразу', async () => {
+  const { waits, sleep } = noSleep()
+  let calls = 0
+  assert.equal(
+    await retryTransient(
+      async () => {
+        if (++calls === 1) throw new HttpError(429, 2000)
+        if (calls === 2) throw new HttpError(502)
+        return 'me'
+      },
+      classify,
+      sleep,
+    ),
+    'me',
+  )
+  assert.deepEqual(waits, [2000, 2000])
+  for (const status of [401, 404]) {
+    let n = 0
+    await assert.rejects(
+      retryTransient(
+        async () => {
+          n++
+          throw new HttpError(status)
+        },
+        classify,
+        sleep,
+      ),
+    )
+    assert.equal(n, 1)
+  }
+})
+
+test('classifyFailure: статус и пауза из ответа axios (заголовок) и из ApiError (retryAfterSeconds), 0 = сеть', () => {
+  assert.deepEqual(classifyFailure({ response: { status: 429, headers: { 'retry-after': '26' } } }), { status: 429, retryAfterMs: 26_000 })
+  assert.deepEqual(classifyFailure({ status: 429, data: { retryAfterSeconds: 11 } }), { status: 429, retryAfterMs: 11_000 })
+  assert.deepEqual(classifyFailure({ status: 0, data: {} }), { status: undefined, retryAfterMs: undefined })
+  assert.deepEqual(classifyFailure(new Error('x')), { status: undefined, retryAfterMs: undefined })
+  assert.deepEqual(classifyFailure({ response: { status: 401, headers: {} } }), { status: 401, retryAfterMs: undefined })
 })

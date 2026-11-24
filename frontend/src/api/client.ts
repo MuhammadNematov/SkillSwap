@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import i18n from '../i18n'
 import { API_URL } from './config'
-import { createRefreshCoordinator, RefreshFatalError, type ChannelLike, type LockManagerLike } from './refreshCoordinator'
+import { classifyFailure, createRefreshCoordinator, RefreshFatalError, type ChannelLike, type LockManagerLike } from './refreshCoordinator'
 
 // Access-токен хранится только в памяти (ТЗ, раздел 10.1), не в localStorage.
 let accessToken: string | null = null
@@ -42,17 +42,13 @@ export interface RefreshedSession {
 
 const refreshCoordinator = createRefreshCoordinator<RefreshedSession>({
   request: async () => (await api.post<RefreshedSession>('/auth/refresh')).data,
-  classify: (error) => {
-    const response = (error as AxiosError).response
-    const retryAfter = Number(response?.headers?.['retry-after'])
-    return { status: response?.status, retryAfterMs: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : undefined }
-  },
+  classify: classifyFailure,
   locks: typeof navigator !== 'undefined' && 'locks' in navigator ? (navigator.locks as unknown as LockManagerLike) : null,
   channel: typeof BroadcastChannel !== 'undefined' ? (new BroadcastChannel('skillswap-auth') as unknown as ChannelLike) : null,
 })
 
 export const refreshAuth = () => refreshCoordinator.refresh()
-export { RefreshFatalError }
+export { classifyFailure, RefreshFatalError }
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean }
 

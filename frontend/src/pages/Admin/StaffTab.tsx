@@ -101,7 +101,7 @@ export default function StaffTab() {
           if (email.trim()) setAction({ kind: 'invite' })
         }}
       >
-        <input className="input max-w-xs flex-1" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className="input min-w-0 flex-1 basis-48 sm:max-w-xs" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         {isSuper && (
           <Select
             className="w-44"
@@ -137,7 +137,7 @@ export default function StaffTab() {
           <ul className="space-y-2">
             {invitations.data!.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-56 break-words">
                   <div className="break-all text-sm font-semibold text-slate-900">{i.email}</div>
                   <div className="text-xs text-slate-400">
                     {t(`staff.role_${i.targetRole}`)} · {t(`staff.inv_${i.status}`)} · {t('staff.invitedBy', { name: i.invitedBy.name })} · {t('staff.until', { date: dt(i.expiresAt) })}
@@ -180,7 +180,7 @@ export default function StaffTab() {
           <ul className="space-y-2">
             {moderators.data!.map((m) => (
               <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-56 break-words">
                   <div className="text-sm font-semibold text-slate-900">{m.name}</div>
                   <div className="text-xs text-slate-400">
                     {m.email ?? '—'}
@@ -216,7 +216,7 @@ export default function StaffTab() {
             <ul className="space-y-2">
               {admins.data!.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-56 break-words">
                     <div className="text-sm font-semibold text-slate-900">{a.name}</div>
                     <div className="text-xs text-slate-400">
                       {a.email ?? '—'}

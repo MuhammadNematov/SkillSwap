@@ -1,4 +1,5 @@
-import { api, refreshAuth, setAccessToken } from './client'
+import { api, classifyFailure, refreshAuth, setAccessToken } from './client'
+import { retryTransient } from './refreshCoordinator'
 import { USE_MOCKS } from './config'
 import { toApiError } from './errors'
 import {
@@ -62,7 +63,8 @@ interface LoginResponse {
 // Сразу сохраняем токен, чтобы запросить полный профиль (GET /me)
 export async function toSession(auth: AuthResponse): Promise<AuthSession> {
   setAccessToken(auth.accessToken)
-  const me = await getMe()
+  // Профиль сразу после входа или обновления токена: временный отказ (429, сбой сети) переживаем повтором, иначе сеанс считался бы потерянным
+  const me = await retryTransient(getMe, classifyFailure)
   return { accessToken: auth.accessToken, user: toCurrentUser(me) }
 }
 

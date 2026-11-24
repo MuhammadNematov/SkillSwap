@@ -24,6 +24,16 @@ export interface RefreshFailure {
   retryAfterMs?: number // из заголовка Retry-After
 }
 
+// Статус и пауза из ошибки: и из ответа axios (заголовок Retry-After), и из ApiError (поле retryAfterSeconds тела 429). Статус 0 = ответа не было (сеть).
+export function classifyFailure(error: unknown): RefreshFailure {
+  const response = (error as { response?: { status?: number; headers?: Record<string, unknown> } }).response
+  const body = (error as { data?: { retryAfterSeconds?: unknown } }).data
+  const header = Number(response?.headers?.['retry-after'])
+  const seconds = Number.isFinite(header) && header > 0 ? header : typeof body?.retryAfterSeconds === 'number' ? body.retryAfterSeconds : undefined
+  const status = response?.status ?? (error as { status?: number }).status
+  return { status: status || undefined, retryAfterMs: seconds !== undefined ? seconds * 1000 : undefined }
+}
+
 export interface LockManagerLike {
   request<R>(name: string, callback: () => Promise<R>): Promise<R>
 }
@@ -47,8 +57,26 @@ const MAX_RETRIES = 4 // после первой попытки; без Retry-Af
 const MAX_WAIT_MS = 65_000 // лимит refresh на сервере: окно 60 с, дольше ждать незачем
 const REUSE_MS = 10_000
 
+// Повтор «временных» отказов: 429 (пауза Retry-After или 1, 2, 4, 8 с), сетевой сбой, 5xx. Ответ 401/403 и любая другая ошибка клиента
+// (4xx) возвращаются сразу. Нужен и самому обновлению токена, и запросу профиля сразу после него (GET /me тоже может получить 429).
+export async function retryTransient<T>(fn: () => Promise<T>, classify: (error: unknown) => RefreshFailure, sleep: (ms: number) => Promise<void> = defaultSleep): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn()
+    } catch (error) {
+      const failure = classify(error)
+      const transient = failure.status === undefined || failure.status === 429 || failure.status >= 500
+      if (!transient || i >= MAX_RETRIES) throw error
+      const wait = failure.retryAfterMs !== undefined ? Math.min(Math.max(failure.retryAfterMs, 1000), MAX_WAIT_MS) : 1000 * 2 ** i
+      await sleep(wait)
+    }
+  }
+}
+
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
 export function createRefreshCoordinator<T>(deps: RefreshDeps<T>) {
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+  const sleep = deps.sleep ?? defaultSleep
   const now = deps.now ?? Date.now
   let inflight: Promise<T> | null = null
   let fromOtherTab: { value: T; at: number } | null = null // результат соседней вкладки; свой не переиспользуется
@@ -61,16 +89,12 @@ export function createRefreshCoordinator<T>(deps: RefreshDeps<T>) {
   }
 
   async function attempt(): Promise<T> {
-    for (let i = 0; ; i++) {
-      try {
-        return await deps.request()
-      } catch (error) {
-        const failure = deps.classify(error)
-        if (failure.status === 401 || failure.status === 403) throw new RefreshFatalError(failure.status)
-        if (i >= MAX_RETRIES) throw error
-        const wait = failure.retryAfterMs !== undefined ? Math.min(Math.max(failure.retryAfterMs, 1000), MAX_WAIT_MS) : 1000 * 2 ** i
-        await sleep(wait)
-      }
+    try {
+      return await retryTransient(deps.request, deps.classify, sleep)
+    } catch (error) {
+      const status = deps.classify(error).status
+      if (status === 401 || status === 403) throw new RefreshFatalError(status)
+      throw error
     }
   }
 

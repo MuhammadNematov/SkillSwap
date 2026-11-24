@@ -130,7 +130,7 @@ export default function StaffLayout() {
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-ink-line bg-brand-50/90 px-4 py-3 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-ink-line bg-brand-50/95 px-4 py-3 backdrop-blur sm:px-8">
           <button className="rounded-lg p-2 text-ink-soft hover:bg-brand-100 lg:hidden" aria-label={t('shell.menu')} onClick={() => setMenuOpen(true)}>
             <Icon name="menu" />
           </button>
