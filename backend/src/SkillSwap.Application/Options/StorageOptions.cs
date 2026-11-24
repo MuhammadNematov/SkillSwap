@@ -18,6 +18,14 @@ public sealed class StorageOptions
     /// </summary>
     public string? PublicEndpoint { get; set; }
 
+    /// <summary>
+    /// Отдавать браузеру ссылки на файлы <b>относительными</b> (<c>/skillswap/avatars/…?X-Amz-…</c>): без адреса хранилища, он берётся от адреса сайта.
+    /// Подпись считается для <see cref="Endpoint"/>, поэтому обратный прокси (в разработке Vite, на сервере nginx) должен пересылать запросы на хранилище
+    /// с заголовком Host, равным адресу <see cref="Endpoint"/>. Так ссылки работают с любого адреса сайта (localhost, адрес в сети), и менять настройки при смене IP не нужно.
+    /// Нельзя вместе с <see cref="PublicEndpoint"/>.
+    /// </summary>
+    public bool RelativeUrls { get; set; }
+
     public string? AccessKey { get; set; }
     public string? SecretKey { get; set; }
     public string Bucket { get; set; } = "skillswap";

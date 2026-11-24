@@ -79,6 +79,28 @@ public class StorageStartupCheckTests
         Assert.Throws<InvalidOperationException>(() => StorageStartupCheck.Validate(options, isDevelopmentLike: false, "Production"));
     }
 
+    [Fact]
+    public void Relative_urls_alone_are_accepted()
+    {
+        var options = Valid();
+        options.RelativeUrls = true;
+
+        StorageStartupCheck.Validate(options, isDevelopmentLike: false, "Production");
+    }
+
+    [Fact]
+    public void Relative_urls_together_with_a_public_endpoint_are_refused()
+    {
+        var options = Valid();
+        options.RelativeUrls = true;
+        options.PublicEndpoint = "https://files.example.com";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => StorageStartupCheck.Validate(options, isDevelopmentLike: true, "Development"));
+
+        Assert.Contains("Storage:RelativeUrls", ex.Message);
+        Assert.Contains("Storage:PublicEndpoint", ex.Message);
+    }
+
     [Theory]
     [InlineData(null, "secret")]
     [InlineData("key", null)]

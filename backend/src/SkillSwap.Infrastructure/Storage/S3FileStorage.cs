@@ -23,7 +23,8 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
     public S3FileStorage(IOptions<StorageOptions> options)
     {
         _options = options.Value;
-        _publicEndpoint = string.IsNullOrWhiteSpace(_options.PublicEndpoint) ? _options.Endpoint! : _options.PublicEndpoint;
+        // Относительные ссылки подписываются для внутреннего адреса (его Host пришлёт прокси), поэтому публичный адрес в этом режиме совпадает с ним.
+        _publicEndpoint = _options.RelativeUrls || string.IsNullOrWhiteSpace(_options.PublicEndpoint) ? _options.Endpoint! : _options.PublicEndpoint;
         _client = Create(_options, _options.Endpoint!);
         _publicClient = Create(_options, _publicEndpoint);
     }
@@ -116,11 +117,14 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
                 ContentType = contentType,
             },
         };
-        return _publicClient.GetPreSignedURL(request);
+        return Publish(_publicClient.GetPreSignedURL(request));
     }
 
+    /// <summary>В режиме <c>Storage:RelativeUrls</c> оставляет путь и параметры подписи (адрес сайта браузер подставит сам).</summary>
+    private string Publish(string signedUrl) => _options.RelativeUrls ? new Uri(signedUrl).PathAndQuery : signedUrl;
+
     public string CreateViewUrl(string key, string contentType, TimeSpan lifetime) =>
-        _publicClient.GetPreSignedURL(new GetPreSignedUrlRequest
+        Publish(_publicClient.GetPreSignedURL(new GetPreSignedUrlRequest
         {
             BucketName = _options.Bucket,
             Key = key,
@@ -128,7 +132,7 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
             Protocol = _publicEndpoint.StartsWith("https", StringComparison.OrdinalIgnoreCase) ? Protocol.HTTPS : Protocol.HTTP,
             Expires = DateTime.UtcNow + lifetime - TimeSpan.FromSeconds(1),
             ResponseHeaderOverrides = new ResponseHeaderOverrides { ContentDisposition = "inline", ContentType = contentType },
-        });
+        }));
 
     /// <summary><c>attachment; filename="…"; filename*=UTF-8''…</c>: имя с кириллицей и пробелами доходит без искажений.</summary>
     internal static string ContentDispositionFor(string fileName)

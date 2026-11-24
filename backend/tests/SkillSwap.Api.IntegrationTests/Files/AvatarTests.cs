@@ -228,6 +228,25 @@ public class AvatarTests
         Assert.StartsWith("https://files.skillswap.test/", profile.GetProperty("avatarUrl").GetString());
     }
 
+    [Fact]
+    public async Task With_relative_urls_the_avatar_link_has_no_address_and_is_signed_for_the_internal_host()
+    {
+        var person = await PersonAsync();
+        await PutAvatarAsync(person, TestFiles.Png());
+        using var copy = _factory.WithSettings("Testing", ("Storage:RelativeUrls", "true"));
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", person.Token);
+        var profile = await JsonAsync(await copy.CreateClient().SendAsync(request));
+
+        var url = profile.GetProperty("avatarUrl").GetString()!;
+        Assert.StartsWith("/", url);                                   // ни схемы, ни хоста: адрес возьмёт браузер от страницы
+        Assert.DoesNotContain("://", url);
+        Assert.Contains("/avatars/", url);
+        Assert.Contains("X-Amz-Signature=", url);
+        Assert.Contains("X-Amz-SignedHeaders=host", url);              // подписан заголовок Host: его выставит прокси сайта
+    }
+
     // ---------- кто видит аватар ----------
 
     private async Task<(MatchTestWorld World, MatchPerson A, MatchPerson B)> PairWithAvatarsAsync()

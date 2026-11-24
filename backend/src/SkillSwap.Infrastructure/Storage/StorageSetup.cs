@@ -54,6 +54,13 @@ public sealed class StorageStartupCheck : IHostedService
             throw new InvalidOperationException("Storage:PublicEndpoint должен быть абсолютным адресом http(s).");
         }
 
+        if (options.RelativeUrls && !string.IsNullOrWhiteSpace(options.PublicEndpoint))
+        {
+            throw new InvalidOperationException(
+                "Заданы и Storage:RelativeUrls, и Storage:PublicEndpoint: это два разных способа отдавать ссылки на файлы. Оставьте один " +
+                "(относительные ссылки через прокси сайта или абсолютный публичный адрес хранилища).");
+        }
+
         if (string.IsNullOrWhiteSpace(options.AccessKey) || string.IsNullOrWhiteSpace(options.SecretKey))
         {
             throw new InvalidOperationException("Не заданы Storage:AccessKey и Storage:SecretKey (только в переменных окружения или user-secrets).");

@@ -464,7 +464,7 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 2. `docker compose up -d garage`, затем `./scripts/init-storage.ps1` (или `init-storage.sh`): раскладка, ключ, бакет. Скрипт можно запускать повторно, в конце он печатает 4 команды `dotnet user-secrets set "Storage:…"`.
 3. Запустите API. При старте он сам проверяет бакет и разрешает браузеру фронтенда читать файлы (CORS: только `Frontend:BaseUrl`, только GET и HEAD).
 
-Настройки (`Storage__…`): `Endpoint`, `PublicEndpoint` (если браузер видит хранилище по другому адресу, чем приложение; подписанные ссылки строятся на него), `AccessKey`, `SecretKey`, `Bucket`, `Region` (у Garage `garage`), `ForcePathStyle` (true), `TimeoutSeconds` (30: сколько ждать ответ хранилища) и `MaxRetries` (2: повторы SDK при сбоях; в тестах «хранилище недоступно» 2 с и 0). Неверные значения (таймаут < 1, повторы < 0) — отказ при старте. **Вне Development и Testing без хранилища приложение не запустится**; в Development без него загрузки отвечают 503 `storage_not_configured`. Переход на облачное S3 — только смена этих настроек. Если хранилище недоступно: 503 `storage_unavailable`.
+Настройки (`Storage__…`): `Endpoint`, `PublicEndpoint` (если браузер видит хранилище по другому адресу, чем приложение; подписанные ссылки строятся на него), `RelativeUrls` (ссылки на файлы без адреса, `/skillswap/…?X-Amz-…`: браузер берёт адрес от страницы, а прокси сайта пересылает запрос в хранилище с заголовком Host от `Endpoint`; работает с любого адреса сайта без перенастройки, вместе с `PublicEndpoint` нельзя), `AccessKey`, `SecretKey`, `Bucket`, `Region` (у Garage `garage`), `ForcePathStyle` (true), `TimeoutSeconds` (30: сколько ждать ответ хранилища) и `MaxRetries` (2: повторы SDK при сбоях; в тестах «хранилище недоступно» 2 с и 0). Неверные значения (таймаут < 1, повторы < 0) — отказ при старте. **Вне Development и Testing без хранилища приложение не запустится**; в Development без него загрузки отвечают 503 `storage_not_configured`. Переход на облачное S3 — только смена этих настроек. Если хранилище недоступно: 503 `storage_unavailable`.
 
 ### Файлы и голосовые в чате (тег **Chat**)
 `POST /exchanges/{id}/attachments` — multipart/form-data: поле `file` и, для голосового, `durationSeconds`. В ответ 201 и **сообщение** (тот же объект, что в истории и в событии `message`) с типом `File` или `Voice` и полем `attachment`: `id`, `kind` (`File`, `Image`, `Voice`), `fileName`, `contentType`, `sizeBytes`, `durationSeconds`. Собеседник получает его по хабу как обычное сообщение; оно же попадает в `unreadMessages` и в уведомление `NewMessages`.
@@ -705,12 +705,14 @@ WebSocket) и файлы хранилища (`/skillswap/…` → `localhost:390
 4. **Бэкенд** (user-secrets, только Development):
    ```
    dotnet user-secrets set "Frontend:BaseUrl" "https://192.168.0.63:5173"        # ссылки в письмах, CORS
-   dotnet user-secrets set "Storage:PublicEndpoint" "https://192.168.0.63:5173"  # подписанные ссылки на файлы
+   dotnet user-secrets set "Storage:RelativeUrls" "true"                         # ссылки на файлы без адреса: работают с любого адреса сайта
    dotnet user-secrets set "LiveKit:Url" "wss://192.168.0.63:5173/livekit"       # адрес, который получает браузер
    dotnet user-secrets set "LiveKit:ApiUrl" "http://localhost:7880"              # сам бэкенд ходит в LiveKit напрямую
    ```
    `LiveKit:ApiUrl` обязателен: иначе бэкенд вызывал бы API LiveKit по `LiveKit:Url` и упёрся бы в самоподписанный сертификат.
-   Подписанные ссылки хранилища считаются для адреса браузера, поэтому прокси Vite не меняет у них `Host`.
+   Ссылки на файлы (аватары, вложения, голосовые) бэкенд отдаёт **относительными** (`Storage:RelativeUrls`) и подписывает для `Storage:Endpoint` (`localhost:3900`),
+   а прокси Vite (`/skillswap/` → `localhost:3900`, `changeOrigin: true`) выставляет запросу этот же Host. Поэтому аватары работают и на `https://localhost:5173`, и по адресу
+   в сети, а смена IP их не ломает (раньше ссылка содержала IP из `Storage:PublicEndpoint` и после смены сети переставала открываться). `Storage:PublicEndpoint` для этого больше не нужен.
 5. **LiveKit:** `node_ip: 192.168.0.63` в `backend/livekit.yaml`, затем `docker compose restart livekit`. **Не коммитить**,
    вернуть: `git checkout backend/livekit.yaml`.
 6. **Файрвол macOS** (если включён): входящие для `node` (TCP 5173) и Docker (UDP 7882, TCP 7881).
