@@ -3,7 +3,8 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Если VITE_API_URL относительный (/api/v1), dev-сервер проксирует /api и SignalR-хабы (/hubs, WebSocket)
-// на бэкенд. Адрес бэкенда: VITE_PROXY_TARGET в .env (по умолчанию http://localhost:5023).
+// на бэкенд. Во всех прокси xfwd: true: Vite добавляет X-Forwarded-For (адрес браузера) и X-Forwarded-Proto, а бэкенд в Development доверяет
+// прокси на loopback и показывает в сеансах настоящий адрес клиента, а не ::1 (docs/BACKEND-DEV.md, «Адрес клиента за прокси»). Адрес бэкенда: VITE_PROXY_TARGET в .env (по умолчанию http://localhost:5023).
 //
 // HTTPS для проверки с другого устройства в сети (только разработка). Камеру, микрофон и Secure-cookie браузер
 // разрешает лишь на https или localhost. Если в .env заданы DEV_HTTPS_KEY и DEV_HTTPS_CERT (пути к PEM-файлам
@@ -26,15 +27,15 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       https,
       proxy: {
-        '/api': { target, changeOrigin: true },
-        '/hubs': { target, changeOrigin: true, ws: true },
-        '/dev': { target, changeOrigin: true }, // только Development-бэкенд: POST /dev/seed-lesson
+        '/api': { target, changeOrigin: true, xfwd: true },
+        '/hubs': { target, changeOrigin: true, ws: true, xfwd: true },
+        '/dev': { target, changeOrigin: true, xfwd: true }, // только Development-бэкенд: POST /dev/seed-lesson
         // LiveKit: бэкенд отдаёт LiveKit:Url = wss://<адрес>:5173/livekit, клиент сам добавляет /rtc…
-        '/livekit': { target: livekitTarget, changeOrigin: true, ws: true, rewrite: (p) => p.replace(/^\/livekit/, '') },
+        '/livekit': { target: livekitTarget, changeOrigin: true, ws: true, xfwd: true, rewrite: (p) => p.replace(/^\/livekit/, '') },
         // Хранилище: бэкенд отдаёт ссылки на файлы относительными (Storage:RelativeUrls=true): /<бакет>/<ключ>?X-Amz-….
         // Подпись посчитана для Storage:Endpoint (localhost:3900), поэтому Host подменяется на адрес цели (changeOrigin: true):
         // ссылки открываются и на https://localhost:5173, и по адресу в сети, а смена IP их не ломает.
-        [`/${storageBucket}/`]: { target: storageTarget, changeOrigin: true },
+        [`/${storageBucket}/`]: { target: storageTarget, changeOrigin: true, xfwd: true },
       },
     },
   }
