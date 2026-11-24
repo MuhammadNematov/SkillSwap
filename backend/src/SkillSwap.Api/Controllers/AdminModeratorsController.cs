@@ -66,5 +66,17 @@ public class AdminModeratorsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RemoveAdmin(Guid id, [FromBody] RemoveModeratorRequest request, CancellationToken ct) => Ok(await _moderators.RemoveAdminAsync(AdminId(), id, request, ct));
 
+    /// <summary>
+    /// Админы по имени (только суперадмин): действующие или снятые (`removed=true`). Нужен, чтобы выбрать админа для снятия (`POST /admin/staff/admins/{id}/remove`).
+    /// 403 `superadmin_required` (вы админ).
+    /// </summary>
+    [HttpGet("~/api/v1/admin/staff/admins")]
+    [ProducesResponseType<AdminListDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListAdmins([FromQuery] bool removed = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        Ok(await _moderators.ListAdminsAsync(AdminId(), removed, page, pageSize, ct));
+
     private Guid AdminId() => Guid.Parse(User.FindFirstValue("sub")!);
 }

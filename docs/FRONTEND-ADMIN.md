@@ -90,6 +90,7 @@
 | --- | --- |
 | `GET /admin/staff/moderators?removed=&page=&pageSize=` | Модераторы по имени; по умолчанию действующие, `removed=true` показывает снятых. Элемент: `id`, `name`, `email`, `removed`, `createdAt`, `personalLinked`, `load`: `inProgress` (в работе), `waitingResponse` (ждёт ответов), `appealReview` (проверяет апелляцию), `resolvedLast30Days` |
 | `GET /admin/staff/moderators/{id}` | Карточка: `moderator` (как элемент списка) и `heldCases`: обращения, которые он держит сейчас (`id`, `type`, `status`, `role`: `Moderator` или `AppealReviewer`, `priority`, `dueAt`, `responseDeadlineAt`) |
+| `GET /admin/staff/admins?removed=&page=&pageSize=` | **Список админов (только суперадмин; админу 403 `superadmin_required`)**: нужен, чтобы выбрать, кого снять. По умолчанию действующие, `removed=true` снятые, по имени. Элемент: `id`, `name`, `email`, `removed`, `createdAt`, `personalLinked`; ответ `items`, `page`, `pageSize`, `totalCount` |
 | `POST /admin/staff/admins/{id}/remove` | **Снять админа (только суперадмин)**, тело то же: `{ reason, confirmation }`. Ответ: `id`, `name`, `removed`, `appealsReturned`, `personalUnlinked` |
 | `POST /admin/staff/moderators/{id}/remove` | Снять модератора, тело `{ reason, confirmation }`: причина 10–500 символов (в аудит) и подтверждение паролем и кодом 2FA (раздел 1). Ответ: `moderator` (карточка после снятия), `casesReturned`, `appealReviewsReturned`, `personalUnlinked` |
 

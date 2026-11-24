@@ -116,6 +116,80 @@ public class AdminRemovalTests
         return (caseId, reviewer);
     }
 
+    // ---------- список админов (нужен суперадмину, чтобы выбрать, кого снять) ----------
+
+    private async Task<List<JsonElement>> AllAdminsAsync(string token, bool removed)
+    {
+        var all = new List<JsonElement>();
+        for (var page = 1; ; page++)
+        {
+            var json = await JsonAsync(await SendAsync(token, HttpMethod.Get, $"/admin/staff/admins?removed={removed.ToString().ToLowerInvariant()}&page={page}&pageSize=50"));
+            all.AddRange(json.GetProperty("items").EnumerateArray());
+            if (all.Count >= json.GetProperty("totalCount").GetInt32() || json.GetProperty("items").GetArrayLength() == 0)
+            {
+                return all;
+            }
+        }
+    }
+
+    [Fact]
+    public async Task The_superadmin_lists_active_admins_by_default_and_removed_ones_on_request()
+    {
+        var superAdmin = await StaffAsync(UserRole.SuperAdmin);
+        var kept = await StaffAsync(UserRole.Admin);
+        var leaving = await StaffAsync(UserRole.Admin);
+        var moderator = await StaffAsync(UserRole.Moderator);
+
+        var before = await AllAdminsAsync(superAdmin.Token, removed: false);
+
+        Assert.Contains(before, a => a.GetProperty("id").GetGuid() == kept.Id);
+        Assert.Contains(before, a => a.GetProperty("id").GetGuid() == leaving.Id);
+        Assert.DoesNotContain(before, a => a.GetProperty("id").GetGuid() == moderator.Id);     // модераторы и суперадмин в списке админов не появляются
+        Assert.DoesNotContain(before, a => a.GetProperty("id").GetGuid() == superAdmin.Id);
+        Assert.All(before, a => Assert.False(a.GetProperty("removed").GetBoolean()));
+        var row = before.Single(a => a.GetProperty("id").GetGuid() == kept.Id);
+        Assert.Equal(kept.User.Name, row.GetProperty("name").GetString());
+        Assert.False(row.GetProperty("personalLinked").GetBoolean());
+
+        Assert.Equal(HttpStatusCode.OK, (await RemoveAsync(superAdmin, leaving.Id)).StatusCode);
+
+        var active = await AllAdminsAsync(superAdmin.Token, removed: false);
+        var gone = await AllAdminsAsync(superAdmin.Token, removed: true);
+        Assert.DoesNotContain(active, a => a.GetProperty("id").GetGuid() == leaving.Id);
+        Assert.Contains(active, a => a.GetProperty("id").GetGuid() == kept.Id);
+        Assert.Contains(gone, a => a.GetProperty("id").GetGuid() == leaving.Id && a.GetProperty("removed").GetBoolean());
+        Assert.DoesNotContain(gone, a => a.GetProperty("id").GetGuid() == kept.Id);
+    }
+
+    [Fact]
+    public async Task Only_the_superadmin_may_list_admins()
+    {
+        var admin = await StaffAsync(UserRole.Admin);
+        var moderator = await StaffAsync(UserRole.Moderator);
+
+        var asAdmin = await SendAsync(admin.Token, HttpMethod.Get, "/admin/staff/admins");
+        var asModerator = await SendAsync(moderator.Token, HttpMethod.Get, "/admin/staff/admins");
+        var anonymous = await SendAsync(null, HttpMethod.Get, "/admin/staff/admins");
+
+        Assert.Equal(HttpStatusCode.Forbidden, asAdmin.StatusCode);
+        Assert.Equal("superadmin_required", await CodeAsync(asAdmin));
+        Assert.Equal(HttpStatusCode.Forbidden, asModerator.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("page=0")]
+    [InlineData("pageSize=0")]
+    public async Task Listing_admins_rejects_bad_paging(string query)
+    {
+        var superAdmin = await StaffAsync(UserRole.SuperAdmin);
+
+        var response = await SendAsync(superAdmin.Token, HttpMethod.Get, "/admin/staff/admins?" + query);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_paging", await CodeAsync(response));
+    }
+
     [Fact]
     public async Task The_superadmin_removes_an_admin_and_the_sessions_and_connections_are_closed()
     {

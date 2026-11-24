@@ -16,6 +16,11 @@ public sealed record ModeratorListItemDto(Guid Id, string Name, string? Email, b
 
 public sealed record ModeratorListDto(IReadOnlyList<ModeratorListItemDto> Items, int Page, int PageSize, int TotalCount);
 
+/// <summary>Админ в списке суперадмина (нагрузки у админов нет).</summary>
+public sealed record AdminListItemDto(Guid Id, string Name, string? Email, bool Removed, DateTime CreatedAt, bool PersonalLinked);
+
+public sealed record AdminListDto(IReadOnlyList<AdminListItemDto> Items, int Page, int PageSize, int TotalCount);
+
 /// <param name="Role"><c>Moderator</c> — вёл обращение сам, <c>AppealReviewer</c> — проверяет апелляцию.</param>
 public sealed record HeldCaseDto(Guid Id, CaseType Type, CaseStatus Status, string Role, CasePriority Priority, DateTime DueAt, DateTime? ResponseDeadlineAt);
 
@@ -34,8 +39,8 @@ public sealed record RemoveAdminResultDto(Guid Id, string Name, bool Removed, in
 /// <summary>Выборки панели модераторов.</summary>
 public interface IModeratorStore
 {
-    /// <summary>Служебные аккаунты с ролью модератора: действующие или снятые (<paramref name="removed"/>), по имени.</summary>
-    Task<(IReadOnlyList<User> Items, int Total)> SearchAsync(bool removed, int page, int pageSize, CancellationToken ct);
+    /// <summary>Служебные аккаунты с ролью <paramref name="role"/> (модератор или админ): действующие или снятые (<paramref name="removed"/>), по имени.</summary>
+    Task<(IReadOnlyList<User> Items, int Total)> SearchAsync(UserRole role, bool removed, int page, int pageSize, CancellationToken ct);
 
     Task<IReadOnlyDictionary<Guid, ModeratorLoadDto>> GetLoadAsync(IReadOnlyCollection<Guid> ids, DateTime since, CancellationToken ct);
 }
@@ -88,8 +93,26 @@ public sealed class ModeratorAdminService
     {
         Paging.Validate(page, pageSize);
         await RequireAdminAsync(adminId, ct);
-        var (items, total) = await _store.SearchAsync(removed, page, pageSize, ct);
+        var (items, total) = await _store.SearchAsync(UserRole.Moderator, removed, page, pageSize, ct);
         return new ModeratorListDto(await ToItemsAsync(items, ct), page, pageSize, total);
+    }
+
+    /// <summary>
+    /// Список админов (только суперадмин: админов снимает только он, и ему нужно откуда-то взять их id): действующие или снятые, по имени.
+    /// 403 <c>superadmin_required</c> (вы админ), <c>admin_required</c>; 400 <c>invalid_paging</c>.
+    /// </summary>
+    public async Task<AdminListDto> ListAdminsAsync(Guid actorId, bool removed, int page, int pageSize, CancellationToken ct)
+    {
+        Paging.Validate(page, pageSize);
+        var actor = await RequireAdminAsync(actorId, ct);
+        if (actor.Role != UserRole.SuperAdmin)
+        {
+            throw new ForbiddenException("superadmin_required", "Доступно только суперадмину.");
+        }
+
+        var (items, total) = await _store.SearchAsync(UserRole.Admin, removed, page, pageSize, ct);
+        return new AdminListDto(
+            items.Select(u => new AdminListItemDto(u.Id, u.Name, u.Email, u.Status != UserStatus.Active, u.CreatedAt, u.LinkedUserId is not null)).ToList(), page, pageSize, total);
     }
 
     public async Task<ModeratorDto> GetAsync(Guid adminId, Guid moderatorId, CancellationToken ct)

@@ -15,9 +15,9 @@ public sealed class ModeratorStore : IModeratorStore
         _db = db;
     }
 
-    public async Task<(IReadOnlyList<User> Items, int Total)> SearchAsync(bool removed, int page, int pageSize, CancellationToken ct)
+    public async Task<(IReadOnlyList<User> Items, int Total)> SearchAsync(UserRole role, bool removed, int page, int pageSize, CancellationToken ct)
     {
-        var query = _db.Users.AsNoTracking().Where(u => u.AccountType == AccountType.Staff && u.Role == UserRole.Moderator
+        var query = _db.Users.AsNoTracking().Where(u => u.AccountType == AccountType.Staff && u.Role == role
             && (removed ? u.Status != UserStatus.Active : u.Status == UserStatus.Active));
         var total = await query.CountAsync(ct);
         var items = await query.OrderBy(u => u.Name).ThenBy(u => u.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
