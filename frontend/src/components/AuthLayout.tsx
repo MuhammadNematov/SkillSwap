@@ -18,11 +18,11 @@ interface Props {
 export default function AuthLayout({ title, subtitle, children }: Props) {
   const { t } = useTranslation()
   return (
-    <div className="flex h-screen gap-5 overflow-hidden bg-brand-50 p-5">
-      <section className="relative flex min-h-0 flex-1 basis-[480px] flex-col overflow-hidden rounded-2xl border border-ink-line bg-surface px-6 py-6 sm:px-12">
+    <div className="flex h-screen gap-5 overflow-hidden bg-brand-50 p-3 sm:p-5">
+      <section className="relative flex min-h-0 flex-1 basis-[480px] flex-col overflow-hidden rounded-2xl border border-ink-line bg-surface px-4 py-5 sm:px-12 sm:py-6">
         <div className="flex items-center justify-between">
-          <Link to="/">
-            <Logo />
+          <Link to="/" className="shrink-0">
+            <Logo className="h-7 sm:h-8" />
           </Link>
           <LanguageSwitcher />
         </div>
@@ -33,7 +33,8 @@ export default function AuthLayout({ title, subtitle, children }: Props) {
             <div className={subtitle ? '' : 'mt-7'}>{children}</div>
           </div>
         </div>
-        <div className="relative z-10 mb-2 hidden xl:hidden [@media(min-height:700px)]:block">
+        {/* Краткое описание под формой: только на планшете (768–1279 px) и при высоте от 700 px; на телефоне оно отнимало место у формы, на широком экране есть правая панель */}
+        <div className="relative z-10 mb-2 hidden [@media(min-width:768px)_and_(max-width:1279px)_and_(min-height:700px)]:block">
           <AuthInfo compact />
         </div>
         <p className="relative z-10 text-center text-xs text-ink-soft">{t('authPromo.footer')}</p>

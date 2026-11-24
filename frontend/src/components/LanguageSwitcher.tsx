@@ -10,7 +10,7 @@ export default function LanguageSwitcher() {
   const { i18n, t } = useTranslation()
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 sm:gap-2">
       <ThemeToggle />
       <Select
       value={i18n.resolvedLanguage ?? 'ru'}
@@ -18,7 +18,7 @@ export default function LanguageSwitcher() {
       onChange={(code) => i18n.changeLanguage(code)}
       ariaLabel={t('common.language')}
       align="right"
-      className="w-36"
+      className="w-28 sm:w-36"
       />
     </div>
   )

@@ -13,7 +13,7 @@ export default function ThemeToggle() {
       onClick={() => setMode(isDark ? 'light' : 'dark')}
       aria-label={label}
       title={label}
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-brand-200 bg-surface text-ink transition hover:border-brand-300 hover:text-brand-600"
+      className="grid h-10 w-10 shrink-0 sm:h-11 sm:w-11 place-items-center rounded-xl border border-brand-200 bg-surface text-ink transition hover:border-brand-300 hover:text-brand-600"
     >
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         {isDark ? (

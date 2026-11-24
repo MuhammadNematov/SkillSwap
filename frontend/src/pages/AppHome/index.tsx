@@ -65,8 +65,8 @@ export default function AppHome() {
         </SwapStage>
       </section>
 
-      <div className="grid gap-4">
-        <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard icon="swap" tone="bg-brand-100 text-brand-700" label={t('dashboard.activeExchanges')} value={data.activeExchanges} />
           <StatCard icon="calendar" tone="bg-emerald-100 text-emerald-700" label={t('dashboard.upcomingLessons')} value={data.upcomingLessons} />
           <StatCard icon="star" tone="bg-amber-100 text-amber-600" label={t('dashboard.rating')} value={data.rating == null ? '—' : data.rating.toFixed(1)} />
@@ -93,7 +93,7 @@ export default function AppHome() {
         </section>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="card">
           <h2 className="text-lg font-bold text-slate-900">{t('dashboard.nextLesson')}</h2>
           {lesson ? (

@@ -9,7 +9,7 @@ export default function ProtectedRoute({ roles }: { roles?: Role[] }) {
   const { user, loading } = useAuth()
   const location = useLocation()
 
-  if (loading) return <Spinner />
+  if (loading) return <Spinner fullScreen />
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />
