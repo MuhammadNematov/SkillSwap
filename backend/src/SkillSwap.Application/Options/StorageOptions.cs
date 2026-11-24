@@ -20,9 +20,10 @@ public sealed class StorageOptions
 
     /// <summary>
     /// Отдавать браузеру ссылки на файлы <b>относительными</b> (<c>/skillswap/avatars/…?X-Amz-…</c>): без адреса хранилища, он берётся от адреса сайта.
-    /// Подпись считается для <see cref="Endpoint"/>, поэтому обратный прокси (в разработке Vite, на сервере nginx) должен пересылать запросы на хранилище
+    /// Подпись считается для <see cref="Endpoint"/>, поэтому обратный прокси (dev-сервер Vite) пересылает запросы на хранилище
     /// с заголовком Host, равным адресу <see cref="Endpoint"/>. Так ссылки работают с любого адреса сайта (localhost, адрес в сети), и менять настройки при смене IP не нужно.
-    /// Нельзя вместе с <see cref="PublicEndpoint"/>.
+    /// Нельзя вместе с <see cref="PublicEndpoint"/>. <b>Только для разработки</b>: включено в <c>appsettings.Development.json</c>, вне Development и Testing приложение с ним не запустится
+    /// (на сервере хранилище отдаётся по своему https-адресу, <see cref="PublicEndpoint"/>). Письма берут полный адрес (<c>FileLinks.Absolute</c>).
     /// </summary>
     public bool RelativeUrls { get; set; }
 

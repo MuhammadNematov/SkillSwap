@@ -79,13 +79,52 @@ public class StorageStartupCheckTests
         Assert.Throws<InvalidOperationException>(() => StorageStartupCheck.Validate(options, isDevelopmentLike: false, "Production"));
     }
 
-    [Fact]
-    public void Relative_urls_alone_are_accepted()
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Testing")]
+    public void Relative_urls_are_accepted_in_development_and_tests(string environment)
     {
         var options = Valid();
         options.RelativeUrls = true;
 
-        StorageStartupCheck.Validate(options, isDevelopmentLike: false, "Production");
+        StorageStartupCheck.Validate(options, isDevelopmentLike: true, environment);
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Relative_urls_outside_development_do_not_start_with_a_clear_error(string environment)
+    {
+        var options = Valid();
+        options.RelativeUrls = true;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => StorageStartupCheck.Validate(options, isDevelopmentLike: false, environment));
+
+        Assert.Contains(environment, ex.Message);
+        Assert.Contains("Storage:RelativeUrls", ex.Message);
+        Assert.Contains("только для разработки", ex.Message);
+        Assert.Contains("Storage:PublicEndpoint", ex.Message);   // подсказка, что задать вместо
+    }
+
+    [Fact]
+    public void Relative_urls_are_switched_on_only_in_the_development_settings_file()
+    {
+        static bool? Flag(string file)
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, file);
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            return document.RootElement.TryGetProperty("Storage", out var storage) && storage.TryGetProperty("RelativeUrls", out var flag) ? flag.GetBoolean() : null;
+        }
+
+        Assert.Null(Flag("appsettings.json"));                 // общие настройки (они же боевые) режим не включают
+        Assert.True(Flag("appsettings.Development.json"));     // включён только здесь
+        Assert.Null(Flag("appsettings.Production.json"));      // если такой файл появится, режима в нём быть не должно
+        Assert.Null(Flag("appsettings.Staging.json"));
     }
 
     [Fact]
@@ -133,5 +172,43 @@ public class StorageStartupCheckTests
         Assert.Equal("garage", options.Region);
         Assert.True(options.ForcePathStyle);
         Assert.Null(options.SecretKey);   // секретов в коде нет
+    }
+}
+
+/// <summary>Настоящее приложение: режим относительных ссылок только для разработки, в боевой среде оно с ним не запустится.</summary>
+[Collection(SkillSwap.Api.IntegrationTests.Infrastructure.ApiCollection.Name)]
+public class StorageRelativeUrlsStartupIntegrationTests
+{
+    private readonly SkillSwap.Api.IntegrationTests.Infrastructure.ApiFactory _factory;
+
+    public StorageRelativeUrlsStartupIntegrationTests(SkillSwap.Api.IntegrationTests.Infrastructure.ApiFactory factory) => _factory = factory;
+
+    private static string Flatten(Exception ex)
+    {
+        var parts = new List<string>();
+        for (var e = ex; e is not null; e = e.InnerException!)
+        {
+            parts.Add(e.Message);
+        }
+
+        return string.Join(" | ", parts);
+    }
+
+    [Fact]
+    public void The_application_refuses_to_start_in_production_with_relative_urls()
+    {
+        using var app = _factory.WithSettings("Production", ("Storage:RelativeUrls", "true"));
+
+        var ex = Assert.ThrowsAny<Exception>(() => _ = app.Services);
+
+        Assert.Contains("Storage:RelativeUrls", Flatten(ex));
+    }
+
+    [Fact]
+    public void The_same_setting_is_fine_in_development()
+    {
+        using var app = _factory.WithSettings("Development", ("Storage:RelativeUrls", "true"));
+
+        Assert.NotNull(app.Services);   // запустилось
     }
 }

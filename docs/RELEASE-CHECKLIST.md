@@ -64,7 +64,7 @@
 
 ## 9. Хранилище файлов и его бэкап
 
-- [ ] **Что сделать.** Боевой Garage (или облачное S3): раскладка кластера, ключ доступа, **закрытый** бакет. Приложению: `Storage__Endpoint`, `Storage__PublicEndpoint` (адрес, который видит браузер, по https), `Storage__AccessKey`, `Storage__SecretKey`, `Storage__Bucket`, `Storage__Region`, `Storage__ForcePathStyle`. CORS бакета приложение ставит само при старте (только `Frontend:BaseUrl`, только GET и HEAD).
+- [ ] **Что сделать.** Боевой Garage (или облачное S3): раскладка кластера, ключ доступа, **закрытый** бакет. Приложению: `Storage__Endpoint`, `Storage__PublicEndpoint` (адрес, который видит браузер, по https), `Storage__AccessKey`, `Storage__SecretKey`, `Storage__Bucket`, `Storage__Region`, `Storage__ForcePathStyle`. **`Storage__RelativeUrls` не задавать:** это режим только для разработки (прокси Vite), в Production приложение с ним не запустится. CORS бакета приложение ставит само при старте (только `Frontend:BaseUrl`, только GET и HEAD).
 - [ ] **Бэкап бакета и ключей хранилища** (раздел 10.5 ТЗ) и тест восстановления. Для боевого Garage решить репликацию и число узлов (на старте один узел).
 - **Где описано:** `BACKEND-DEV.md`, «Файлы, голосовые и аватар» (настройки `Storage__…`) и скрипты `backend/scripts/init-storage.sh` / `.ps1`; `DEFERRED.md` (файлы: пункты 8 и 9; замена MinIO на Garage).
 - **Как проверить:** загрузить вложение и аватар, скачать по подписанной ссылке из браузера фронтенда (ссылка живёт 5 минут, отдаёт `Content-Disposition: attachment`); прямой доступ к бакету без подписи закрыт (403); восстановить бакет из копии на тестовом стенде и открыть файл.

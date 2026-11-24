@@ -54,6 +54,13 @@ public sealed class StorageStartupCheck : IHostedService
             throw new InvalidOperationException("Storage:PublicEndpoint должен быть абсолютным адресом http(s).");
         }
 
+        if (options.RelativeUrls && !isDevelopmentLike)
+        {
+            throw new InvalidOperationException(
+                $"В окружении {environmentName} включено Storage:RelativeUrls: это режим только для разработки (прокси Vite подставляет хранилищу его Host). " +
+                "Уберите настройку (Storage__RelativeUrls) и задайте Storage:PublicEndpoint: адрес хранилища, который видит браузер, по https.");
+        }
+
         if (options.RelativeUrls && !string.IsNullOrWhiteSpace(options.PublicEndpoint))
         {
             throw new InvalidOperationException(

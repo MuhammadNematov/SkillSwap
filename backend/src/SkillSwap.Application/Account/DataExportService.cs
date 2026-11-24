@@ -1,7 +1,10 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Auth;
 using SkillSwap.Application.Exceptions;
+using SkillSwap.Application.Files;
+using SkillSwap.Application.Options;
 using SkillSwap.Application.Profile;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -90,11 +93,12 @@ public sealed class DataExportJobs
     private readonly IMailSender _mail;
     private readonly IBackgroundJobs _jobs;
     private readonly TimeProvider _clock;
+    private readonly FrontendOptions _frontend;
     private readonly ILogger<DataExportJobs> _logger;
 
     public DataExportJobs(
         IDataExportStore exports, IUserDataExportSource source, IFileStorage storage, IProfileStore profiles, IMailSender mail,
-        IBackgroundJobs jobs, TimeProvider clock, ILogger<DataExportJobs> logger)
+        IBackgroundJobs jobs, TimeProvider clock, IOptions<FrontendOptions> frontend, ILogger<DataExportJobs> logger)
     {
         _exports = exports;
         _source = source;
@@ -103,6 +107,7 @@ public sealed class DataExportJobs
         _mail = mail;
         _jobs = jobs;
         _clock = clock;
+        _frontend = frontend.Value;
         _logger = logger;
     }
 
@@ -137,7 +142,8 @@ public sealed class DataExportJobs
             export.Complete(buffer.Length, now);
             await _exports.SaveAsync(ct);
 
-            var link = _storage.CreateDownloadUrl(key, "skillswap-data.json", "application/json", DataExport.LinkLifetime);
+            // Ссылка уходит письмом, поэтому нужна полная (в режиме относительных ссылок хранилище отдаёт путь без адреса)
+            var link = FileLinks.Absolute(_storage.CreateDownloadUrl(key, "skillswap-data.json", "application/json", DataExport.LinkLifetime), _frontend);
             var (subject, body) = EmailTemplates.DataExportReady(user.UiLanguage, user.Name, link);
             await _mail.SendAsync(user.Email, subject, body, ct);
 

@@ -107,6 +107,21 @@ public class DataExportTests
         Assert.Equal(1, json.RootElement.GetProperty("schemaVersion").GetInt32());
     }
 
+    [Fact]
+    public async Task With_relative_storage_links_the_email_still_carries_a_full_address()
+    {
+        var (_, a, _) = await PairAsync();
+        using var app = _factory.WithSettings("Testing", ("Storage:RelativeUrls", "true"));
+
+        var response = await SendAsync(a, HttpMethod.Post, "/me/export", client: app.CreateClient());
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var link = LinkFromMail(a.User.Email!, "your data is ready");
+        Assert.StartsWith(ApiFactory.FrontendUrl + "/", link);      // письмо открывают не со страницы сайта: относительный путь ничего бы не открыл
+        Assert.Contains("/exports/", link);
+        Assert.Contains("X-Amz-Signature=", link);                  // та же подписанная ссылка, только с адресом сайта впереди
+    }
+
     [Theory]
     [InlineData("en", "your data is ready")]
     [InlineData("ru", "ваши данные готовы")]
