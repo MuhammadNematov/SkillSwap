@@ -144,7 +144,7 @@ export async function getModerators(removed: boolean): Promise<Moderator[]> {
     await sleep()
     return mockModerators.filter((m) => m.removed === removed)
   }
-  const data = await http(() => api.get<{ items: Moderator[] }>('/admin/staff/moderators', { params: { removed, pageSize: 100 } }))
+  const data = await http(() => api.get<{ items: Moderator[] }>('/admin/staff/moderators', { params: { removed, pageSize: 50 } }))
   return data.items
 }
 
