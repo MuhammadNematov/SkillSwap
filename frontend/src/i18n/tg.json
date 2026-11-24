@@ -1428,7 +1428,7 @@
     "enable2fa": "Фаъол кардани 2FA",
     "disable2fa": "Хомӯш кардани 2FA",
     "sessions": "Сеансҳои вуруд",
-    "revokeOthers": "Анҷом додани дигарон",
+    "revokeOthers": "Анҷом додани сеансҳои дигар",
     "revoke": "Анҷом додан",
     "unknownDevice": "Дастгоҳи номаълум",
     "thisDevice": "Ин дастгоҳ",
@@ -1466,7 +1466,9 @@
     },
     "avatarEdit": "Тағир додан",
     "avatarEditTitle": "Акси профил",
-    "avatarFromGallery": "Аз галерея боргирӣ кардан"
+    "avatarFromGallery": "Аз галерея боргирӣ кардан",
+    "thisComputer": "ин компютер",
+    "sessionActive": "фаъол {{day}}, соати {{time}}"
   },
   "block": {
     "action": "Бастан",

@@ -7,12 +7,13 @@ import { errorMessage } from '../../api/errors'
 import { deleteAccount, getExport, requestExport } from '../../api/account'
 import { deleteAvatar, getMe, updateMe, uploadAvatar } from '../../api/me'
 import { getLanguages } from '../../api/onboarding'
-import { disableTwoFactor, getAuthSessions, revokeAllAuthSessions, revokeAuthSession } from '../../api/twoFactor'
+import { disableTwoFactor } from '../../api/twoFactor'
 import Avatar from '../../components/Avatar'
 import { AVATAR_PRESETS, presetToFile } from '../../utils/avatars'
 import Modal from '../../components/Modal'
 import Spinner from '../../components/Spinner'
 import TwoFactorSetup from '../../components/TwoFactorSetup'
+import SessionsSection from './SessionsSection'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateTime } from '../../utils/dates'
 import { pickName } from '../../utils/localized'
@@ -304,56 +305,6 @@ function DisableModal({ onClose }: { onClose: () => void }) {
         </div>
       </form>
     </Modal>
-  )
-}
-
-// ───────── Сеансы входа ─────────
-function SessionsSection() {
-  const { t, i18n } = useTranslation()
-  const lang = i18n.resolvedLanguage ?? 'ru'
-  const qc = useQueryClient()
-  const { data = [], isLoading } = useQuery({ queryKey: ['authSessions'], queryFn: getAuthSessions })
-  const refresh = () => qc.invalidateQueries({ queryKey: ['authSessions'] })
-  const revoke = useMutation({ mutationFn: revokeAuthSession, onSuccess: refresh })
-  const revokeAll = useMutation({ mutationFn: revokeAllAuthSessions, onSuccess: refresh })
-  const error = revoke.error ?? revokeAll.error
-
-  return (
-    <section className="card space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-bold text-slate-900">{t('settings.sessions')}</h2>
-        {data.some((s) => !s.isCurrent) && (
-          <button className="btn-secondary px-3 py-1.5" disabled={revokeAll.isPending} onClick={() => revokeAll.mutate()}>
-            {t('settings.revokeOthers')}
-          </button>
-        )}
-      </div>
-      {error && <p className={errorBox}>{errorMessage(t, error)}</p>}
-      {isLoading ? (
-        <Spinner />
-      ) : (
-        <ul className="space-y-2">
-          {data.map((s) => (
-            <li key={s.id} className="flex items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-slate-900">
-                  {s.deviceInfo ?? t('settings.unknownDevice')}
-                  {s.isCurrent && <span className="ml-2 rounded-full bg-brand-100/80 px-2 py-0.5 text-xs font-medium text-brand-700">{t('settings.thisDevice')}</span>}
-                </div>
-                <div className="text-xs text-slate-400">
-                  {s.ipAddress ?? '—'} · {t('settings.lastActive', { date: formatDateTime(s.lastActiveAt, lang) })}
-                </div>
-              </div>
-              {!s.isCurrent && (
-                <button className="text-sm font-medium text-red-600 hover:underline" disabled={revoke.isPending} onClick={() => revoke.mutate(s.id)}>
-                  {t('settings.revoke')}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   )
 }
 

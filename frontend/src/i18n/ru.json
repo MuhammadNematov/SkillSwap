@@ -1432,7 +1432,7 @@
     "enable2fa": "Включить 2FA",
     "disable2fa": "Отключить 2FA",
     "sessions": "Сеансы входа",
-    "revokeOthers": "Завершить остальные",
+    "revokeOthers": "Завершить другие сеансы",
     "revoke": "Завершить",
     "unknownDevice": "Неизвестное устройство",
     "thisDevice": "Это устройство",
@@ -1470,7 +1470,9 @@
     },
     "avatarEdit": "Изменить",
     "avatarEditTitle": "Фото профиля",
-    "avatarFromGallery": "Загрузить из галереи"
+    "avatarFromGallery": "Загрузить из галереи",
+    "thisComputer": "этот компьютер",
+    "sessionActive": "активен {{day}} в {{time}}"
   },
   "block": {
     "action": "Заблокировать",

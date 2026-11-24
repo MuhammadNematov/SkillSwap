@@ -1428,7 +1428,7 @@
     "enable2fa": "Enable 2FA",
     "disable2fa": "Disable 2FA",
     "sessions": "Sign-in sessions",
-    "revokeOthers": "Sign out others",
+    "revokeOthers": "Sign out other sessions",
     "revoke": "Sign out",
     "unknownDevice": "Unknown device",
     "thisDevice": "This device",
@@ -1466,7 +1466,9 @@
     },
     "avatarEdit": "Change",
     "avatarEditTitle": "Profile photo",
-    "avatarFromGallery": "Upload from gallery"
+    "avatarFromGallery": "Upload from gallery",
+    "thisComputer": "this computer",
+    "sessionActive": "active {{day}} at {{time}}"
   },
   "block": {
     "action": "Block",

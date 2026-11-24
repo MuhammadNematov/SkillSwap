@@ -305,9 +305,13 @@ export interface TwoFactorSetup {
   authenticatorUri: string
 }
 
+export type DeviceType = 'Desktop' | 'Phone' | 'Tablet' | 'Unknown'
+
 export interface AuthSessionInfo {
   id: string
-  deviceInfo: string | null
+  deviceInfo: string | null // сырой User-Agent: для отладки, в интерфейсе не показывают
+  deviceName: string | null // «Safari · macOS», «Chrome · Android»; null, если устройство не определить
+  deviceType: DeviceType
   ipAddress: string | null
   startedAt: string
   lastActiveAt: string

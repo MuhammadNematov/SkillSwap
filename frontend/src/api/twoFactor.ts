@@ -62,8 +62,8 @@ export async function disableTwoFactor(req: { password: string; code: string }):
 // ───────── Сеансы входа ─────────
 
 let mockSessions: AuthSessionInfo[] = [
-  { id: 's-current', deviceInfo: 'Chrome, Windows', ipAddress: '127.0.0.1', startedAt: new Date(Date.now() - 3_600_000).toISOString(), lastActiveAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 29 * 86_400_000).toISOString(), isCurrent: true },
-  { id: 's-phone', deviceInfo: 'Safari, iPhone', ipAddress: '192.168.0.12', startedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(), lastActiveAt: new Date(Date.now() - 86_400_000).toISOString(), expiresAt: new Date(Date.now() + 25 * 86_400_000).toISOString(), isCurrent: false },
+  { id: 's-current', deviceInfo: 'Chrome, Windows', deviceName: 'Chrome · Windows', deviceType: 'Desktop', ipAddress: '127.0.0.1', startedAt: new Date(Date.now() - 3_600_000).toISOString(), lastActiveAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 29 * 86_400_000).toISOString(), isCurrent: true },
+  { id: 's-phone', deviceInfo: 'Safari, iPhone', deviceName: 'Safari · iPhone', deviceType: 'Phone', ipAddress: '192.168.0.12', startedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(), lastActiveAt: new Date(Date.now() - 86_400_000).toISOString(), expiresAt: new Date(Date.now() + 25 * 86_400_000).toISOString(), isCurrent: false },
 ]
 
 // GET /auth/sessions

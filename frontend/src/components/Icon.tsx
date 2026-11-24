@@ -35,6 +35,24 @@ const icons = {
   ),
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
+  laptop: (
+    <>
+      <rect x="4" y="5" width="16" height="11" rx="2" />
+      <path d="M2 20h20" />
+    </>
+  ),
+  phone: (
+    <>
+      <rect x="7" y="2.5" width="10" height="19" rx="2.5" />
+      <path d="M11 18.5h2" />
+    </>
+  ),
+  tablet: (
+    <>
+      <rect x="4.5" y="2.5" width="15" height="19" rx="2.5" />
+      <path d="M11 18.5h2" />
+    </>
+  ),
   logout: <path d="M15 17l5-5-5-5M20 12H9M12 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7" />,
   video: (
     <>
