@@ -40,6 +40,10 @@ public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest
         RuleFor(x => x.DateOfBirth)
             .Must(d => d <= Today()).WithErrorCode("date_in_future")
             .When(x => x.DateOfBirth != default);
+        // Год не раньше 1900: даты вроде 0007-05-05 это явная ошибка ввода, а не возраст.
+        RuleFor(x => x.DateOfBirth)
+            .Must(d => d.Year >= User.MinBirthYear).WithErrorCode("date_too_early")
+            .When(x => x.DateOfBirth != default);
         // Родился не позже, чем (сегодня − 16 лет), иначе ему ещё нет 16.
         RuleFor(x => x.DateOfBirth)
             .Must(d => d <= Today().AddYears(-User.MinAge)).WithErrorCode("too_young")

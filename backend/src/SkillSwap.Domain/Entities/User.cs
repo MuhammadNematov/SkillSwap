@@ -14,6 +14,12 @@ public class User : IdentityUser<Guid>, ITimestamped
     /// <summary>Минимальный возраст регистрации (FR-3).</summary>
     public const int MinAge = 16;
 
+    /// <summary>
+    /// Самый ранний допустимый год рождения. Без нижней границы проходит дата вроде 0007-05-05 (поле date в браузере позволяет набрать такой год),
+    /// и возраст получается около двух тысяч лет.
+    /// </summary>
+    public const int MinBirthYear = 1900;
+
     /// <summary>Младше этого возраста действуют правила защиты подростков (раздел 10.4).</summary>
     public const int AdultAge = 18;
 

@@ -78,6 +78,30 @@ public class AuthFlowTests
         Assert.Equal("terms_not_accepted", errors.GetProperty("acceptTerms")[0].GetString());
     }
 
+    [Theory]
+    [InlineData("0007-05-05")]
+    [InlineData("1899-12-31")]
+    public async Task Register_with_a_birth_year_before_1900_gives_400_and_creates_nobody(string birth)
+    {
+        var email = AuthApi.NewEmail();
+
+        var response = await _api.Client.PostAsJsonAsync("/api/v1/auth/register", new
+        {
+            email,
+            password = AuthApi.Password,
+            name = "Test User",
+            dateOfBirth = birth,
+            acceptTerms = true,
+            acceptChatModeration = true,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("validation_failed", json.GetProperty("code").GetString());
+        Assert.Equal("date_too_early", json.GetProperty("errors").GetProperty("dateOfBirth")[0].GetString());
+        Assert.Empty(_factory.Mail.To(email));   // письмо не ушло, пользователь не создан
+    }
+
     // ---------- подтверждение email и вход ----------
 
     [Fact]

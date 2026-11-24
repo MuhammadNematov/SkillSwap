@@ -63,11 +63,45 @@ public class RegisterRequestValidatorTests
             .ShouldHaveValidationErrorFor(x => x.DateOfBirth).WithErrorCode("date_in_future");
     }
 
+    // Год не раньше 1900 (поле date в браузере позволяет набрать 0007: возраст тогда около 2000 лет).
+    [Theory]
+    [InlineData("0007-05-05")]
+    [InlineData("0002-01-01")]
+    [InlineData("1899-12-31")]
+    public void A_birth_year_before_1900_is_rejected(string birth)
+    {
+        var result = _validator.TestValidate(Valid() with { DateOfBirth = DateOnly.Parse(birth) });
+
+        result.ShouldHaveValidationErrorFor(x => x.DateOfBirth).WithErrorCode("date_too_early");
+        Assert.DoesNotContain(result.Errors, e => e.ErrorCode == "too_young");   // это не «слишком молод»: причина названа точно
+    }
+
+    [Theory]
+    [InlineData("1900-01-01")]   // граница включена
+    [InlineData("1950-06-15")]
+    [InlineData("2010-06-01")]   // ровно 16 сегодня
+    public void Birth_years_from_1900_on_are_accepted(string birth)
+    {
+        _validator.TestValidate(Valid() with { DateOfBirth = DateOnly.Parse(birth) })
+            .ShouldNotHaveValidationErrorFor(x => x.DateOfBirth);
+    }
+
+    [Fact]
+    public void A_modern_too_young_date_does_not_get_the_early_year_error()
+    {
+        var result = _validator.TestValidate(Valid() with { DateOfBirth = new DateOnly(2020, 1, 1) });
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == "too_young");
+        Assert.DoesNotContain(result.Errors, e => e.ErrorCode == "date_too_early");
+    }
+
     [Fact]
     public void Missing_birth_date_is_required()
     {
-        _validator.TestValidate(Valid() with { DateOfBirth = default })
-            .ShouldHaveValidationErrorFor(x => x.DateOfBirth).WithErrorCode("required");
+        var result = _validator.TestValidate(Valid() with { DateOfBirth = default });
+
+        result.ShouldHaveValidationErrorFor(x => x.DateOfBirth).WithErrorCode("required");
+        Assert.DoesNotContain(result.Errors, e => e.ErrorCode == "date_too_early");   // 0001-01-01 это «не указано», а не «слишком давно»
     }
 
     [Fact]
