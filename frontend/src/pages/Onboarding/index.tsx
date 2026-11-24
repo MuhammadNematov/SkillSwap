@@ -11,6 +11,7 @@ import Select from '../../components/Select'
 import SkillPicker from '../../components/SkillPicker'
 import Spinner from '../../components/Spinner'
 import { useAuth } from '../../hooks/useAuth'
+import LanguagePicker from '../../components/LanguagePicker'
 import { pickName } from '../../utils/localized'
 
 const LEVELS: SkillLevel[] = ['Beginner', 'Intermediate', 'Advanced']
@@ -170,22 +171,7 @@ export default function Onboarding() {
 
       <section className="card space-y-3">
         <h2 className="font-bold text-slate-900">{t('onboarding.languages')}</h2>
-        <div className="flex flex-wrap gap-2">
-          {(langs.data ?? []).map((l) => {
-            const on = languages.includes(l.code)
-            return (
-              <button
-                key={l.code}
-                onClick={() => setLanguages((cur) => (on ? cur.filter((c) => c !== l.code) : [...cur, l.code]))}
-                className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
-                }`}
-              >
-                {pickName(l.names, lang)}
-              </button>
-            )
-          })}
-        </div>
+        <LanguagePicker options={langs.data ?? []} value={languages} onChange={setLanguages} />
       </section>
 
       <section className="card space-y-3">

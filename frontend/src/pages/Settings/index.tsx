@@ -9,6 +9,7 @@ import { deleteAvatar, getMe, updateMe, uploadAvatar } from '../../api/me'
 import { getLanguages } from '../../api/onboarding'
 import { disableTwoFactor } from '../../api/twoFactor'
 import Avatar from '../../components/Avatar'
+import LanguagePicker from '../../components/LanguagePicker'
 import { AVATAR_PRESETS, presetToFile } from '../../utils/avatars'
 import Modal from '../../components/Modal'
 import Spinner from '../../components/Spinner'
@@ -16,7 +17,6 @@ import TwoFactorSetup from '../../components/TwoFactorSetup'
 import SessionsSection from './SessionsSection'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateTime } from '../../utils/dates'
-import { pickName } from '../../utils/localized'
 
 const errorBox = 'rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700'
 
@@ -181,23 +181,7 @@ function ProfileSection() {
       </label>
       <div>
         <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('onboarding.languages')}</span>
-        <div className="flex flex-wrap gap-2">
-          {(langs.data ?? []).map((l) => {
-            const on = languages.includes(l.code)
-            return (
-              <button
-                key={l.code}
-                type="button"
-                onClick={() => setLanguages((cur) => (on ? cur.filter((c) => c !== l.code) : [...cur, l.code]))}
-                className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-line bg-brand-50 text-slate-600 hover:bg-surface'
-                }`}
-              >
-                {pickName(l.names, lang)}
-              </button>
-            )
-          })}
-        </div>
+        <LanguagePicker options={langs.data ?? []} value={languages} onChange={setLanguages} />
       </div>
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('onboarding.timeZone')}</span>

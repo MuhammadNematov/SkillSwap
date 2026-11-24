@@ -1815,5 +1815,15 @@
     "rejectReason": "Reason (optional, the author will see it)",
     "submitReject": "Reject",
     "searchSkill": "Search a skill in the category"
+  },
+  "languagePicker": {
+    "none": "No languages selected yet",
+    "remove": "Remove {{name}}",
+    "counter": "{{count}} of {{max}} selected",
+    "limitReached": "{{max}} of {{max}} selected: that is the maximum. Remove one language to add another.",
+    "limitShort": "Maximum reached ({{max}})",
+    "popular": "Popular",
+    "search": "Find a language…",
+    "noResults": "No such language in the list"
   }
 }
