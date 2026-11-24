@@ -104,6 +104,78 @@ public class AdminSeedDevToolsTests
         Assert.All(seed.GetProperty("users").EnumerateArray(), u => Assert.False(string.IsNullOrEmpty(u.GetProperty("password").GetString())));
     }
 
+    private static Task<HttpResponseMessage> PostAsync(HttpClient client, string token, string url, object body)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task The_admin_seed_gives_a_real_active_warning_that_the_admin_can_revoke()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+        var seed = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
+        var adminToken = seed.GetProperty("admin").GetProperty("accessToken").GetString()!;
+        var warning = seed.GetProperty("warning");
+        var userId = warning.GetProperty("userId").GetGuid();
+        var warningId = warning.GetProperty("id").GetGuid();
+
+        var card = await JsonAsync(await GetAsync(client, adminToken, $"/api/v1/admin/users/{userId}"));
+
+        Assert.Equal(1, card.GetProperty("user").GetProperty("activeWarnings").GetInt32());
+        var issued = Assert.Single(card.GetProperty("warnings").EnumerateArray());
+        Assert.Equal(warningId, issued.GetProperty("id").GetGuid());
+        Assert.True(issued.GetProperty("isActive").GetBoolean());
+        Assert.Equal(warning.GetProperty("caseId").GetGuid(), issued.GetProperty("caseId").GetGuid());   // настоящее обращение, не запись «из воздуха»
+
+        var revoke = await PostAsync(client, adminToken, $"/api/v1/admin/warnings/{warningId}/revoke", new { reason = "Проверка снятия предупреждения из сидера." });
+
+        Assert.Equal(HttpStatusCode.OK, revoke.StatusCode);
+        var after = await JsonAsync(revoke);
+        Assert.Equal(0, after.GetProperty("user").GetProperty("activeWarnings").GetInt32());
+        Assert.False(after.GetProperty("warnings")[0].GetProperty("isActive").GetBoolean());
+    }
+
+    [Fact]
+    public async Task The_admin_seed_gives_a_new_removable_admin_each_time_and_the_superadmin_can_remove_it()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+        var first = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
+        var second = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
+        var removable = second.GetProperty("removableAdmin");
+        var removableId = removable.GetProperty("userId").GetGuid();
+        Assert.NotEqual(first.GetProperty("removableAdmin").GetProperty("userId").GetGuid(), removableId);   // каждый раз новый: снятого повторно не снять
+        Assert.Equal("Admin", removable.GetProperty("role").GetString());
+        Assert.NotEqual(second.GetProperty("admin").GetProperty("userId").GetGuid(), removableId);            // постоянный dev-admin остаётся для входа
+
+        var superAdmin = second.GetProperty("superAdmin");
+        var token = superAdmin.GetProperty("accessToken").GetString()!;
+        var listed = await JsonAsync(await GetAsync(client, token, "/api/v1/admin/staff/admins?pageSize=50&removed=false"));
+        Assert.Contains(listed.GetProperty("items").EnumerateArray(), a => a.GetProperty("id").GetGuid() == removableId);
+
+        // Подтверждение действия: пароль и текущий код 2FA суперадмина (сидер отдаёт текущий и следующий)
+        HttpResponseMessage? removed = null;
+        foreach (var code in superAdmin.GetProperty("twoFactor").GetProperty("codes").EnumerateArray().Select(c => c.GetString()!))
+        {
+            removed = await PostAsync(client, token, $"/api/v1/admin/staff/admins/{removableId}/remove", new
+            {
+                reason = "Проверка снятия админа из сидера.",
+                confirmation = new { password = superAdmin.GetProperty("password").GetString(), code, isRecoveryCode = false },
+            });
+            if (removed.StatusCode == HttpStatusCode.OK)
+            {
+                break;
+            }
+        }
+
+        Assert.True(removed!.StatusCode == HttpStatusCode.OK, await removed.Content.ReadAsStringAsync());
+        var gone = await JsonAsync(await GetAsync(client, token, "/api/v1/admin/staff/admins?pageSize=50&removed=true"));
+        Assert.Contains(gone.GetProperty("items").EnumerateArray(), a => a.GetProperty("id").GetGuid() == removableId && a.GetProperty("removed").GetBoolean());
+    }
+
     [Fact]
     public async Task A_repeated_admin_seed_adds_new_data_and_replaces_the_pending_link_request_of_the_same_moderator()
     {

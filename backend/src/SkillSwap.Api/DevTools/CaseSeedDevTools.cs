@@ -322,6 +322,29 @@ public static class CaseSeedDevTools
 
     private static CaseCategory FirstCategory(CaseType type) => CaseRules.CategoriesFor(type)[0];
 
+    /// <summary>
+    /// Настоящее предупреждение пользователю (для проверки экранов «Снять предупреждение»): обмен двух пользователей, обращение о поведении, взятие модератором и решение
+    /// «предупреждение». Всё идёт через настоящие сервисы, поэтому приходят и настоящие уведомления. Возвращает id обращения.
+    /// </summary>
+    internal static async Task<Guid> IssueWarningAsync(
+        ExchangeRequestService requests, ChatService chat, CaseService cases, ModerationService moderation, ResolutionService resolution,
+        Guid moderatorId, Guid openerId, Guid accusedId, Guid openerTeachesSkill, Guid accusedTeachesSkill, CancellationToken ct)
+    {
+        var request = await requests.CreateAsync(openerId, new CreateExchangeRequestRequest(accusedId, accusedTeachesSkill, openerTeachesSkill, 30, null), ct);
+        var exchangeId = (await requests.AcceptAsync(accusedId, request.Id, null, ct)).ExchangeId ?? throw new InvalidOperationException("Принятая заявка не вернула обмен.");
+        var sent = new List<Guid>();
+        foreach (var line in ConductMessages)
+        {
+            sent.Add((await chat.SendAsync(accusedId, exchangeId, line, ct)).Id);
+        }
+
+        var created = await cases.OpenAsync(openerId, new OpenCaseRequest(
+            CaseType.Conduct, FirstCategory(CaseType.Conduct), exchangeId, null, "Собеседник грубит в чате и срывает договорённости (данные для проверки, dev).", sent.TakeLast(2).ToList()), ct);
+        await moderation.TakeAsync(moderatorId, created.Id, ct);
+        await resolution.ResolveAsync(moderatorId, created.Id, new ResolveCaseRequest(CaseDecision.Warning, false, "Решение для проверки интерфейса: предупреждение из сидера (dev)."), ct);
+        return created.Id;
+    }
+
     private static object Regular(string role, LessonSeedDevTools.Seeded seeded, IAccessTokenGenerator tokens) => new
     {
         role,
