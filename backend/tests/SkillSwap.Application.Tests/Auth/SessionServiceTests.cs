@@ -42,6 +42,29 @@ public class SessionServiceTests
     }
 
     [Fact]
+    public async Task List_gives_a_readable_device_name_and_type_and_keeps_the_raw_agent_for_debugging()
+    {
+        AddSession(device: "phone-agent");
+
+        var s = Assert.Single(await _fx.Sessions.ListAsync(_userId, null));
+
+        Assert.Equal("устройство:phone-agent", s.DeviceName);
+        Assert.Equal(DeviceType.Phone, s.DeviceType);
+        Assert.Equal("phone-agent", s.DeviceInfo);
+    }
+
+    [Fact]
+    public async Task A_session_without_a_user_agent_has_no_device_name()
+    {
+        AddSession(device: "");
+
+        var s = Assert.Single(await _fx.Sessions.ListAsync(_userId, null));
+
+        Assert.Null(s.DeviceName);
+        Assert.Equal(DeviceType.Unknown, s.DeviceType);
+    }
+
+    [Fact]
     public async Task List_marks_only_the_current_session()
     {
         var first = AddSession();

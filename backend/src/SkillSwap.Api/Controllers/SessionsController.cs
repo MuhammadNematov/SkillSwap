@@ -23,7 +23,11 @@ public class SessionsController : ControllerBase
         _sessions = sessions;
     }
 
-    /// <summary>Список действующих сеансов, новые сверху. У сеанса, из которого сделан запрос, <c>isCurrent: true</c>.</summary>
+    /// <summary>
+    /// Список действующих сеансов, новые сверху. У сеанса, из которого сделан запрос, <c>isCurrent: true</c>. <c>deviceName</c> («Safari · macOS», «Chrome · Android», «Safari · iPhone»)
+    /// и <c>deviceType</c> (<c>Desktop</c>, <c>Phone</c>, <c>Tablet</c>, <c>Unknown</c>) разобраны из User-Agent: только браузер, система и вид устройства, без места и модели.
+    /// Если устройство не определить (не браузер), <c>deviceName</c> равен <c>null</c>: подпись «Неизвестное устройство» пишет интерфейс. Сырой User-Agent (<c>deviceInfo</c>) в интерфейсе не показывают.
+    /// </summary>
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<SessionInfo>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

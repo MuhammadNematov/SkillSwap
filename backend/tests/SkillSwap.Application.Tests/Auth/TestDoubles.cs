@@ -9,6 +9,14 @@ using SkillSwap.Domain.Entities;
 
 namespace SkillSwap.Application.Tests.Auth;
 
+/// <summary>Разбор User-Agent без библиотеки: «устройство:&lt;User-Agent&gt;», а у «phone:…» и «tablet:…» свой вид.</summary>
+internal sealed class FakeDeviceInfoParser : IDeviceInfoParser
+{
+    public DeviceDescription Describe(string? userAgent) =>
+        string.IsNullOrEmpty(userAgent) ? DeviceDescription.Unknown
+        : new DeviceDescription("устройство:" + userAgent, userAgent.StartsWith("phone", StringComparison.Ordinal) ? DeviceType.Phone : DeviceType.Desktop);
+}
+
 internal sealed class FakeMailSender : IMailSender
 {
     public List<(string To, string Subject, string Body)> Sent { get; } = [];
@@ -386,7 +394,7 @@ internal sealed class AuthFixture
             Clock,
             NullLogger<PasswordResetService>.Instance);
 
-        Sessions = new SessionService(RefreshTokens, Clock);
+        Sessions = new SessionService(RefreshTokens, Clock, new FakeDeviceInfoParser());
 
         TwoFactor = new TwoFactorService(
             Users,

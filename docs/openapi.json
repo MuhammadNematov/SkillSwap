@@ -19096,6 +19096,15 @@
           }
         }
       },
+      "DeviceType": {
+        "enum": [
+          "Unknown",
+          "Desktop",
+          "Phone",
+          "Tablet"
+        ],
+        "type": "string"
+      },
       "ExchangeBalanceDto": {
         "required": [
           "myLessons",
@@ -22684,7 +22693,9 @@
           "startedAt",
           "lastActiveAt",
           "expiresAt",
-          "isCurrent"
+          "isCurrent",
+          "deviceName",
+          "deviceType"
         ],
         "type": "object",
         "properties": {
@@ -22718,6 +22729,15 @@
           },
           "isCurrent": {
             "type": "boolean"
+          },
+          "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deviceType": {
+            "$ref": "#/components/schemas/DeviceType"
           }
         }
       },

@@ -83,6 +83,7 @@ public static class DependencyInjection
         services.AddHostedService<SuperadminSeeder>();
 
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddSingleton<SkillSwap.Application.Auth.IDeviceInfoParser, Auth.UaDeviceInfoParser>();   // название устройства в списке сеансов
         services.AddScoped<IRecoveryCodeStore, RecoveryCodeStore>();
         services.AddScoped<ITwoFactorStepStore, TwoFactorStepStore>();
         services.AddScoped<IUserActivityStore, UserActivityStore>();

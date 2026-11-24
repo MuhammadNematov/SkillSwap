@@ -65,6 +65,29 @@ public class SessionsFlowTests
     }
 
     [Fact]
+    public async Task The_list_names_each_device_in_a_readable_way_and_gives_its_kind()
+    {
+        const string safariMac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15";
+        const string chromeAndroid = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
+        var email = await _api.RegisterConfirmedUserAsync();
+        var mac = await _api.LoginSessionAsync(email, safariMac);
+        var android = await _api.LoginSessionAsync(email, chromeAndroid);
+        var unknown = await _api.LoginSessionAsync(email, LaptopUa);   // не настоящий браузер: «неизвестное устройство»
+
+        var sessions = await AuthApi.ReadListAsync(await _api.ListSessionsAsync(mac.AccessToken));
+
+        var m = sessions.Single(s => Id(s) == mac.SessionId);
+        var a = sessions.Single(s => Id(s) == android.SessionId);
+        var u = sessions.Single(s => Id(s) == unknown.SessionId);
+        Assert.Equal("Safari · macOS", m.GetProperty("deviceName").GetString());
+        Assert.Equal("Desktop", m.GetProperty("deviceType").GetString());
+        Assert.Equal("Chrome · Android", a.GetProperty("deviceName").GetString());
+        Assert.Equal("Phone", a.GetProperty("deviceType").GetString());
+        Assert.Equal(JsonValueKind.Null, u.GetProperty("deviceName").ValueKind);   // название по умолчанию пишет интерфейс на языке пользователя
+        Assert.Equal("Unknown", u.GetProperty("deviceType").GetString());
+    }
+
+    [Fact]
     public async Task The_list_has_login_time_last_activity_and_expiry()
     {
         var email = await _api.RegisterConfirmedUserAsync();
