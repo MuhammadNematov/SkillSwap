@@ -1516,7 +1516,8 @@
     "reason": "Reason",
     "reasonHint": "10 to 500 characters, saved to the audit log.",
     "removedResult": "Moderator removed. Cases returned to the queue: {{cases}}, appeals returned to admins: {{appeals}}.",
-    "personalUnlinked": "Personal account link removed."
+    "personalUnlinked": "Personal account link removed.",
+    "role_SuperAdmin": "Superadmin"
   },
   "staffInvite": {
     "title": "Team invitation",
@@ -1704,5 +1705,16 @@
     "code": "App code (6 digits)",
     "recoveryCode": "Recovery code",
     "useRecovery": "Use a recovery code"
+  },
+  "staffLink": {
+    "title": "Linking a personal account",
+    "intro": "{{name}} ({{role}}) asks to link your personal account to their staff account.",
+    "why": "The link is used to check conflicts of interest: the staff member will not be able to handle cases that involve your account or your exchange partners. Confirm only if you know them and agree.",
+    "expires": "The request is valid until {{date}}.",
+    "confirm": "Confirm",
+    "decline": "Decline",
+    "confirmed": "The link is confirmed.",
+    "declined": "You declined the link.",
+    "toApp": "Go to the app"
   }
 }

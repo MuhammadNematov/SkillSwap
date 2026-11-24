@@ -172,6 +172,31 @@ export async function getStaffInvitation(token: string): Promise<InvitationPrevi
   return http(() => api.get<InvitationPreview>(`/staff-invitations/${encodeURIComponent(token)}`))
 }
 
+// ───────── Привязка личного аккаунта: сторона владельца личного аккаунта (ссылка из письма) ─────────
+export interface LinkRequestPreview {
+  staffName: string
+  staffRole: string // Moderator | Admin | SuperAdmin
+  expiresAt: string
+}
+
+// GET /staff-link-requests/{token} (нужен вход в личный обычный аккаунт, которому адресован запрос)
+export async function getStaffLinkRequest(token: string): Promise<LinkRequestPreview> {
+  if (USE_MOCKS) throw new ApiError('link_request_not_found', 404) // на заглушках таких запросов нет
+  return http(() => api.get<LinkRequestPreview>(`/staff-link-requests/${encodeURIComponent(token)}`))
+}
+
+// POST /staff-link-requests/{token}/confirm (204)
+export async function confirmStaffLinkRequest(token: string): Promise<void> {
+  if (USE_MOCKS) throw new ApiError('link_request_not_found', 404)
+  await http(() => api.post(`/staff-link-requests/${encodeURIComponent(token)}/confirm`))
+}
+
+// POST /staff-link-requests/{token}/decline (204)
+export async function declineStaffLinkRequest(token: string): Promise<void> {
+  if (USE_MOCKS) throw new ApiError('link_request_not_found', 404)
+  await http(() => api.post(`/staff-link-requests/${encodeURIComponent(token)}/decline`))
+}
+
 // POST /staff-invitations/accept (без входа). Ответ: requires2faSetup + twoFactorToken, дальше настройка 2FA по этому токену.
 export async function acceptStaffInvitation(req: { token: string; name: string; password: string; uiLanguage: UiLanguage }): Promise<AcceptResult> {
   if (USE_MOCKS) {

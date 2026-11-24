@@ -64,7 +64,7 @@ export default function StaffTab() {
       const r = await inviteStaff({ email: email.trim(), role, language: lang, confirmation: c })
       setEmail('')
       setNotice(t('staff.sent'))
-      if (r.mockToken) setLink(`${window.location.origin}/staff-invitation/${r.mockToken}`)
+      if (r.mockToken) setLink(`${window.location.origin}/staff/invitation/${r.mockToken}`)
     } else if (action.kind === 'revoke') {
       await revokeInvitation(action.inv.id, c)
       setNotice(t('staff.revoked'))

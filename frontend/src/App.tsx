@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
+import { useAuth } from './hooks/useAuth'
 import ProtectedRoute from './components/ProtectedRoute'
 import Admin from './pages/Admin'
 import AppHome from './pages/AppHome'
@@ -18,6 +19,7 @@ import Onboarding from './pages/Onboarding'
 import Reviews from './pages/Reviews'
 import Settings from './pages/Settings'
 import StaffInvitation from './pages/StaffInvitation'
+import StaffLink from './pages/StaffLink'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Matches from './pages/Matches'
@@ -33,6 +35,14 @@ function ExchangeLink() {
   return <Navigate to={`/app/exchanges/${id}`} replace />
 }
 
+// /cases/{id} из письма о решении: у каждой роли обращение лежит в своём разделе (бэкенд: Frontend:CasePath)
+function CaseLink() {
+  const { id } = useParams()
+  const { user } = useAuth()
+  const base = user?.role === 'Moderator' ? '/moderation/cases' : user?.role === 'Admin' || user?.role === 'SuperAdmin' ? '/admin/cases' : '/app/cases'
+  return <Navigate to={`${base}/${id}`} replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -42,13 +52,18 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/confirm-email" element={<ConfirmEmail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/staff-invitation/:token" element={<StaffInvitation />} />
+      <Route path="/staff/invitation/:token" element={<StaffInvitation />} />
       <Route path="/requests" element={<Navigate to="/app/exchanges?tab=incoming" replace />} />
       <Route path="/exchanges/:id" element={<ExchangeLink />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Защита по ролям (раздел 11.2 ТЗ) */}
+      {/* Ссылки из писем, для которых нужен вход: после входа возвращаемся на них */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/cases/:id" element={<CaseLink />} />
+      </Route>
       <Route element={<ProtectedRoute roles={['User']} />}>
+        <Route path="/staff-link/:token" element={<StaffLink />} />
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<AppHome />} />
           <Route path="onboarding" element={<Onboarding />} />

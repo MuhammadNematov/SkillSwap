@@ -19,7 +19,7 @@ interface Form {
   confirmPassword: string
 }
 
-// Ссылка из письма: /staff-invitation/:token. Создаёт служебный аккаунт; 2FA настраивается при первом входе.
+// Ссылка из письма: /staff/invitation/:token (бэкенд: Frontend:StaffInvitationPath). Создаёт служебный аккаунт; 2FA настраивается при первом входе.
 export default function StaffInvitation() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
