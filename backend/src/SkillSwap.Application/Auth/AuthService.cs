@@ -18,7 +18,6 @@ public sealed class AuthService
     private readonly IMailSender _mail;
     private readonly IBackgroundJobs _jobs;
     private readonly IValidator<RegisterRequest> _registerValidator;
-    private readonly IValidator<ConfirmEmailRequest> _confirmValidator;
     private readonly IValidator<ResendConfirmationRequest> _resendValidator;
     private readonly IValidator<ConfirmEmailCodeRequest> _codeValidator;
     private readonly IEmailCodeStore _codes;
@@ -27,7 +26,6 @@ public sealed class AuthService
     private readonly IUserActivityStore _activity;
     private readonly ITwoFactorChallengeTokens _challenges;
     private readonly TimeProvider _clock;
-    private readonly FrontendOptions _frontend;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -35,7 +33,6 @@ public sealed class AuthService
         IMailSender mail,
         IBackgroundJobs jobs,
         IValidator<RegisterRequest> registerValidator,
-        IValidator<ConfirmEmailRequest> confirmValidator,
         IValidator<ResendConfirmationRequest> resendValidator,
         IValidator<ConfirmEmailCodeRequest> codeValidator,
         IEmailCodeStore codes,
@@ -44,14 +41,12 @@ public sealed class AuthService
         IUserActivityStore activity,
         ITwoFactorChallengeTokens challenges,
         TimeProvider clock,
-        IOptions<FrontendOptions> frontend,
         ILogger<AuthService> logger)
     {
         _users = users;
         _mail = mail;
         _jobs = jobs;
         _registerValidator = registerValidator;
-        _confirmValidator = confirmValidator;
         _resendValidator = resendValidator;
         _codeValidator = codeValidator;
         _codes = codes;
@@ -60,7 +55,6 @@ public sealed class AuthService
         _activity = activity;
         _challenges = challenges;
         _clock = clock;
-        _frontend = frontend.Value;
         _logger = logger;
     }
 
@@ -95,7 +89,7 @@ public sealed class AuthService
         // Ниже — только после верного пароля, чтобы не раскрывать состояние чужих аккаунтов.
         if (!user.EmailConfirmed)
         {
-            throw new ForbiddenException("email_not_confirmed", "Подтвердите email: ссылка отправлена в письме при регистрации.");
+            throw new ForbiddenException("email_not_confirmed", "Подтвердите email: код отправлен в письме при регистрации.");
         }
 
         if (user.IsBlocked)
@@ -148,26 +142,6 @@ public sealed class AuthService
         return new RegisterResponse(user.Id, email);
     }
 
-    public async Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken ct = default)
-    {
-        await _confirmValidator.ValidateAndThrowAsync(request, ct);
-
-        var user = await _users.FindByIdAsync(request.UserId.ToString());
-        // Одинаковый ответ на «нет такого пользователя» и «неверный токен» — не раскрываем, кто зарегистрирован.
-        if (user is null)
-        {
-            throw InvalidConfirmationToken();
-        }
-
-        var result = await _users.ConfirmEmailAsync(user, UrlSafeToken.Decode(request.Token));
-        if (!result.Succeeded)
-        {
-            throw InvalidConfirmationToken();
-        }
-
-        await _codes.ClearAsync(user.Id, ct);   // почта подтверждена ссылкой: код больше не нужен
-    }
-
     /// <summary>
     /// Подтверждение email шестизначным кодом из письма. Пользователь, код и попытки проверяются так, чтобы снаружи было не отличить
     /// «нет такого адреса», «неверный код», «код истёк» и «попытки кончились»: во всех случаях одна и та же ошибка. На код даётся 5 попыток,
@@ -192,7 +166,7 @@ public sealed class AuthService
             throw InvalidConfirmationCode();
         }
 
-        // Подтверждение идёт тем же путём, что и по ссылке (токен Identity), чтобы поведение Identity не расходилось.
+        // Сам факт подтверждения ставит Identity (через свой токен), чтобы поведение Identity не расходилось.
         var token = await _users.GenerateEmailConfirmationTokenAsync(user);
         var result = await _users.ConfirmEmailAsync(user, token);
         if (!result.Succeeded)
@@ -223,13 +197,10 @@ public sealed class AuthService
     {
         try
         {
-            var token = await _users.GenerateEmailConfirmationTokenAsync(user);
-            var link = $"{_frontend.BaseUrl.TrimEnd('/')}/confirm-email" +
-                       $"?userId={user.Id}&token={UrlSafeToken.Encode(token)}";
             // Новый код при каждой отправке (регистрация, «отправить ещё раз»): прежний перестаёт действовать, попытки обнуляются.
             var code = EmailConfirmationCodes.Generate();
             await _codes.SetAsync(user.Id, EmailConfirmationCodes.Hash(user.Id, code), _clock.GetUtcNow().UtcDateTime + EmailConfirmationCodes.Lifetime, ct);
-            var (subject, body) = EmailTemplates.ConfirmEmail(user.UiLanguage, user.Name, link, code);
+            var (subject, body) = EmailTemplates.ConfirmEmail(user.UiLanguage, user.Name, code);
             await _mail.SendAsync(user.Email!, subject, body, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -253,6 +224,4 @@ public sealed class AuthService
     private static BadRequestException InvalidConfirmationCode() =>
         new("invalid_confirmation_code", "Код подтверждения неверный или устарел. Запросите новое письмо.");
 
-    private static BadRequestException InvalidConfirmationToken() =>
-        new("invalid_confirmation_token", "Ссылка подтверждения недействительна или устарела.");
 }

@@ -78,16 +78,15 @@ public sealed partial class AuthApi
     public Task<HttpResponseMessage> ResendConfirmationAsync(string email) =>
         Client.PostAsJsonAsync($"{Base}/auth/resend-confirmation", new { email });
 
-    public Task<HttpResponseMessage> ConfirmEmailAsync(string userId, string token) =>
-        Client.PostAsJsonAsync($"{Base}/auth/confirm-email", new { userId, token });
+    public Task<HttpResponseMessage> ConfirmEmailCodeAsync(string email, string code) =>
+        Client.PostAsJsonAsync($"{Base}/auth/confirm-email/code", new { email, code });
 
-    /// <summary>Регистрирует пользователя и подтверждает email по ссылке из (перехваченного) письма.</summary>
+    /// <summary>Регистрирует пользователя и подтверждает email кодом из (перехваченного) письма.</summary>
     public async Task<string> RegisterConfirmedUserAsync()
     {
         var email = NewEmail();
         (await RegisterAsync(email)).EnsureSuccessStatusCode();
-        var (userId, token) = _factory.Mail.LastConfirmationLink(email);
-        (await ConfirmEmailAsync(userId, token)).EnsureSuccessStatusCode();
+        (await ConfirmEmailCodeAsync(email, _factory.Mail.LastConfirmationCode(email))).EnsureSuccessStatusCode();
         return email;
     }
 

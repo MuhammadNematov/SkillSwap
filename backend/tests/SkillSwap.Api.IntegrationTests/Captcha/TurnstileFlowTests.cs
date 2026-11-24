@@ -404,7 +404,7 @@ public class TurnstileFlowTests : IClassFixture<CaptchaApiFactory>
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await api.RefreshAsync("never-issued")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123")).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ConfirmEmailCodeAsync(AuthApi.NewEmail(), "123456")).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await api.ResendConfirmationAsync(email)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await api.LoginTwoFactorAsync("garbage", "123456")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await api.TwoFactorSetupAsync(null, "garbage")).StatusCode);

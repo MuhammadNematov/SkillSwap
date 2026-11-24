@@ -87,8 +87,8 @@ public class RateLimitingConfigurationTests : IClassFixture<CustomLimitsApiFacto
         Assert.Equal(HttpStatusCode.BadRequest, (await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123")).StatusCode);
         await RateLimitAssert.RateLimitedAsync(await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123"), 3600);
 
-        await ConsumeAsync(2, () => api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x"));
-        await RateLimitAssert.RateLimitedAsync(await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x"), 3600);
+        await ConsumeAsync(2, () => api.ConfirmEmailCodeAsync(AuthApi.NewEmail(), "123456"));
+        await RateLimitAssert.RateLimitedAsync(await api.ConfirmEmailCodeAsync(AuthApi.NewEmail(), "123456"), 3600);
 
         await ConsumeAsync(3, () => api.RefreshAsync("never-issued"));
         await RateLimitAssert.RateLimitedAsync(await api.RefreshAsync("never-issued"), 60);

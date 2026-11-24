@@ -6,18 +6,18 @@ namespace SkillSwap.Application.Auth;
 /// </summary>
 internal static class EmailTemplates
 {
-    /// <summary>Письмо подтверждения: ссылка и шестизначный код (любой из двух способов подтверждает почту).</summary>
-    public static (string Subject, string Body) ConfirmEmail(string language, string name, string link, string code) => language switch
+    /// <summary>Письмо подтверждения: шестизначный код, который вводится на сайте (ссылки нет).</summary>
+    public static (string Subject, string Body) ConfirmEmail(string language, string name, string code) => language switch
     {
         "ru" => (
-            "SkillSwap: подтвердите email",
-            $"Здравствуйте, {name}!\n\nЧтобы завершить регистрацию, подтвердите email по ссылке:\n{link}\n\nИли введите код подтверждения на сайте: {code}\nКод действует 15 минут.\n\nЕсли вы не регистрировались, просто проигнорируйте это письмо."),
+            $"SkillSwap: код подтверждения {code}",
+            $"Здравствуйте, {name}!\n\nВаш код подтверждения:\n\n    {code}\n\nВведите его на сайте, чтобы завершить регистрацию. Код действует 15 минут.\n\nЕсли вы не регистрировались, просто проигнорируйте это письмо."),
         "tg" => (
-            "SkillSwap: тасдиқи почтаи электронӣ",
-            $"Салом, {name}!\n\nБарои анҷом додани қайдшавӣ, почтаи электронии худро тавассути ин истинод тасдиқ кунед:\n{link}\n\nЁ рамзи тасдиқро дар сайт ворид кунед: {code}\nРамз 15 дақиқа эътибор дорад.\n\nАгар шумо қайд нашуда бошед, ин мактубро нодида гиред."),
+            $"SkillSwap: рамзи тасдиқ {code}",
+            $"Салом, {name}!\n\nРамзи тасдиқи шумо:\n\n    {code}\n\nБарои анҷом додани қайдшавӣ онро дар сайт ворид кунед. Рамз 15 дақиқа эътибор дорад.\n\nАгар шумо қайд нашуда бошед, ин мактубро нодида гиред."),
         _ => (
-            "SkillSwap: confirm your email",
-            $"Hello, {name}!\n\nTo finish registration, confirm your email using this link:\n{link}\n\nOr enter this confirmation code on the site: {code}\nThe code is valid for 15 minutes.\n\nIf you did not sign up, just ignore this email."),
+            $"SkillSwap: your confirmation code {code}",
+            $"Hello, {name}!\n\nYour confirmation code:\n\n    {code}\n\nEnter it on the site to finish registration. The code is valid for 15 minutes.\n\nIf you did not sign up, just ignore this email."),
     };
 
     public static (string Subject, string Body) ResetPassword(string language, string name, string link) => language switch

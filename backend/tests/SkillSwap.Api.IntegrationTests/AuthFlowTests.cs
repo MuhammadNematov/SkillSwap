@@ -34,10 +34,9 @@ public class AuthFlowTests
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var mail = Assert.Single(_factory.Mail.To(email));
-        Assert.Contains("подтвердите", mail.Subject);
-        var (userId, token) = _factory.Mail.LastConfirmationLink(email);
-        Assert.NotEmpty(userId);
-        Assert.NotEmpty(token);
+        Assert.Contains("код подтверждения", mail.Subject);
+        Assert.Matches(@"^\d{6}$", _factory.Mail.LastConfirmationCode(email));
+        Assert.DoesNotContain("confirm-email", mail.Body);   // ссылки нет, только код
 
         var user = await FindUserAsync(email);
         Assert.Equal("ru", user.UiLanguage);
@@ -95,16 +94,16 @@ public class AuthFlowTests
     }
 
     [Fact]
-    public async Task Confirm_email_with_a_wrong_token_gives_400_and_the_user_stays_unconfirmed()
+    public async Task Confirm_email_with_a_wrong_code_gives_400_and_the_user_stays_unconfirmed()
     {
         var email = AuthApi.NewEmail();
         (await _api.RegisterAsync(email)).EnsureSuccessStatusCode();
-        var (userId, _) = _factory.Mail.LastConfirmationLink(email);
+        var right = _factory.Mail.LastConfirmationCode(email);
 
-        var response = await _api.ConfirmEmailAsync(userId, "wrong-token");
+        var response = await _api.ConfirmEmailCodeAsync(email, right == "000000" ? "000001" : "000000");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("invalid_confirmation_token", await AuthApi.ReadCodeAsync(response));
+        Assert.Equal("invalid_confirmation_code", await AuthApi.ReadCodeAsync(response));
         Assert.False((await FindUserAsync(email)).EmailConfirmed);
     }
 
@@ -113,9 +112,7 @@ public class AuthFlowTests
     {
         var email = AuthApi.NewEmail();
         (await _api.RegisterAsync(email)).EnsureSuccessStatusCode();
-        var (userId, token) = _factory.Mail.LastConfirmationLink(email);
-
-        var confirm = await _api.ConfirmEmailAsync(userId, token);
+        var confirm = await _api.ConfirmEmailCodeAsync(email, _factory.Mail.LastConfirmationCode(email));
         Assert.Equal(HttpStatusCode.NoContent, confirm.StatusCode);
         Assert.True((await FindUserAsync(email)).EmailConfirmed);
 

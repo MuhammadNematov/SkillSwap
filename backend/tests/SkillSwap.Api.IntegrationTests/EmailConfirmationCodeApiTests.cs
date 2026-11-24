@@ -24,8 +24,7 @@ public class EmailConfirmationCodeApiTests
     private Task<HttpResponseMessage> ConfirmByCodeAsync(string email, string code, AuthApi? api = null) =>
         (api ?? _api).PostAsync("/auth/confirm-email/code", new { email, code });
 
-    private string CodeOf(string email) =>
-        Regex.Match(_factory.Mail.To(email).Last().Body, @": (\d{6})\r?\n").Groups[1].Value;
+    private string CodeOf(string email) => _factory.Mail.LastConfirmationCode(email);
 
     private async Task<string> RegisteredAsync()
     {
@@ -49,18 +48,19 @@ public class EmailConfirmationCodeApiTests
     // ---------- письмо ----------
 
     [Fact]
-    public async Task The_letter_has_the_link_and_a_six_digit_code_and_the_database_keeps_only_a_hash_with_a_fifteen_minute_lifetime()
+    public async Task The_letter_has_only_a_six_digit_code_and_the_database_keeps_only_a_hash_with_a_fifteen_minute_lifetime()
     {
         var email = await RegisteredAsync();
 
         var body = _factory.Mail.To(email).Single().Body;
         var code = CodeOf(email);
-        Assert.Contains("/confirm-email?userId=", body);
+        Assert.DoesNotContain("confirm-email", body);   // ссылки нет
         Assert.Matches(@"^\d{6}$", code);
         var (hash, attempts, expiresAt, confirmed) = await RowAsync(email);
         Assert.False(confirmed);
         Assert.Equal(0, attempts);
-        Assert.Equal(EmailConfirmationCodes.Hash(Guid.Parse(_factory.Mail.LastConfirmationLink(email).UserId), code), hash);
+        var userId = await _factory.QueryAsync(db => db.Users.AsNoTracking().Where(x => x.Email == email).Select(x => x.Id).SingleAsync());
+        Assert.Equal(EmailConfirmationCodes.Hash(userId, code), hash);
         Assert.DoesNotContain(code, hash!);
         Assert.Equal(_factory.Clock.GetUtcNow().UtcDateTime.AddMinutes(15), expiresAt!.Value, TimeSpan.FromSeconds(5));
     }
@@ -89,20 +89,6 @@ public class EmailConfirmationCodeApiTests
         var code = CodeOf(email);
 
         Assert.Equal(HttpStatusCode.NoContent, (await ConfirmByCodeAsync(email, $"{code[..3]} {code[3..]}")).StatusCode);
-    }
-
-    [Fact]
-    public async Task The_link_and_the_code_are_independent_ways_and_the_link_removes_the_code()
-    {
-        var email = await RegisteredAsync();
-        var (userId, token) = _factory.Mail.LastConfirmationLink(email);
-
-        Assert.Equal(HttpStatusCode.NoContent, (await _api.ConfirmEmailAsync(userId, token)).StatusCode);
-
-        Assert.Null((await RowAsync(email)).Hash);
-        var late = await ConfirmByCodeAsync(email, CodeOf(email));   // уже подтверждён: как неверный код
-        Assert.Equal(HttpStatusCode.BadRequest, late.StatusCode);
-        Assert.Equal("invalid_confirmation_code", await ErrorCodeAsync(late));
     }
 
     // ---------- ошибки и попытки ----------

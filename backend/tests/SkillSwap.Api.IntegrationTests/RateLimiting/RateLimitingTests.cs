@@ -166,8 +166,6 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
 
         Assert.All(statuses, s => Assert.Equal(HttpStatusCode.BadRequest, s));   // неверный код, но не лимит
         await RateLimitAssert.RateLimitedAsync(twenty1, Hour);
-        // ссылка и код делят один счётчик на IP: попытки по ссылке тоже упираются в тот же лимит
-        await RateLimitAssert.RateLimitedAsync(await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x"), Hour);
     }
 
     // ---------- forgot-password и resend-confirmation: 10 в час на IP ----------
@@ -468,18 +466,6 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
     }
 
     [Fact]
-    public async Task Confirm_email_allows_twenty_requests_per_ip_per_hour_then_429()
-    {
-        var api = NewClient();
-
-        var statuses = await StatusesAsync(20, _ => api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "no-such-token"));
-        var next = await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "no-such-token");
-
-        Assert.All(statuses, s => Assert.Equal(HttpStatusCode.BadRequest, s));
-        await RateLimitAssert.RateLimitedAsync(next, Hour);
-    }
-
-    [Fact]
     public async Task Refresh_allows_thirty_requests_per_ip_per_minute_then_429_and_recovers()
     {
         var api = NewClient();
@@ -544,7 +530,7 @@ public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
         await StatusesAsync(31, _ => api.RefreshAsync("never-issued"));   // refresh исчерпан
 
         Assert.Equal(HttpStatusCode.BadRequest, (await api.ResetPasswordAsync(Guid.NewGuid().ToString(), "x", "newpass123")).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await api.ConfirmEmailAsync(Guid.NewGuid().ToString(), "x")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.ConfirmEmailCodeAsync(AuthApi.NewEmail(), "123456")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await api.LoginAsync(AuthApi.NewEmail(), "wrong-pass1")).StatusCode);
     }
 

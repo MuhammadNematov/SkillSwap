@@ -64,8 +64,7 @@ public class PasswordResetFlowTests
     {
         var email = AuthApi.NewEmail();
         (await _api.RegisterAsync(email, acceptLanguage: "ru")).EnsureSuccessStatusCode();
-        var (userId, token) = _factory.Mail.LastConfirmationLink(email);
-        (await _api.ConfirmEmailAsync(userId, token)).EnsureSuccessStatusCode();
+        (await _api.ConfirmEmailCodeAsync(email, _factory.Mail.LastConfirmationCode(email))).EnsureSuccessStatusCode();
 
         await _api.ForgotPasswordAsync(email);
 
@@ -317,29 +316,18 @@ public class PasswordResetFlowTests
     }
 
     [Fact]
-    public async Task The_email_confirmation_token_cannot_be_used_to_reset_a_password()
+    public async Task The_email_confirmation_code_cannot_be_used_to_reset_a_password()
     {
         var email = AuthApi.NewEmail();
-        (await _api.RegisterAsync(email)).EnsureSuccessStatusCode();
-        var (userId, confirmationToken) = _factory.Mail.LastConfirmationLink(email);
-        (await _api.ConfirmEmailAsync(userId, confirmationToken)).EnsureSuccessStatusCode();
+        var registered = await (await _api.RegisterAsync(email)).Content.ReadFromJsonAsync<JsonElement>();
+        var userId = registered.GetProperty("userId").GetString()!;
+        var code = _factory.Mail.LastConfirmationCode(email);
+        (await _api.ConfirmEmailCodeAsync(email, code)).EnsureSuccessStatusCode();
 
-        var response = await _api.ResetPasswordAsync(userId, confirmationToken, NewPassword);
+        var response = await _api.ResetPasswordAsync(userId, code, NewPassword);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("invalid_reset_token", await AuthApi.ReadCodeAsync(response));
-    }
-
-    [Fact]
-    public async Task The_reset_token_cannot_be_used_to_confirm_an_email()
-    {
-        var email = await _api.RegisterConfirmedUserAsync();
-        var (userId, resetToken) = await RequestResetAsync(email);
-
-        var response = await _api.ConfirmEmailAsync(userId, resetToken);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("invalid_confirmation_token", await AuthApi.ReadCodeAsync(response));
     }
 
     [Fact]

@@ -37,8 +37,8 @@ public class EmailLanguageTests
 
     [Theory]
     [InlineData("tg", "тасдиқ")]
-    [InlineData("ru", "подтвердите")]
-    [InlineData("en", "confirm your email")]
+    [InlineData("ru", "код подтверждения")]
+    [InlineData("en", "confirmation code")]
     public async Task The_confirmation_email_follows_the_interface_language(string language, string expected)
     {
         var email = AuthApi.NewEmail();
@@ -47,7 +47,8 @@ public class EmailLanguageTests
         var mail = _factory.Mail.To(email).Last();
 
         Assert.Contains(expected, mail.Subject);
-        Assert.Contains("confirm-email?userId=", mail.Body);   // ссылка одна и та же на любом языке
+        Assert.Matches(@"(?m)^\s*\d{6}\s*$", mail.Body);   // код на любом языке; ссылки нет
+        Assert.DoesNotContain("confirm-email", mail.Body);
         if (language == "en")
         {
             Assert.False(IsCyrillic(mail.Subject + mail.Body));

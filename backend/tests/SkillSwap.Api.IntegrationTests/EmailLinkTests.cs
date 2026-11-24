@@ -36,18 +36,15 @@ public partial class EmailLinkTests
     // ---------- вид ссылки ----------
 
     [Fact]
-    public async Task The_confirmation_link_points_at_the_frontend_with_user_id_and_a_url_safe_token()
+    public async Task The_confirmation_letter_has_no_link_only_a_code()
     {
         var email = AuthApi.NewEmail();
         (await _api.RegisterAsync(email)).EnsureSuccessStatusCode();
 
-        var link = LastLink(email, "confirm-email");
+        var body = _factory.Mail.To(email).Single().Body;
 
-        Assert.StartsWith($"{ApiFactory.FrontendUrl}/confirm-email?userId=", link.Link);   // адрес берётся из настроек
-        Assert.Matches("^[A-Za-z0-9_-]+$", link.Token);                              // без «+», «/», «=» и процентного кодирования
-        Assert.DoesNotContain("%", link.Link);
-        Assert.Equal(1, link.Link.Count(c => c == '?'));
-        Assert.Equal(1, link.Link.Count(c => c == '&'));                              // ровно два параметра: userId и token
+        Assert.DoesNotContain("http", body);   // email подтверждается только кодом на сайте
+        Assert.Matches(@"^\d{6}$", _factory.Mail.LastConfirmationCode(email));
     }
 
     [Fact]
@@ -58,26 +55,23 @@ public partial class EmailLinkTests
 
         var link = LastLink(email, "reset-password");
 
-        Assert.StartsWith($"{ApiFactory.FrontendUrl}/reset-password?userId=", link.Link);
-        Assert.Matches("^[A-Za-z0-9_-]+$", link.Token);
+        Assert.StartsWith($"{ApiFactory.FrontendUrl}/reset-password?userId=", link.Link);   // адрес берётся из настроек
+        Assert.Matches("^[A-Za-z0-9_-]+$", link.Token);                               // без «+», «/», «=» и процентного кодирования
         Assert.DoesNotContain("%", link.Link);
-        Assert.Equal(1, link.Link.Count(c => c == '&'));
+        Assert.Equal(1, link.Link.Count(c => c == '?'));
+        Assert.Equal(1, link.Link.Count(c => c == '&'));                               // ровно два параметра: userId и token
     }
 
     // ---------- токен как есть ----------
 
     [Fact]
-    public async Task The_token_from_the_link_works_as_is_for_confirmation_and_for_password_reset()
+    public async Task The_token_from_the_reset_link_works_as_is()
     {
-        var email = AuthApi.NewEmail();
-        (await _api.RegisterAsync(email)).EnsureSuccessStatusCode();
-        var confirm = LastLink(email, "confirm-email");
-
-        Assert.Equal(HttpStatusCode.NoContent, (await _api.ConfirmEmailAsync(confirm.UserId, confirm.Token)).StatusCode);   // без перекодирования
+        var email = await _api.RegisterConfirmedUserAsync();
 
         (await _api.ForgotPasswordAsync(email)).EnsureSuccessStatusCode();
         var reset = LastLink(email, "reset-password");
-        var reply = await _api.ResetPasswordAsync(reset.UserId, reset.Token, "new-pass-123");
+        var reply = await _api.ResetPasswordAsync(reset.UserId, reset.Token, "new-pass-123");   // без перекодирования
         Assert.True(reply.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.OK, $"got {reply.StatusCode}");
         Assert.Equal(HttpStatusCode.OK, (await _api.LoginAsync(email, "new-pass-123")).StatusCode);
     }
@@ -86,13 +80,14 @@ public partial class EmailLinkTests
     public async Task The_old_standard_base64_form_of_the_token_is_still_accepted()
     {
         // Письма, отправленные до перехода на Base64Url, уже лежат у людей: их ссылки должны продолжать работать.
-        var email = AuthApi.NewEmail();
-        (await _api.RegisterAsync(email)).EnsureSuccessStatusCode();
-        var confirm = LastLink(email, "confirm-email");
-        var standard = UrlSafeToken.Decode(confirm.Token);
+        var email = await _api.RegisterConfirmedUserAsync();
+        (await _api.ForgotPasswordAsync(email)).EnsureSuccessStatusCode();
+        var reset = LastLink(email, "reset-password");
+        var standard = UrlSafeToken.Decode(reset.Token);
         Assert.Matches("^[A-Za-z0-9+/]+=*$", standard);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await _api.ConfirmEmailAsync(confirm.UserId, standard)).StatusCode);
+        var reply = await _api.ResetPasswordAsync(reset.UserId, standard, "new-pass-123");
+        Assert.True(reply.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.OK, $"got {reply.StatusCode}");
     }
 
     [Theory]
@@ -108,10 +103,8 @@ public partial class EmailLinkTests
         (await _api.ForgotPasswordAsync(email)).EnsureSuccessStatusCode();
         var reset = LastLink(email, "reset-password");
 
-        var confirmReply = await _api.ConfirmEmailAsync(reset.UserId, token);
         var resetReply = await _api.ResetPasswordAsync(reset.UserId, token, "new-pass-123");
 
-        Assert.Equal(HttpStatusCode.BadRequest, confirmReply.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, resetReply.StatusCode);
     }
 
@@ -129,8 +122,10 @@ public partial class EmailLinkTests
             email, password = AuthApi.Password, name = "Test", dateOfBirth = "2000-01-01", acceptTerms = true, acceptChatModeration = true,
         });
         response.EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/v1/auth/confirm-email/code", new { email, code = _factory.Mail.LastConfirmationCode(email) })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
 
-        Assert.StartsWith("https://app.skillswap.example/confirm-email?userId=", LastLink(email, "confirm-email").Link);   // без двойного «//»
+        Assert.StartsWith("https://app.skillswap.example/reset-password?userId=", LastLink(email, "reset-password").Link);   // без двойного «//»
     }
 
     [Fact]

@@ -14,7 +14,7 @@ public class EmailConfirmationCodeTests
     private static RegisterRequest Request() => new("ali@example.com", "abc12345", "Ali", new DateOnly(2000, 1, 1), "ru", true, true);
 
     /// <summary>Код в письме стоит в конце строки после двоеточия («…на сайте: 123456»); ссылка и токен под это не попадают.</summary>
-    private static string LetterCode(string body) => Regex.Match(body, @": (\d{6})\r?\n").Groups[1].Value;
+    private static string LetterCode(string body) => Regex.Match(body, @"(?m)^\s*(\d{6})\s*$").Groups[1].Value;   // код стоит отдельной строкой
 
     private string CodeFromLetter(int index = -1)
     {
@@ -73,13 +73,14 @@ public class EmailConfirmationCodeTests
     // ---------- письмо ----------
 
     [Fact]
-    public async Task The_registration_letter_has_both_the_link_and_the_code_and_the_code_is_stored_only_as_a_hash()
+    public async Task The_registration_letter_has_only_the_code_and_the_code_is_stored_only_as_a_hash()
     {
         await RegisterAsync();
 
         var body = Assert.Single(_fx.Mail.Sent).Body;
         var code = CodeFromLetter();
-        Assert.Contains("https://app.test/confirm-email?userId=", body);
+        Assert.Contains(code, body);
+        Assert.DoesNotContain("confirm-email", body);   // ссылки нет: подтверждение только кодом
         Assert.Contains("15 минут", body);
         var stored = Assert.Single(_fx.EmailCodes.Codes.Values);
         Assert.DoesNotContain(code, stored.Hash);
@@ -87,8 +88,8 @@ public class EmailConfirmationCodeTests
     }
 
     [Theory]
-    [InlineData("tg", "рамзи тасдиқ")]
-    [InlineData("en", "confirmation code")]
+    [InlineData("tg", "Рамзи тасдиқи шумо")]
+    [InlineData("en", "Your confirmation code")]
     public async Task The_code_text_follows_the_interface_language(string language, string fragment)
     {
         await _fx.Service.RegisterAsync(Request() with { UiLanguage = language }, null);
@@ -217,17 +218,6 @@ public class EmailConfirmationCodeTests
 
         await Confirm(fresh);
         Assert.NotNull(_fx.Users.ConfirmedWithToken);
-    }
-
-    [Fact]
-    public async Task The_link_still_works_and_removes_the_code()
-    {
-        await RegisterAsync();
-        var user = _fx.Users.Created[0];
-
-        await _fx.Service.ConfirmEmailAsync(new ConfirmEmailRequest(user.Id, "token"));
-
-        Assert.Empty(_fx.EmailCodes.Codes);
     }
 
     // ---------- что не раскрываем ----------

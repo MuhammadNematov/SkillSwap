@@ -50,8 +50,15 @@ public class MailEndToEndTests : IClassFixture<MailpitFixture>
         return (match.Groups[1].Value, match.Groups[2].Value);
     }
 
+    private static string CodeIn(MailpitFixture.Mail mail)
+    {
+        var match = Regex.Match(mail.Text, @"(?m)^\s*(\d{6})\s*$");   // код стоит отдельной строкой
+        Assert.True(match.Success, "в письме нет кода: " + mail.Text);
+        return match.Groups[1].Value;
+    }
+
     [Fact]
-    public async Task A_registration_letter_travels_through_the_queue_and_smtp_and_its_link_confirms_the_email()
+    public async Task A_registration_letter_travels_through_the_queue_and_smtp_and_its_code_confirms_the_email()
     {
         await _mailpit.ClearAsync();
         using var app = RealMailApp();
@@ -63,9 +70,9 @@ public class MailEndToEndTests : IClassFixture<MailpitFixture>
         var mail = Assert.Single(await _mailpit.WaitForAsync(1));
         Assert.Equal([email], mail.To);
         Assert.Contains("Subject", mail.Raw, StringComparison.OrdinalIgnoreCase);
-        var (userId, token) = LinkIn(mail, "confirm-email");
+        Assert.DoesNotContain("confirm-email", mail.Text);   // ссылки нет, только код
 
-        var confirm = await client.PostAsJsonAsync("/api/v1/auth/confirm-email", new { userId, token });
+        var confirm = await client.PostAsJsonAsync("/api/v1/auth/confirm-email/code", new { email, code = CodeIn(mail) });
         Assert.Equal(HttpStatusCode.NoContent, confirm.StatusCode);
     }
 
@@ -77,8 +84,8 @@ public class MailEndToEndTests : IClassFixture<MailpitFixture>
         var client = app.CreateClient();
         var email = AuthApi.NewEmail();
         await RegisterAsync(client, email);
-        var (userId, confirmToken) = LinkIn(Assert.Single(await _mailpit.WaitForAsync(1)), "confirm-email");
-        (await client.PostAsJsonAsync("/api/v1/auth/confirm-email", new { userId, token = confirmToken })).EnsureSuccessStatusCode();
+        var code = CodeIn(Assert.Single(await _mailpit.WaitForAsync(1)));
+        (await client.PostAsJsonAsync("/api/v1/auth/confirm-email/code", new { email, code })).EnsureSuccessStatusCode();
         await _mailpit.ClearAsync();
 
         var known = await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email });

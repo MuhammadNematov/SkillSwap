@@ -64,15 +64,6 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
     }
 }
 
-public sealed class ConfirmEmailRequestValidator : AbstractValidator<ConfirmEmailRequest>
-{
-    public ConfirmEmailRequestValidator()
-    {
-        RuleFor(x => x.UserId).NotEmpty().WithErrorCode("required");
-        RuleFor(x => x.Token).NotEmpty().WithErrorCode("required");
-    }
-}
-
 public sealed class ResendConfirmationRequestValidator : AbstractValidator<ResendConfirmationRequest>
 {
     public ResendConfirmationRequestValidator()

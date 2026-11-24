@@ -22,7 +22,7 @@ public class AuthServiceTests
         "ali@example.com", "abc12345", "Ali", new DateOnly(2000, 1, 1), language, true, true);
 
     [Fact]
-    public async Task Register_creates_user_and_sends_confirmation_link()
+    public async Task Register_creates_user_and_sends_a_confirmation_code_without_a_link()
     {
         var response = await _service.RegisterAsync(ValidRequest(), null);
 
@@ -33,8 +33,10 @@ public class AuthServiceTests
 
         var mail = Assert.Single(_mail.Sent);
         Assert.Equal("ali@example.com", mail.To);
-        Assert.Contains($"https://app.test/confirm-email?userId={user.Id}&token=", mail.Body);
-        Assert.Contains("подтвердите", mail.Subject);   // язык письма = язык пользователя
+        Assert.Matches(@"\b\d{6}\b", mail.Body);                 // шестизначный код
+        Assert.DoesNotContain("confirm-email", mail.Body);           // ссылки больше нет
+        Assert.DoesNotContain("http", mail.Body);
+        Assert.Contains("код подтверждения", mail.Subject);          // язык письма = язык пользователя
     }
 
     [Fact]
@@ -74,39 +76,6 @@ public class AuthServiceTests
 
         Assert.Equal("ali@example.com", response.Email);
         Assert.Single(_users.Created);
-    }
-
-    [Fact]
-    public async Task ConfirmEmail_with_unknown_user_looks_like_a_bad_token()
-    {
-        var ex = await Assert.ThrowsAsync<BadRequestException>(
-            () => _service.ConfirmEmailAsync(new ConfirmEmailRequest(Guid.NewGuid(), "token")));
-
-        Assert.Equal("invalid_confirmation_token", ex.Code);
-    }
-
-    [Fact]
-    public async Task ConfirmEmail_with_bad_token_gives_the_same_error()
-    {
-        var user = User.CreateRegular("ali@example.com", "Ali", new DateOnly(2000, 1, 1), "en");
-        _users.Existing = user;
-        _users.ConfirmResult = IdentityResult.Failed(new IdentityError { Code = "InvalidToken" });
-
-        var ex = await Assert.ThrowsAsync<BadRequestException>(
-            () => _service.ConfirmEmailAsync(new ConfirmEmailRequest(user.Id, "bad")));
-
-        Assert.Equal("invalid_confirmation_token", ex.Code);
-    }
-
-    [Fact]
-    public async Task ConfirmEmail_with_valid_token_succeeds()
-    {
-        var user = User.CreateRegular("ali@example.com", "Ali", new DateOnly(2000, 1, 1), "en");
-        _users.Existing = user;
-
-        await _service.ConfirmEmailAsync(new ConfirmEmailRequest(user.Id, "good"));
-
-        Assert.Equal("good", _users.ConfirmedWithToken);
     }
 
     [Fact]

@@ -18,8 +18,6 @@ public sealed record RegisterRequest(
 
 public sealed record RegisterResponse(Guid UserId, string Email);
 
-public sealed record ConfirmEmailRequest(Guid UserId, string Token);
-
 public sealed record ResendConfirmationRequest(string Email);
 
 /// <summary>Подтверждение email шестизначным кодом из письма (вместо ссылки). Пробелы и дефисы в коде допустимы.</summary>

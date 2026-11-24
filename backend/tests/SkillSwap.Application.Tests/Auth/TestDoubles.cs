@@ -365,7 +365,6 @@ internal sealed class AuthFixture
             Mail,
             Jobs,
             new RegisterRequestValidator(Clock),
-            new ConfirmEmailRequestValidator(),
             new ResendConfirmationRequestValidator(),
             new ConfirmEmailCodeRequestValidator(),
             EmailCodes,
@@ -374,7 +373,6 @@ internal sealed class AuthFixture
             Activity,
             Challenges,
             Clock,
-            Microsoft.Extensions.Options.Options.Create(new FrontendOptions { BaseUrl = "https://app.test/" }),
             NullLogger<AuthService>.Instance);
 
         PasswordReset = new PasswordResetService(

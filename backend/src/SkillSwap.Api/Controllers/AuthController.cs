@@ -162,10 +162,10 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Подтверждение email шестизначным кодом из письма (то же письмо содержит и ссылку: подойдёт любой способ). Тело: <c>email</c>, <c>code</c>
+    /// Подтверждение email шестизначным кодом из письма (единственный способ: ссылки в письме нет). Тело: <c>email</c>, <c>code</c>
     /// (пробелы и дефисы допустимы). Код действует 15 минут, на него 5 попыток, новое письмо («отправить ещё раз») отменяет прежний код.
     /// Любая причина отказа (адреса нет, код неверный, истёк, попытки кончились, почта уже подтверждена) — одна и та же 400 <c>invalid_confirmation_code</c>;
-    /// код не шести цифр — 400 <c>validation_failed</c>. Лимит частоты как у подтверждения по ссылке (20 в час с одного IP): 429.
+    /// код не шести цифр — 400 <c>validation_failed</c>. Лимит частоты: 20 в час с одного IP, иначе 429.
     /// </summary>
     [HttpPost("confirm-email/code")]
     [EnableRateLimiting(RateLimitingExtensions.ConfirmEmailPerIpPolicy)]
@@ -175,17 +175,6 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ConfirmEmailByCode(ConfirmEmailCodeRequest request, CancellationToken ct)
     {
         await _auth.ConfirmEmailByCodeAsync(request, ct);
-        return NoContent();
-    }
-
-    /// <summary>Подтверждение email по одноразовой ссылке из письма.</summary>
-    [HttpPost("confirm-email")]
-    [EnableRateLimiting(RateLimitingExtensions.ConfirmEmailPerIpPolicy)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest request, CancellationToken ct)
-    {
-        await _auth.ConfirmEmailAsync(request, ct);
         return NoContent();
     }
 
