@@ -1,6 +1,6 @@
 import { ApiError } from '../errors'
 import type { AuthSession, CurrentUser, UiLanguage } from '../types'
-import type { ConfirmEmailRequest, LoginRequest, LoginResult, RegisterRequest, ResetPasswordRequest, TwoFactorRequest } from '../auth'
+import type { ConfirmEmailCodeRequest, LoginRequest, LoginResult, RegisterRequest, ResetPasswordRequest, TwoFactorRequest } from '../auth'
 
 // ───────── Заглушки для входа. Удалим, когда бэкенд будет готов. ─────────
 //
@@ -123,10 +123,12 @@ export async function mockRegister(req: RegisterRequest): Promise<void> {
 // На заглушках userId имеет вид mock-<email>
 const emailOfMockUser = (userId: string) => userId.replace(/^mock-/, '').toLowerCase()
 
-export async function mockConfirmEmail({ userId, token }: ConfirmEmailRequest): Promise<void> {
+// На заглушках подходит любой код из 6 цифр, кроме 000000 (им проверяется ошибка)
+export async function mockConfirmEmailCode({ email, code }: ConfirmEmailCodeRequest): Promise<void> {
   await sleep()
-  if (!token || token === 'invalid') throw new ApiError('invalid_confirmation_token', 400)
-  unconfirmed.delete(emailOfMockUser(userId))
+  const digits = code.replace(/[\s-]/g, '')
+  if (!/^\d{6}$/.test(digits) || digits === '000000') throw new ApiError('invalid_confirmation_code', 400)
+  unconfirmed.delete(email.trim().toLowerCase())
 }
 
 export async function mockResendConfirmation(_email: string): Promise<void> {

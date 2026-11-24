@@ -2,10 +2,11 @@ import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { login, loginTwoFactor, resendConfirmation } from '../../api/auth'
+import { login, loginTwoFactor } from '../../api/auth'
 import { ApiError, errorMessage, isErrorCode } from '../../api/errors'
 import type { AuthSession } from '../../api/types'
 import AuthLayout from '../../components/AuthLayout'
+import ConfirmEmailCode from '../../components/ConfirmEmailCode'
 import DevStaffPanel from '../../components/DevStaffPanel'
 import FormField from '../../components/FormField'
 import TwoFactorSetup from '../../components/TwoFactorSetup'
@@ -28,12 +29,12 @@ export default function Login() {
   const location = useLocation()
   const { user, loading, setSession } = useAuth()
 
-  const [step, setStep] = useState<'credentials' | '2fa' | 'setup'>('credentials')
+  const [step, setStep] = useState<'credentials' | '2fa' | 'setup' | 'confirm'>('credentials')
   const [twoFactorToken, setTwoFactorToken] = useState<string | undefined>()
   const [useRecovery, setUseRecovery] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
-  const [resent, setResent] = useState(false)
+  const [justConfirmed, setJustConfirmed] = useState(false)
 
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const captcha = useRef<TurnstileHandle>(null)
@@ -53,6 +54,7 @@ export default function Login() {
 
   async function onCredentials(values: CredentialsForm) {
     setServerError(null)
+    setJustConfirmed(false)
     if (!USE_MOCKS && !captchaToken) {
       setServerError(errorMessage(t, new ApiError('captcha_required', 400)))
       return
@@ -70,9 +72,13 @@ export default function Login() {
         finish(result.session)
       }
     } catch (e) {
-      setServerError(errorMessage(t, e))
-      setUnconfirmedEmail(isErrorCode(e, 'EMAIL_NOT_CONFIRMED') ? values.email.trim() : null)
-      setResent(false)
+      if (isErrorCode(e, 'EMAIL_NOT_CONFIRMED')) {
+        // Почта не подтверждена: сразу просим код из письма
+        setUnconfirmedEmail(values.email.trim())
+        setStep('confirm')
+      } else {
+        setServerError(errorMessage(t, e))
+      }
     } finally {
       captcha.current?.reset() // токен одноразовый
     }
@@ -90,6 +96,23 @@ export default function Login() {
     } catch (e) {
       setServerError(errorMessage(t, e))
     }
+  }
+
+  if (step === 'confirm' && unconfirmedEmail) {
+    return (
+      <AuthLayout title={t('confirmEmail.title')} subtitle={t('confirmEmail.loginHint', { email: unconfirmedEmail })}>
+        <ConfirmEmailCode
+          email={unconfirmedEmail}
+          onConfirmed={() => {
+            setJustConfirmed(true)
+            setStep('credentials')
+          }}
+        />
+        <button type="button" className="mt-4 text-sm text-ink-soft hover:underline" onClick={() => setStep('credentials')}>
+          {t('twoFactor.back')}
+        </button>
+      </AuthLayout>
+    )
   }
 
   if (step === 'setup') {
@@ -191,22 +214,7 @@ export default function Login() {
         <Turnstile ref={captcha} onToken={setCaptchaToken} />
 
         {serverError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
-        {unconfirmedEmail &&
-          (resent ? (
-            <p className="text-sm text-emerald-700">{t('registerPage.resent')}</p>
-          ) : (
-            <button
-              type="button"
-              className="text-sm font-medium text-brand-600 hover:underline"
-              onClick={() =>
-                resendConfirmation(unconfirmedEmail)
-                  .then(() => setResent(true))
-                  .catch((e) => setServerError(errorMessage(t, e)))
-              }
-            >
-              {t('registerPage.resend')}
-            </button>
-          ))}
+        {justConfirmed && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{t('confirmEmail.successLogin')}</p>}
 
         <button className="btn-primary h-12 w-full rounded-2xl text-[15px]" disabled={isSubmitting}>
           {isSubmitting ? t('common.loading') : t('loginPage.submit')}

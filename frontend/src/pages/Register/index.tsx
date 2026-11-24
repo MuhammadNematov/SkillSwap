@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { register as registerRequest, resendConfirmation } from '../../api/auth'
+import { Link, Navigate } from 'react-router-dom'
+import { register as registerRequest } from '../../api/auth'
 import { ApiError, errorMessage } from '../../api/errors'
 import type { UiLanguage } from '../../api/types'
 import AuthLayout from '../../components/AuthLayout'
+import ConfirmEmailCode from '../../components/ConfirmEmailCode'
 import FormField from '../../components/FormField'
 import Turnstile, { type TurnstileHandle } from '../../components/Turnstile'
 import { USE_MOCKS } from '../../api/config'
@@ -43,10 +44,8 @@ export default function Register() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const captcha = useRef<TurnstileHandle>(null)
-  const navigate = useNavigate()
-  const [pasted, setPasted] = useState('')
-  const [resent, setResent] = useState(false)
   const [doneEmail, setDoneEmail] = useState<string | null>(null)
+  const [confirmed, setConfirmed] = useState(false)
 
   const {
     register,
@@ -85,53 +84,20 @@ export default function Register() {
     }
   }
 
-  // После регистрации: нужно подтвердить email по ссылке из письма (FR-1)
+  // После регистрации: email подтверждается шестизначным кодом из письма (FR-1)
   if (doneEmail) {
     return (
-      <AuthLayout title={t('registerPage.successTitle')}>
-        <p className="text-sm text-slate-600">{t('registerPage.successText', { email: doneEmail })}</p>
-        {USE_MOCKS && (
-          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            {t('registerPage.mockMail')}{' '}
-            <Link className="font-medium underline" to={`/confirm-email?userId=${encodeURIComponent(`mock-${doneEmail.trim().toLowerCase()}`)}&token=mock`}>
-              {t('registerPage.mockConfirm')}
-            </Link>
-          </p>
-        )}
-        <form
-          className="mt-4 space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            // Принимаем всю ссылку из письма или только её часть после «?»
-            const q = pasted.includes('?') ? pasted.slice(pasted.indexOf('?')) : ''
-            if (q.includes('token=')) navigate(`/confirm-email${q}`)
-            else setServerError(t('registerPage.badLink'))
-          }}
-        >
-          <label className="block text-sm font-medium text-slate-700">{t('registerPage.pasteLink')}</label>
-          <div className="flex gap-2">
-            <input className="input" placeholder="http://.../confirm-email?userId=...&token=..." value={pasted} onChange={(e) => setPasted(e.target.value)} />
-            <button className="btn-secondary shrink-0" disabled={!pasted.trim()}>
-              OK
-            </button>
-          </div>
-          {serverError && <p className="text-sm text-red-700">{serverError}</p>}
-        </form>
-        {resent ? (
-          <p className="mt-3 text-sm text-emerald-700">{t('registerPage.resent')}</p>
+      <AuthLayout title={confirmed ? t('confirmEmail.title') : t('registerPage.successTitle')}>
+        {confirmed ? (
+          <p className="text-sm text-slate-600">{t('confirmEmail.success')}</p>
         ) : (
-          <button
-            className="mt-3 text-sm font-medium text-brand-600 hover:underline"
-            onClick={() =>
-              resendConfirmation(doneEmail)
-                .then(() => setResent(true))
-                .catch((e) => setServerError(errorMessage(t, e)))
-            }
-          >
-            {t('registerPage.resend')}
-          </button>
+          <>
+            <p className="mb-5 text-sm text-slate-600">{t('registerPage.successText', { email: doneEmail })}</p>
+            {USE_MOCKS && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{t('registerPage.mockMail')}</p>}
+            <ConfirmEmailCode email={doneEmail} onConfirmed={() => setConfirmed(true)} />
+          </>
         )}
-        <Link to="/login" className="btn-primary mt-6 w-full">
+        <Link to="/login" className={`${confirmed ? 'btn-primary' : 'btn-secondary'} mt-6 w-full`}>
           {t('registerPage.toLogin')}
         </Link>
       </AuthLayout>

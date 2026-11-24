@@ -380,14 +380,11 @@
     "submit": "Create account",
     "haveAccount": "Already have an account?",
     "successTitle": "Check your email",
-    "successText": "We sent a confirmation link to {{email}}. Follow it to finish signing up.",
+    "successText": "We sent a confirmation code to {{email}}. Enter it below to finish registration.",
     "toLogin": "Go to log in",
     "resend": "Resend the email",
     "resent": "The email was sent again",
-    "mockMail": "Mock mode: no email is sent.",
-    "mockConfirm": "Confirm email",
-    "pasteLink": "Got the email? Paste its link here",
-    "badLink": "The link has no confirmation data",
+    "mockMail": "Mock mode: no email is sent, any 6-digit code works.",
     "strength": {
       "1": "Weak",
       "2": "Fair",
@@ -711,7 +708,7 @@
     "codes": {
       "INVALID_CREDENTIALS": "Wrong email or password",
       "ACCOUNT_LOCKED": "Too many failed attempts. Login is temporarily blocked, please try again later",
-      "EMAIL_NOT_CONFIRMED": "Confirm your email using the link in the message",
+      "EMAIL_NOT_CONFIRMED": "Confirm your email with the code from the message",
       "INVALID_2FA_CODE": "Wrong code",
       "EMAIL_TAKEN": "This email is already registered",
       "UNDERAGE": "Sign-up is available from age 16",
@@ -924,7 +921,8 @@
       "staff_already_removed": "This staff member is already removed.",
       "invalid_name": "Invalid name.",
       "password_required": "Enter a password.",
-      "weak_password": "Password is too weak: at least 8 characters, letters and digits."
+      "weak_password": "Password is too weak: at least 8 characters, letters and digits.",
+      "invalid_confirmation_code": "The code is wrong or has expired. Check the digits or request a new code."
     },
     "validation": {
       "required": "Fill in this field",
@@ -1186,7 +1184,19 @@
   "confirmEmail": {
     "title": "Email confirmation",
     "noToken": "The link has no token. Open the link from the email again.",
-    "success": "Email confirmed. You can now sign in and fill in your profile."
+    "success": "Email confirmed. You can now sign in and fill in your profile.",
+    "code": "Code from the email",
+    "codeHint": "6 digits. The code is valid for 15 minutes.",
+    "codeLength": "Enter all 6 digits of the code",
+    "submit": "Confirm",
+    "resend": "Send a new code",
+    "resent": "A new code has been sent. The previous one no longer works.",
+    "loginHint": "Your email is not confirmed yet. Enter the code from the email sent to {{email}}.",
+    "successLogin": "Email confirmed. Now sign in.",
+    "oldLink": "Confirmation links are no longer used. Enter the code from the email.",
+    "enterCode": "Enter the code from the email sent to {{email}}.",
+    "changeEmail": "Use another email",
+    "next": "Next"
   },
   "forgot": {
     "title": "Password recovery",

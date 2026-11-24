@@ -1,44 +1,54 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
-import { confirmEmail } from '../../api/auth'
-import { USE_MOCKS } from '../../api/config'
-import { errorMessage, toApiError } from '../../api/errors'
 import AuthLayout from '../../components/AuthLayout'
-import Spinner from '../../components/Spinner'
+import ConfirmEmailCode from '../../components/ConfirmEmailCode'
 
-// Ссылка из письма: /confirm-email?userId=...&token=...
+// Подтверждение почты кодом из письма: /confirm-email или /confirm-email?email=...
+// Ссылок в письмах больше нет; старая ссылка (?userId=…&token=…) ведёт сюда же и просит ввести код.
 export default function ConfirmEmail() {
   const { t } = useTranslation()
   const [params] = useSearchParams()
-  const token = params.get('token') ?? ''
-  const userId = params.get('userId') ?? ''
-
-  const { isLoading, isError, error } = useQuery({
-    queryKey: ['confirmEmail', userId, token],
-    queryFn: () => confirmEmail({ userId, token }),
-    enabled: !!token && !!userId,
-    retry: false,
-    staleTime: Infinity, // токен одноразовый: повторно не отправляем
-  })
+  const oldLink = params.has('token')
+  const [email, setEmail] = useState(params.get('email') ?? '')
+  const [entered, setEntered] = useState(!!params.get('email'))
+  const [confirmed, setConfirmed] = useState(false)
 
   return (
     <AuthLayout title={t('confirmEmail.title')}>
-      {!token || !userId ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{t('confirmEmail.noToken')}</p>
-      ) : isLoading ? (
-        <Spinner />
-      ) : isError ? (
-        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          <p>{errorMessage(t, error)}</p>
-          <p className="mt-1 text-xs opacity-70">
-            {toApiError(error).code} · {toApiError(error).status} · {USE_MOCKS ? 'mock' : 'api'}
-          </p>
-        </div>
-      ) : (
+      {confirmed ? (
         <p className="text-sm text-slate-600">{t('confirmEmail.success')}</p>
+      ) : (
+        <>
+          {oldLink && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{t('confirmEmail.oldLink')}</p>}
+          {entered ? (
+            <>
+              <p className="mb-5 text-sm text-slate-600">{t('confirmEmail.enterCode', { email })}</p>
+              <ConfirmEmailCode email={email.trim()} onConfirmed={() => setConfirmed(true)} />
+              <button type="button" className="mt-4 text-sm text-ink-soft hover:underline" onClick={() => setEntered(false)}>
+                {t('confirmEmail.changeEmail')}
+              </button>
+            </>
+          ) : (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (email.trim()) setEntered(true)
+              }}
+            >
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('loginPage.email')}</span>
+                <input className="input" type="email" autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+              </label>
+              <button className="btn-primary h-12 w-full rounded-2xl text-[15px]" disabled={!email.trim()}>
+                {t('confirmEmail.next')}
+              </button>
+            </form>
+          )}
+        </>
       )}
-      <Link to="/login" className="btn-primary mt-6 w-full">
+      <Link to="/login" className={`${confirmed ? 'btn-primary' : 'btn-secondary'} mt-6 w-full`}>
         {t('registerPage.toLogin')}
       </Link>
     </AuthLayout>

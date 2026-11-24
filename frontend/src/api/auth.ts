@@ -2,7 +2,7 @@ import { api, setAccessToken } from './client'
 import { USE_MOCKS } from './config'
 import { toApiError } from './errors'
 import {
-  mockConfirmEmail,
+  mockConfirmEmailCode,
   mockForgotPassword,
   mockLogin,
   mockLoginTwoFactor,
@@ -113,17 +113,18 @@ export async function logoutRequest(): Promise<void> {
 }
 
 // ───────── Подтверждение email и сброс пароля (ТЗ FR-1, FR-4) ─────────
-// Ссылка из письма содержит ровно два параметра: userId и token.
+// Email подтверждается шестизначным кодом из письма (ссылки в письме нет). Код живёт 15 минут, 5 попыток;
+// «отправить ещё раз» выдаёт новый код. Любой отказ — 400 invalid_confirmation_code.
 
-export interface ConfirmEmailRequest {
-  userId: string
-  token: string // Base64Url, передаём как есть
+export interface ConfirmEmailCodeRequest {
+  email: string
+  code: string // 6 цифр, пробелы и дефисы сервер допускает
 }
 
-export async function confirmEmail(req: ConfirmEmailRequest): Promise<void> {
-  if (USE_MOCKS) return mockConfirmEmail(req)
+export async function confirmEmailCode(req: ConfirmEmailCodeRequest): Promise<void> {
+  if (USE_MOCKS) return mockConfirmEmailCode(req)
   try {
-    await api.post('/auth/confirm-email', req)
+    await api.post('/auth/confirm-email/code', req)
   } catch (e) {
     throw toApiError(e)
   }
