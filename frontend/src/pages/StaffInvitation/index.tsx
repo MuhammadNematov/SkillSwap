@@ -34,7 +34,7 @@ export default function StaffInvitation() {
     handleSubmit,
     getValues,
     formState: { errors, isSubmitting },
-  } = useForm<Form>()
+  } = useForm<Form>({ mode: 'onTouched' })
 
   async function onSubmit({ name, password }: Form) {
     setServerError(null)

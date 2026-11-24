@@ -27,7 +27,21 @@ interface Body {
 
 // Учебные значки и названия предметов бесцельно дрейфуют по всей панели с формой (в том числе позади полей),
 // отталкиваясь от краёв. Форма лежит выше, поэтому читаемость не страдает. При reduced motion значки стоят на месте.
-export default function AuthFloaters({ count = 36, className = 'hidden md:block' }: { count?: number; className?: string }) {
+// quiet: фон страниц входа. Метки приглушены, движутся медленно и живут только по бокам от формы: по центру маска (SAFE_BAND) их скрывает,
+// так что они не заходят на заголовок, поля и подвал. inset задаёт область (без полосы шапки и подвала).
+const SAFE_BAND = 'linear-gradient(90deg, #000 0, #000 calc(50% - 236px), transparent calc(50% - 212px), transparent calc(50% + 212px), #000 calc(50% + 236px), #000 100%)'
+
+export default function AuthFloaters({
+  count = 36,
+  className = 'hidden md:block',
+  quiet = false,
+  inset = 'inset-0',
+}: {
+  count?: number
+  className?: string
+  quiet?: boolean
+  inset?: string
+}) {
   const { t } = useTranslation()
   const box = useRef<HTMLDivElement>(null)
   const nodes = useRef<(HTMLSpanElement | null)[]>([])
@@ -38,7 +52,7 @@ export default function AuthFloaters({ count = 36, className = 'hidden md:block'
     return Array.from({ length: count }, (_, n) => ({
       key: n,
       label: labels[(n * 7) % labels.length],
-      tone: TONES[Math.floor(rnd(n + 201) * TONES.length)],
+      tone: quiet ? TONES[Math.floor(rnd(n + 201) * 2)] : TONES[Math.floor(rnd(n + 201) * TONES.length)],
     }))
   }, [t, count])
 
@@ -51,7 +65,7 @@ export default function AuthFloaters({ count = 36, className = 'hidden md:block'
 
     const bodies: Body[] = items.map((_, n) => {
       const a = rnd(n + 11) * Math.PI * 2
-      const speed = 14 + rnd(n + 21) * 26 // px/с
+      const speed = quiet ? 5 + rnd(n + 21) * 8 : 14 + rnd(n + 21) * 26 // px/с
       return {
         x: rnd(n + 31) * Math.max(W - 100, 1),
         y: rnd(n + 41) * Math.max(H - 36, 1),
@@ -119,10 +133,15 @@ export default function AuthFloaters({ count = 36, className = 'hidden md:block'
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [items])
+  }, [items, quiet])
 
   return (
-    <div ref={box} className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`} aria-hidden>
+    <div
+      ref={box}
+      className={`pointer-events-none absolute ${inset} z-0 select-none overflow-hidden ${className}`}
+      style={quiet ? { maskImage: SAFE_BAND, WebkitMaskImage: SAFE_BAND } : undefined}
+      aria-hidden
+    >
       {items.map((i) => {
         const center = rnd(i.key + 61) > 0.5 // часть значков бледнее, чтобы не спорить с формой
         return (
@@ -131,7 +150,7 @@ export default function AuthFloaters({ count = 36, className = 'hidden md:block'
             ref={(node) => {
               nodes.current[i.key] = node
             }}
-            className={`absolute left-0 top-0 flex h-9 items-center justify-center whitespace-nowrap rounded-xl px-3 text-xs font-bold shadow-sm will-change-transform ${i.tone} ${center ? 'opacity-40' : 'opacity-90'}`}
+            className={`absolute left-0 top-0 flex h-9 items-center justify-center whitespace-nowrap rounded-xl px-3 text-xs font-bold shadow-sm will-change-transform ${i.tone} ${quiet ? 'opacity-30' : center ? 'opacity-40' : 'opacity-90'}`}
           >
             {i.label}
           </span>

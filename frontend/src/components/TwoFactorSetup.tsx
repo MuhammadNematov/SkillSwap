@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { errorMessage } from '../api/errors'
 import { setupTwoFactor, verifyTwoFactor, type VerifyResult } from '../api/twoFactor'
 import type { AuthSession } from '../api/types'
+import CodeInput from './CodeInput'
 import Spinner from './Spinner'
 
 interface Props {
@@ -90,15 +91,7 @@ export default function TwoFactorSetup({ twoFactorToken, onDone, onCancel }: Pro
           </a>
         </div>
       </div>
-      <input
-        className="input text-center tracking-widest"
-        inputMode="numeric"
-        maxLength={6}
-        autoComplete="one-time-code"
-        placeholder="123456"
-        value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-      />
+      <CodeInput value={code} onChange={setCode} onComplete={(v) => verify.mutate({ code: v, twoFactorToken })} disabled={verify.isPending} invalid={verify.isError} ariaLabel={t('twoFactor.code')} />
       {verify.isError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage(t, verify.error)}</p>}
       <div className="flex gap-3">
         {onCancel && (

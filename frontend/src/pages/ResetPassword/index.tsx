@@ -25,7 +25,7 @@ export default function ResetPassword() {
     handleSubmit,
     getValues,
     formState: { errors, isSubmitting },
-  } = useForm<Form>()
+  } = useForm<Form>({ mode: 'onTouched' })
 
   async function onSubmit({ password }: Form) {
     setServerError(null)

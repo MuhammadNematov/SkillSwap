@@ -8,6 +8,7 @@ import type { AuthSession } from '../../api/types'
 import AuthLayout from '../../components/AuthLayout'
 import ConfirmEmailCode from '../../components/ConfirmEmailCode'
 import DevStaffPanel from '../../components/DevStaffPanel'
+import CodeInput from '../../components/CodeInput'
 import FormField from '../../components/FormField'
 import TwoFactorSetup from '../../components/TwoFactorSetup'
 import Turnstile, { type TurnstileHandle } from '../../components/Turnstile'
@@ -39,8 +40,12 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const captcha = useRef<TurnstileHandle>(null)
 
-  const credentialsForm = useForm<CredentialsForm>()
-  const codeForm = useForm<CodeForm>()
+  // onTouched: «Обязательное поле» появляется после ухода с поля или попытки отправки, а не сразу
+  const credentialsForm = useForm<CredentialsForm>({ mode: 'onTouched' })
+  const codeForm = useForm<CodeForm>({ mode: 'onTouched' })
+  const [totp, setTotp] = useState('') // код из приложения: шесть клеток
+  const [totpAttempt, setTotpAttempt] = useState(0)
+  const [totpBusy, setTotpBusy] = useState(false)
 
   // Уже вошёл — на страницу входа ему не нужно
   if (!loading && user) return <Navigate to={homeForRole(user.role)} replace />
@@ -98,6 +103,26 @@ export default function Login() {
     }
   }
 
+  // Код из приложения вводится в шесть клеток и уходит сам после шестой цифры. Резервный код (XXXX-XXXX-XXXX-XXXX) в клетки не помещается, для него обычное поле.
+  async function submitTotp(code: string) {
+    if (totpBusy) return
+    if (code.length !== 6) {
+      setServerError(t('validation.codeFormat'))
+      return
+    }
+    setServerError(null)
+    setTotpBusy(true)
+    try {
+      finish(await loginTwoFactor({ code, isRecoveryCode: false, twoFactorToken: twoFactorToken ?? '' }))
+    } catch (e) {
+      setServerError(errorMessage(t, e))
+      setTotp('')
+      setTotpAttempt((n) => n + 1)
+    } finally {
+      setTotpBusy(false)
+    }
+  }
+
   if (step === 'confirm' && unconfirmedEmail) {
     return (
       <AuthLayout title={t('confirmEmail.title')} subtitle={t('confirmEmail.loginHint', { email: unconfirmedEmail })}>
@@ -133,25 +158,35 @@ export default function Login() {
         title={t('twoFactor.title')}
         subtitle={useRecovery ? t('twoFactor.recoveryHint') : t('twoFactor.hint')}
       >
-        <form onSubmit={codeForm.handleSubmit(onCode)} className="space-y-4" noValidate>
-          <FormField label={t('twoFactor.code')} error={codeForm.formState.errors.code}>
-            <input
-              className="input tracking-widest"
-              autoComplete="one-time-code"
-              inputMode={useRecovery ? 'text' : 'numeric'}
-              autoFocus
-              {...codeForm.register('code', {
-                required: 'validation.required',
-                // Обычный код — ровно 6 цифр; резервный код формат не проверяем
-                validate: (v) => useRecovery || /^\d{6}$/.test(v.trim()) || 'validation.codeFormat',
-              })}
-            />
-          </FormField>
+        <form
+          onSubmit={(ev) => {
+            ev.preventDefault()
+            if (useRecovery) void codeForm.handleSubmit(onCode)(ev)
+            else void submitTotp(totp)
+          }}
+          className="space-y-4"
+          noValidate
+        >
+          {useRecovery ? (
+            <FormField label={t('twoFactor.code')} error={codeForm.formState.errors.code}>
+              <input
+                className="input tracking-widest"
+                autoComplete="one-time-code"
+                autoFocus
+                {...codeForm.register('code', { required: 'validation.required' })}
+              />
+            </FormField>
+          ) : (
+            <div>
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('twoFactor.code')}</span>
+              <CodeInput key={totpAttempt} value={totp} onChange={setTotp} onComplete={(v) => void submitTotp(v)} autoFocus disabled={totpBusy} invalid={!!serverError} ariaLabel={t('twoFactor.code')} />
+            </div>
+          )}
 
           {serverError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
 
-          <button className="btn-primary w-full" disabled={codeForm.formState.isSubmitting}>
-            {codeForm.formState.isSubmitting ? t('common.loading') : t('twoFactor.submit')}
+          <button className="btn-primary w-full" disabled={useRecovery ? codeForm.formState.isSubmitting : totpBusy || totp.length !== 6}>
+            {(useRecovery ? codeForm.formState.isSubmitting : totpBusy) ? t('common.loading') : t('twoFactor.submit')}
           </button>
 
           <div className="flex items-center justify-between text-sm">
@@ -161,6 +196,7 @@ export default function Login() {
               onClick={() => {
                 setUseRecovery((v) => !v)
                 codeForm.reset()
+                setTotp('')
                 setServerError(null)
               }}
             >
@@ -174,6 +210,7 @@ export default function Login() {
                 setUseRecovery(false)
                 setServerError(null)
                 codeForm.reset()
+                setTotp('')
               }}
             >
               {t('twoFactor.back')}

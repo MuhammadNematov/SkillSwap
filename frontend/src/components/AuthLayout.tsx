@@ -37,7 +37,7 @@ export default function AuthLayout({ title, subtitle, children }: Props) {
           <AuthInfo compact />
         </div>
         <p className="relative z-10 text-center text-xs text-ink-soft">{t('authPromo.footer')}</p>
-        <AuthFloaters />
+        <AuthFloaters count={10} quiet inset="inset-x-0 bottom-10 top-[76px]" />
       </section>
 
       <section className="hidden min-h-0 flex-1 basis-[480px] flex-col justify-between overflow-hidden rounded-2xl border border-ink-line bg-brand-100/60 p-10 xl:flex">

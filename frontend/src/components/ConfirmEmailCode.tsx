@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { confirmEmailCode, resendConfirmation } from '../api/auth'
 import { errorMessage } from '../api/errors'
+import CodeInput from './CodeInput'
 
 interface Props {
   email: string
@@ -17,24 +18,33 @@ export default function ConfirmEmailCode({ email, onConfirmed }: Props) {
   const [busy, setBusy] = useState(false)
   const [resent, setResent] = useState(false)
 
+  const [attempt, setAttempt] = useState(0) // меняется после ошибки: клетки очищаются и фокус возвращается в первую
+
   const digits = code.replace(/\D/g, '')
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (digits.length !== 6) {
+  async function submit(value: string) {
+    if (busy) return
+    if (value.length !== 6) {
       setError(t('confirmEmail.codeLength'))
       return
     }
     setError(null)
     setBusy(true)
     try {
-      await confirmEmailCode({ email, code: digits })
+      await confirmEmailCode({ email, code: value })
       onConfirmed()
     } catch (err) {
       setError(errorMessage(t, err))
+      setCode('')
+      setAttempt((n) => n + 1)
     } finally {
       setBusy(false)
     }
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    void submit(digits)
   }
 
   async function onResend() {
@@ -43,6 +53,7 @@ export default function ConfirmEmailCode({ email, onConfirmed }: Props) {
       await resendConfirmation(email)
       setResent(true)
       setCode('')
+      setAttempt((n) => n + 1)
     } catch (err) {
       setError(errorMessage(t, err))
     }
@@ -50,21 +61,11 @@ export default function ConfirmEmailCode({ email, onConfirmed }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
-      <label className="block">
+      <div>
         <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('confirmEmail.code')}</span>
-        <input
-          className="input text-center text-2xl font-bold tracking-[0.5em]"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          autoFocus
-          maxLength={7}
-          placeholder="••••••"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/[^\d\s-]/g, ''))}
-          aria-invalid={!!error}
-        />
+        <CodeInput key={attempt} value={digits} onChange={setCode} onComplete={(v) => void submit(v)} autoFocus disabled={busy} invalid={!!error} ariaLabel={t('confirmEmail.code')} />
         <span className="mt-1.5 block text-xs text-ink-soft">{t('confirmEmail.codeHint')}</span>
-      </label>
+      </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
