@@ -11,7 +11,7 @@ import FormField from '../../components/FormField'
 import Turnstile, { type TurnstileHandle } from '../../components/Turnstile'
 import { USE_MOCKS } from '../../api/config'
 import { useAuth } from '../../hooks/useAuth'
-import { ageFromBirthDate, todayIso } from '../../utils/dates'
+import { MIN_BIRTH_YEAR, birthDateError, todayIso } from '../../utils/dates'
 import { homeForRole } from '../../utils/roles'
 
 interface RegisterForm {
@@ -176,13 +176,11 @@ export default function Register() {
           <input
             type="date"
             className="input"
+            min={`${MIN_BIRTH_YEAR}-01-01`}
             max={todayIso()}
             {...register('dateOfBirth', {
               required: 'validation.required',
-              validate: (v) => {
-                if (v > todayIso()) return 'validation.futureDate'
-                return ageFromBirthDate(v) >= MIN_AGE || 'validation.underage'
-              },
+              validate: (v) => birthDateError(v, MIN_AGE) ?? true,
             })}
           />
         </FormField>

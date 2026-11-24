@@ -460,7 +460,8 @@
     "underage": "Sign-up is available from age 16",
     "futureDate": "The date cannot be in the future",
     "codeFormat": "Enter 6 digits",
-    "mustAccept": "Consent is required"
+    "mustAccept": "Consent is required",
+    "birthDateInvalid": "Enter a real date of birth (year 1900 or later)"
   },
   "app": {
     "title": "Dashboard"

@@ -1,3 +1,21 @@
+// Раньше этого года дату рождения не принимаем: <input type="date"> позволяет набрать год 0007, и тогда «возраст» выходит около 2000 лет.
+export const MIN_BIRTH_YEAR = 1900
+
+const isLeapYear = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0
+const daysInMonth = (y: number, m: number) => [31, isLeapYear(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]
+
+// Проверка даты рождения (строка YYYY-MM-DD из <input type="date">). Возвращает ключ перевода ошибки или null, если всё хорошо.
+// Дату проверяем по цифрам, без `new Date`: он превращает год 0–99 в 1900–1999. Окончательную проверку делает сервер.
+export function birthDateError(iso: string, minAge: number, today = new Date()): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso) // ровно четыре цифры года: 20000 или 0007 за дату рождения не считаем
+  if (!match) return 'validation.birthDateInvalid'
+  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  if (y < MIN_BIRTH_YEAR || m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m)) return 'validation.birthDateInvalid'
+  const [ny, nm, nd] = [today.getFullYear(), today.getMonth() + 1, today.getDate()]
+  if (y > ny || (y === ny && (m > nm || (m === nm && d > nd)))) return 'validation.futureDate'
+  return ageFromBirthDate(iso, today) >= minAge ? null : 'validation.underage'
+}
+
 // Возраст по дате рождения (строка YYYY-MM-DD). Окончательную проверку делает сервер.
 export function ageFromBirthDate(iso: string, today = new Date()): number {
   const [y, m, d] = iso.split('-').map(Number)
