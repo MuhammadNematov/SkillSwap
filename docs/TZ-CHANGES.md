@@ -19,7 +19,7 @@
 | 10.3 | Очистка чатов через 90 дней | Добавлено: очистка **уведомлений** (прочитанные 90 дней, непрочитанные 180, сроки в `Maintenance:Notifications:*`) и **сверка бакета с таблицей вложений** (файлы старше 24 часов без строки в `Attachments`; по умолчанию только отчёт в аудит, удаление включается флагом `Maintenance:BucketReconciliation:DeleteOrphans`) |
 | 11.2, 15 | — | Для ручной проверки фронтендом есть маршруты только для Development: `/dev/seed-lesson`, `/dev/seed-staff`, `/dev/staff-code`, `/dev/seed-case`, `/dev/seed-admin`, `/dev/livekit`. В боевой среде их нет (404), в OpenAPI не попадают |
 | 10.2 (Rate Limiter) | — | Значения лимитов в `appsettings.json` (секция `RateLimiting`), 429 с `Retry-After`; полный список в `BACKEND-DEV.md` |
-| 14 (деплой за прокси) | — | Нужна настройка `ForwardedHeaders` с `KnownProxies`; **в коде её ещё нет** (см. раздел 8) |
+| 14 (деплой за прокси) | — | Нужна настройка `ForwardedHeaders:KnownProxies` под боевой прокси (код готов, без неё заголовки не принимаются; `RELEASE-CHECKLIST.md`, п. 10) |
 
 ## 2. Аутентификация и аккаунты (разделы 5.1, 10.1)
 
@@ -134,7 +134,7 @@
 
 | Что | Состояние |
 | --- | --- |
-| `ForwardedHeaders` с `KnownProxies` | В коде нет; обязательно до запуска (`RELEASE-CHECKLIST.md`, п. 10) |
+| `ForwardedHeaders` с `KnownProxies` | Код готов; список прокси задать до запуска (`RELEASE-CHECKLIST.md`, п. 10) |
 | Redis (кэш каталога, Rate Limiter, backplane) | Не подключён; один экземпляр API |
 | Предупреждение админом без обращения (раздел 3) | Нет: `Warning.CaseId` обязателен |
 | Восстановление снятого модератора | Нет; повторное приглашение на тот же адрес не пройдёт |

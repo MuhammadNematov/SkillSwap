@@ -57,10 +57,16 @@ builder.Services.AddOpenApi(options =>
     options.AddSchemaTransformer<EnumStringSchemaTransformer>();
 });
 
+builder.Services.AddConfiguredForwardedHeaders();   // доверие к заголовкам обратного прокси (адрес клиента)
+
 var app = builder.Build();
 
 SkillSwap.Api.LessonTimingSetup.Apply(app.Services, app.Environment);
 SkillSwap.Api.CaseTimingSetup.Apply(app.Services, app.Environment);
+
+// Первым: всё ниже (обработчик ошибок, CORS, аутентификация, лимиты, сеансы, аудит) читает адрес клиента из Connection.RemoteIpAddress,
+// а этот middleware подставляет туда адрес из X-Forwarded-For, но только если запрос пришёл от известного прокси.
+app.UseConfiguredForwardedHeaders();
 
 app.UseExceptionHandler();
 
