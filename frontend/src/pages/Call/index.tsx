@@ -81,8 +81,11 @@ export default function Call() {
   const closesIn = new Date(data.roomClosesAt).getTime() - now
   const closed = closesIn <= 0
 
+  const inRoom = !closed && !exited && !!prefs
+
   return (
-    <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-4">
+    <div className={`flex flex-col gap-4 ${inRoom ? '' : 'min-h-[calc(100vh-9rem)]'}`}>
+      {!inRoom && (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold text-ink">{t('call.title')}</h1>
         <div className="flex items-center gap-2">
@@ -97,10 +100,11 @@ export default function Call() {
         </div>
       </div>
 
-      {left > 0 && left <= FIVE_MIN && (
+      )}
+      {!inRoom && left > 0 && left <= FIVE_MIN && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">{t('call.fiveMinutes')}</div>
       )}
-      {left <= 0 && !closed && (
+      {!inRoom && left <= 0 && !closed && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{t('call.closesIn', { time: fmt(closesIn) })}</div>
       )}
 
@@ -136,7 +140,18 @@ export default function Call() {
       ) : !prefs ? (
         <PreJoin busy={entering} onJoin={enter} />
       ) : (
-        <CallRoom data={data} prefs={prefs} onLeave={() => setExited(true)} onRetry={() => refetch()} />
+        <CallRoom
+          data={data}
+          prefs={prefs}
+          chrome={{
+            timer: left > 0 ? fmt(left) : t('call.overtime'),
+            overtime: left <= 0,
+            warning: left > 0 && left <= FIVE_MIN ? t('call.fiveMinutes') : left <= 0 ? t('call.closesIn', { time: fmt(closesIn) }) : null,
+            onComplain: exchangeId.data ? () => setComplaining(true) : undefined,
+          }}
+          onLeave={() => setExited(true)}
+          onRetry={() => refetch()}
+        />
       )}
       {complaining && exchangeId.data && (
         <CaseModal exchangeId={exchangeId.data} partnerName="" fixed={{ type: 'Conduct' }} fromCall onClose={() => setComplaining(false)} />

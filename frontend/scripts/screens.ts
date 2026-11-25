@@ -434,7 +434,9 @@ async function checkCall() {
     const pages: Record<string, Page> = {}
     for (const role of ['teacher', 'student']) {
       const acc = lesson.users.find((u) => u.role === role)!
-      const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU', permissions: ['camera', 'microphone'], viewport: { width: 1280, height: 860 } })
+      // Преподаватель с ноутбука, ученик с телефона (сенсорный экран: автоскрытие кнопок, шторка чата)
+      const device = role === 'teacher' ? { viewport: { width: 1440, height: 900 } } : { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+      const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU', permissions: ['camera', 'microphone'], ...device })
       await signIn(ctx, acc, false)
       const page = await ctx.newPage()
       page.on('pageerror', (e) => problems.push(`звонок ${role}: ошибка страницы: ${e.message.slice(0, 160)}`))
@@ -468,18 +470,149 @@ async function checkCall() {
             [...document.querySelectorAll<HTMLElement>('.lk-participant-tile')].some((tile) => {
               const video = tile.querySelector('video')
               return tile.getAttribute('data-lk-local-participant') === 'false' && !!video && video.readyState >= 2 && video.videoWidth > 0
-            }),
+            }) || (() => {
+              const v = document.querySelector<HTMLVideoElement>('[data-testid="remote-video"]')
+              return !!v && v.readyState >= 2 && v.videoWidth > 0
+            })(),
           undefined,
           { timeout: 45_000 },
         )
         .then(() => true)
         .catch(() => false)
       if (!ok) problems.push(`звонок ${role}: видео собеседника не появилось за 45 с`)
-      await page.screenshot({ path: `${dir}${role}.png` })
     }
+    await checkCallLayout(pages.teacher, pages.student, dir)
   } finally {
     await browser.close()
   }
+}
+
+// Раскладка звонка: весь экран без прокрутки, меню сайта скрыто, собеседник целиком (contain), своё окно зеркально и в пределах сцены, кнопки на экране,
+// чат справа на широком экране (видео не перекрыто) и шторкой ~50% на телефоне, бейдж и предпросмотр нового сообщения, перетаскивание своего окна, автоскрытие кнопок на телефоне.
+async function checkCallLayout(teacher: Page, student: Page, dir: string) {
+  type Geo = Awaited<ReturnType<typeof measure>>
+  const measure = (page: Page) =>
+    page.evaluate(() => {
+      const r = (sel: string) => {
+        const el = document.querySelector(sel)
+        if (!el) return null
+        const b = el.getBoundingClientRect()
+        return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, width: b.width, height: b.height }
+      }
+      const remote = document.querySelector<HTMLElement>('[data-testid="remote-video"]')
+      const local = document.querySelector<HTMLElement>('[data-testid="local-video"]')
+      const probe = document.elementFromPoint(16, Math.round(window.innerHeight / 2))
+      return {
+        vw: window.innerWidth,
+        vh: window.innerHeight,
+        scroll: (() => {
+          window.scrollTo(0, 200)
+          const y = window.scrollY
+          window.scrollTo(0, 0)
+          return y
+        })(),
+        screen: r('[data-testid="call-screen"]'),
+        topbar: r('[data-testid="call-topbar"]'),
+        stage: r('[data-testid="call-stage"]'),
+        pip: r('[data-testid="local-pip"]'),
+        name: r('[data-testid="remote-name"] > div'),
+        controls: r('[data-testid="call-controls"]'),
+        controlsVisible: document.querySelector('[data-testid="call-controls"]')?.getAttribute('data-visible') === 'true',
+        side: r('[data-testid="chat-side"]'),
+        sheet: r('[data-testid="chat-sheet"]'),
+        remoteFit: remote ? getComputedStyle(remote).objectFit : null,
+        localTransform: local ? getComputedStyle(local).transform : null,
+        probeInCall: !!probe?.closest('[data-testid="call-screen"]'),
+      }
+    })
+
+  const check = (tag: string, g: Geo, chat: 'closed' | 'open', phone: boolean) => {
+    if (g.scroll > 1) problems.push(`${tag}: страница прокручивается (+${g.scroll}px)`)
+    if (!g.screen || Math.abs(g.screen.width - g.vw) > 1 || Math.abs(g.screen.height - g.vh) > 1) problems.push(`${tag}: звонок не на весь экран`)
+    if (!g.probeInCall) problems.push(`${tag}: поверх звонка видно меню сайта`)
+    if (g.topbar && g.topbar.height > 60) problems.push(`${tag}: верхняя полоска слишком высокая (${Math.round(g.topbar.height)})`)
+    if (g.remoteFit !== 'contain') problems.push(`${tag}: видео собеседника не object-fit: contain (${g.remoteFit})`)
+    if (!g.localTransform || !g.localTransform.startsWith('matrix(-1')) problems.push(`${tag}: своё видео не зеркальное (${g.localTransform})`)
+    if (g.pip && g.stage && (g.pip.left < g.stage.left - 1 || g.pip.right > g.stage.right + 1 || g.pip.top < g.stage.top - 1 || g.pip.bottom > g.stage.bottom + 1)) problems.push(`${tag}: своё окно вылезает за сцену`)
+    if (g.controlsVisible && g.controls && g.controls.bottom > g.vh + 1) problems.push(`${tag}: кнопки за нижним краем`)
+    const overlap = (a: typeof g.pip, b: typeof g.pip) => !!a && !!b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+    if (overlap(g.name, g.pip)) problems.push(`${tag}: своё окно закрывает имя собеседника`)
+    if (g.controlsVisible && g.controls && g.name && g.name.bottom > g.controls.top + 32) problems.push(`${tag}: имя собеседника налезает на кнопки`)
+    if (chat === 'open') {
+      // Шторка только на узком экране; горизонтальный телефон (от 768 px) получает панель справа, как ноутбук
+      if (!phone || g.vw >= 768) {
+        if (!g.side) problems.push(`${tag}: чат не открылся панелью справа`)
+        else {
+          if (g.side.width < 280 || g.side.width > 370) problems.push(`${tag}: ширина чата ${Math.round(g.side.width)} (ожидалось ~360)`)
+          if (g.stage && g.stage.right > g.side.left + 1) problems.push(`${tag}: чат перекрывает видео`)
+        }
+      } else if (!g.sheet) problems.push(`${tag}: чат не открылся шторкой`)
+      else {
+        const share = g.sheet.height / g.vh
+        if (share < 0.4 || share > 0.6) problems.push(`${tag}: шторка чата ${Math.round(share * 100)}% высоты (ожидалось ~50%)`)
+        if (g.sheet.top < (g.topbar?.bottom ?? 0) + 80) problems.push(`${tag}: шторка закрывает видео собеседника целиком`)
+      }
+    }
+  }
+
+  async function shootAll(page: Page, name: string, phone: boolean) {
+    for (const theme of THEMES) {
+      await page.evaluate((d) => document.documentElement.classList.toggle('dark', d), theme === 'dark')
+      for (const chat of ['closed', 'open'] as const) {
+        const open = await page.locator('[data-testid="chat-panel"]').count()
+        if ((chat === 'open') !== open > 0) await page.getByTestId('btn-chat').click({ force: true })
+        await page.waitForTimeout(500)
+        if (phone) await page.getByTestId('call-stage').tap({ position: { x: 30, y: 200 } }).catch(() => undefined)   // показать кнопки
+        await page.waitForTimeout(300)
+        const tag = `звонок ${name} ${theme} чат ${chat === 'open' ? 'открыт' : 'закрыт'}`
+        check(tag, await measure(page), chat, phone)
+        await page.screenshot({ path: `${dir}${name}-${theme}-chat-${chat}.png` })
+      }
+      // закрыть чат для следующего прохода
+      if (await page.locator('[data-testid="chat-panel"]').count()) await page.getByTestId('chat-panel').getByRole('button', { name: 'Закрыть' }).click()
+    }
+    await page.evaluate(() => document.documentElement.classList.remove('dark'))
+  }
+
+  // Новое сообщение при закрытом чате: бейдж и предпросмотр у получателя
+  await teacher.getByTestId('btn-chat').click()
+  await teacher.getByPlaceholder('Сообщение…').fill('Привет! Начинаем урок')
+  await teacher.keyboard.press('Enter')
+  await teacher.getByTestId('chat-panel').getByRole('button', { name: 'Закрыть' }).click()
+  await student.getByTestId('call-stage').tap({ position: { x: 30, y: 200 } }).catch(() => undefined)
+  await student.waitForSelector('[data-testid="chat-toast"]', { timeout: 8000 }).catch(() => problems.push('звонок: у получателя нет предпросмотра нового сообщения'))
+  if (!(await student.getByTestId('chat-badge').isVisible().catch(() => false))) problems.push('звонок: нет бейджа непрочитанных на кнопке чата')
+  await student.screenshot({ path: `${dir}phone-portrait-new-message.png` })
+
+  // Перетаскивание своего окна: в левый верхний угол, прилипание к углу
+  const pip = teacher.getByTestId('local-pip')
+  const box = await pip.boundingBox()
+  if (box) {
+    await teacher.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await teacher.mouse.down()
+    await teacher.mouse.move(300, 200, { steps: 8 })
+    await teacher.mouse.up()
+    await teacher.waitForTimeout(400)
+    if ((await pip.getAttribute('data-corner')) !== 'tl') problems.push(`звонок: своё окно не прилипло к левому верхнему углу (${await pip.getAttribute('data-corner')})`)
+    const after = await pip.boundingBox()
+    const stage = await teacher.getByTestId('call-stage').boundingBox()
+    if (after && stage && (Math.abs(after.x - stage.x - 12) > 2 || Math.abs(after.y - stage.y - 12) > 2)) problems.push('звонок: своё окно не встало в угол с отступом 12 px')
+  }
+
+  await shootAll(teacher, 'laptop-1440x900', false)
+
+  // Телефон: автоскрытие кнопок без касаний, появление по тапу
+  await student.getByTestId('call-stage').tap({ position: { x: 30, y: 200 } }).catch(() => undefined)
+  await student.waitForTimeout(5000)
+  if ((await student.getByTestId('call-controls').getAttribute('data-visible')) !== 'false') problems.push('звонок: на телефоне кнопки не спрятались через несколько секунд')
+  await student.getByTestId('call-stage').tap({ position: { x: 30, y: 200 } }).catch(() => undefined)
+  await student.waitForTimeout(300)
+  if ((await student.getByTestId('call-controls').getAttribute('data-visible')) !== 'true') problems.push('звонок: на телефоне кнопки не появились по тапу')
+
+  await shootAll(student, 'phone-390x844', true)
+  await student.setViewportSize({ width: 844, height: 390 })
+  await student.waitForTimeout(600)
+  await shootAll(student, 'phone-844x390', true)
 }
 
 async function main() {

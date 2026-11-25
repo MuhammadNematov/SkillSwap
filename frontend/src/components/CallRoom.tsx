@@ -1,28 +1,30 @@
-import '@livekit/components-styles'
-import { LiveKitRoom, VideoConference, RoomAudioRenderer } from '@livekit/components-react'
+import { LiveKitRoom, RoomAudioRenderer, StartAudio } from '@livekit/components-react'
 import { DisconnectReason } from 'livekit-client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { JoinToken } from '../api/calls'
 import { USE_MOCKS } from '../api/config'
 import { liveKitServerUrl } from '../utils/livekitUrl'
+import CallStage, { type CallChrome } from './call/CallStage'
 import CallRoomMock from './CallRoomMock'
 import Icon from './Icon'
 import type { JoinPrefs } from './PreJoin'
 
 type Failure = 'connect' | 'lost'
 
-// Видеокомната на LiveKit. Токен приходит из POST /sessions/{id}/join-token (см. pages/Call), адрес сервера: liveKitServerUrl (в разработке от адреса страницы).
-// Сам вышел (кнопка «Выйти») — onLeave, страница предложит вернуться. Не удалось подключиться или связь оборвалась — не выкидываем молча, а показываем
-// ошибку и кнопку «Повторить»: она берёт новый токен (onRetry) и подключается заново.
+// Видеокомната на LiveKit в режиме фокуса: на весь видимый экран (100dvh) поверх сайта, боковое меню и шапка скрыты, страница не прокручивается.
+// Токен приходит из POST /sessions/{id}/join-token (см. pages/Call), адрес сервера: liveKitServerUrl (в разработке от адреса страницы).
+// Сам вышел (кнопка «Выйти») — onLeave, страница предложит вернуться. Не удалось подключиться или связь оборвалась — ошибка и «Повторить» (новый токен).
 export default function CallRoom({
   data,
   prefs,
+  chrome,
   onLeave,
   onRetry,
 }: {
   data: JoinToken
   prefs: JoinPrefs
+  chrome: CallChrome
   onLeave: () => void
   onRetry: () => Promise<unknown>
 }) {
@@ -32,6 +34,21 @@ export default function CallRoom({
   const [attempt, setAttempt] = useState(0)
   const [retrying, setRetrying] = useState(false)
   const connected = useRef(false)
+
+  // Режим фокуса: страница под звонком не прокручивается
+  useEffect(() => {
+    // И html, и body: в iOS Safari одного body недостаточно
+    const html = document.documentElement.style.overflow
+    const body = document.body.style.overflow
+    window.scrollTo(0, 0)
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.documentElement.style.overflow = html
+      document.body.style.overflow = body
+    }
+  }, [])
+
   if (USE_MOCKS) return <CallRoomMock data={data} onLeave={onLeave} />
 
   async function retry() {
@@ -47,30 +64,27 @@ export default function CallRoom({
     }
   }
 
-  if (failure) {
-    return (
-      <div className="card mx-auto w-full max-w-md space-y-4 text-center" role="alert" data-testid="call-failure">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-700">
-          <Icon name="video" className="h-6 w-6" />
-        </span>
-        <p className="font-semibold text-ink">{failure === 'connect' ? t('call.connectFailed') : t('call.connectionLost')}</p>
-        <p className="text-sm text-ink-soft">{t('call.connectFailedHint')}</p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <button className="btn-primary" disabled={retrying} onClick={retry}>
-            {retrying ? t('common.loading') : t('call.retry')}
-          </button>
-          <button className="btn-secondary" onClick={onLeave}>
-            {t('call.leave')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex flex-1 flex-col gap-3">
-      {notice && <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div>}
-      <div className="flex-1 overflow-hidden rounded-3xl border border-ink-line bg-[#17143d]" data-lk-theme="default" style={{ minHeight: 420 }}>
+    <div className="fixed inset-0 z-50 flex h-[100dvh] flex-col bg-[#0f0d1e] text-white" data-testid="call-screen">
+      {failure ? (
+        <div className="grid flex-1 place-items-center p-4">
+          <div className="w-full max-w-md space-y-4 rounded-2xl bg-white/5 p-6 text-center ring-1 ring-white/10" role="alert" data-testid="call-failure">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-red-500/15 text-red-300">
+              <Icon name="videoOff" className="h-6 w-6" />
+            </span>
+            <p className="font-semibold">{failure === 'connect' ? t('call.connectFailed') : t('call.connectionLost')}</p>
+            <p className="text-sm text-white/70">{t('call.connectFailedHint')}</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button className="btn-primary" disabled={retrying} onClick={retry}>
+                {retrying ? t('common.loading') : t('call.retry')}
+              </button>
+              <button className="inline-flex items-center justify-center rounded-lg border border-white/20 px-5 py-2.5 text-sm font-semibold hover:bg-white/10" onClick={onLeave}>
+                {t('call.leave')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
         <LiveKitRoom
           key={attempt}
           serverUrl={liveKitServerUrl(data.url)}
@@ -92,12 +106,14 @@ export default function CallRoom({
             if (!connected.current) setFailure('connect')
             else setNotice(t('call.connectionError'))
           }}
-          style={{ height: '100%' }}
+          style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
         >
-          <VideoConference />
+          <CallStage chrome={{ ...chrome, warning: notice ?? chrome.warning }} />
           <RoomAudioRenderer />
+          {/* Браузер может запретить звук без жеста пользователя: тогда появляется кнопка включения звука */}
+          <StartAudio label={t('call.room.startAudio')} className="fixed left-1/2 top-16 z-[60] -translate-x-1/2 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-lg" />
         </LiveKitRoom>
-      </div>
+      )}
     </div>
   )
 }

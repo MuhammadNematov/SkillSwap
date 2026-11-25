@@ -96,6 +96,12 @@ const icons = {
   shield: <path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6z" />,
   chevronRight: <path d="m9 6 6 6-6 6" />,
   appeal: <path d="M4 4h16v12H8l-4 4zM8 9h8M8 12h5" />,
+  mic: <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />,
+  micOff: <path d="M15 10V6a3 3 0 0 0-5.7-1.3M9 9v3a3 3 0 0 0 4.9 2.3M5 11a7 7 0 0 0 11.6 5.3M19 11a7 7 0 0 1-.6 2.8M12 18v3M3 3l18 18" />,
+  videoOff: <path d="M15 11V8a2 2 0 0 0-2-2H8.5M3.7 6.3A2 2 0 0 0 3 8v8a2 2 0 0 0 2 2h8a2 2 0 0 0 1.7-1M15 10l6-3v10l-2.2-1.1M3 3l18 18" />,
+  screen: <path d="M3 5h18v11H3zM8 20h8M12 16v4M9 11l3-3 3 3M12 8v6" />,
+  phoneOff: <path d="M10.7 13.3a13 13 0 0 1-2-2.9l1.5-1.5a1 1 0 0 0 .2-1.2L9 4.6A1 1 0 0 0 7.8 4L4.6 5a1 1 0 0 0-.6 1.1A17 17 0 0 0 9 15M14.6 16.2a17 17 0 0 0 3.3 1.8 1 1 0 0 0 1.1-.6l1-3.2a1 1 0 0 0-.6-1.2l-3-1.4a1 1 0 0 0-1.2.2l-1 1M3 21 21 3" />,
+  flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof icons
