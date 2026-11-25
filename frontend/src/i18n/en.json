@@ -1155,7 +1155,7 @@
   "chat": {
     "attach": "Attach file",
     "empty": "No messages yet",
-    "placeholder": "Write a message",
+    "placeholder": "Message…",
     "proposeLesson": "Propose a lesson",
     "send": "Send",
     "sessionCard": "Lesson proposal",
