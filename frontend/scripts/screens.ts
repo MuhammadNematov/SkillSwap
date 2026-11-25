@@ -420,6 +420,68 @@ async function checkLanguageSelect(page: Page) {
   }
 }
 
+// Видеоурок: преподаватель и ученик из /dev/seed-lesson в двух контекстах с фейковой камерой входят в комнату на localhost и видят видео друг друга.
+// Заодно: если видеосервер недоступен (WebSocket сигнального канала обрывается), вместо «Вы вышли» показывается ошибка с «Повторить», и повтор подключает.
+async function checkCall() {
+  const dir = `${OUT}call/`
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] })
+  try {
+    const seedCtx = await browser.newContext({ ignoreHTTPSErrors: true })
+    const lesson = await json<{ sessionId: string; users: { role: string; email: string; password: string }[] }>(seedCtx.request, 'post', '/dev/seed-lesson')
+    await seedCtx.close()
+    const pages: Record<string, Page> = {}
+    for (const role of ['teacher', 'student']) {
+      const acc = lesson.users.find((u) => u.role === role)!
+      const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU', permissions: ['camera', 'microphone'], viewport: { width: 1280, height: 860 } })
+      await signIn(ctx, acc, false)
+      const page = await ctx.newPage()
+      page.on('pageerror', (e) => problems.push(`звонок ${role}: ошибка страницы: ${e.message.slice(0, 160)}`))
+      pages[role] = page
+
+      // Проверка ошибки подключения: у преподавателя сначала «ломаем» видеосервер
+      // Пока broken, сигнальный канал LiveKit обрывается; потом соединения идут к настоящему серверу
+      let broken = role === 'teacher'
+      await ctx.routeWebSocket(/\/livekit\//, (ws) => {
+        if (broken) ws.close()
+        else ws.connectToServer()
+      })
+      await page.goto(`${BASE}/app/call/${lesson.sessionId}`, { waitUntil: 'load' })
+      await page.getByRole('button', { name: 'Войти в комнату' }).click({ timeout: 20_000 })
+      if (role === 'teacher') {
+        const failure = page.getByTestId('call-failure')
+        await failure.waitFor({ timeout: 30_000 }).catch(() => undefined)
+        if (!(await failure.isVisible().catch(() => false))) problems.push('звонок: при недоступном видеосервере не показана ошибка (или выкинуло на «Вы вышли»)')
+        else if (!(await page.getByText('Не удалось подключиться к видеосерверу').isVisible())) problems.push('звонок: нет текста «Не удалось подключиться к видеосерверу»')
+        await page.screenshot({ path: `${dir}connect-failed.png` })
+        broken = false
+        await page.getByRole('button', { name: 'Повторить' }).click().catch(() => problems.push('звонок: нет кнопки «Повторить»'))
+      }
+    }
+
+    // Обе стороны должны увидеть видео собеседника: удалённая плитка с живым видео
+    for (const [role, page] of Object.entries(pages)) {
+      const ok = await page
+        .waitForFunction(
+          () =>
+            [...document.querySelectorAll<HTMLElement>('.lk-participant-tile')].some((tile) => {
+              const video = tile.querySelector('video')
+              return tile.getAttribute('data-lk-local-participant') === 'false' && !!video && video.readyState >= 2 && video.videoWidth > 0
+            }),
+          undefined,
+          { timeout: 45_000 },
+        )
+        .then(() => true)
+        .catch(() => false)
+      if (!ok) problems.push(`звонок ${role}: видео собеседника не появилось за 45 с`)
+      await page.screenshot({ path: `${dir}${role}.png` })
+    }
+  } finally {
+    await browser.close()
+  }
+}
+
 async function main() {
   const seed = await (async () => {
     const browser0 = await chromium.launch({ channel: 'chromium' })
@@ -444,6 +506,7 @@ async function main() {
     await checkRequired(page)
     await ctx.close()
   }
+  if (!ONLY || ONLY.includes('call')) await checkCall().catch((e) => problems.push(`звонок: проверка прервалась: ${String(e.message).split('\n')[0]}`))
   if (!ONLY || ONLY.includes('flows')) {
     const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU' })
     const page = await ctx.newPage()

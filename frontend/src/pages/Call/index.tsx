@@ -136,7 +136,7 @@ export default function Call() {
       ) : !prefs ? (
         <PreJoin busy={entering} onJoin={enter} />
       ) : (
-        <CallRoom data={data} prefs={prefs} onLeave={() => setExited(true)} />
+        <CallRoom data={data} prefs={prefs} onLeave={() => setExited(true)} onRetry={() => refetch()} />
       )}
       {complaining && exchangeId.data && (
         <CaseModal exchangeId={exchangeId.data} partnerName="" fixed={{ type: 'Conduct' }} fromCall onClose={() => setComplaining(false)} />

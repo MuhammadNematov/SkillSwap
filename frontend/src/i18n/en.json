@@ -1083,7 +1083,11 @@
         "busy": "The device is in use by another app. Close it and try again.",
         "other": "Could not start the device. Try reloading the page."
       }
-    }
+    },
+    "connectFailed": "Could not connect to the video server",
+    "connectionLost": "The connection to the video server was lost",
+    "connectFailedHint": "Check your internet connection and press “Retry”. If that does not help, reload the page.",
+    "retry": "Retry"
   },
   "exchanges": {
     "title": "My exchanges",

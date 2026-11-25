@@ -25,12 +25,14 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
+      // Слушать все адреса (localhost и адрес Mac в сети), чтобы сайт открывался с телефона по Wi-Fi без флага --host. Только dev-сервер; сборку это не затрагивает.
+      host: true,
       https,
       proxy: {
         '/api': { target, changeOrigin: true, xfwd: true },
         '/hubs': { target, changeOrigin: true, ws: true, xfwd: true },
         '/dev': { target, changeOrigin: true, xfwd: true }, // только Development-бэкенд: POST /dev/seed-lesson
-        // LiveKit: бэкенд отдаёт LiveKit:Url = wss://<адрес>:5173/livekit, клиент сам добавляет /rtc…
+        // LiveKit: в разработке фронт подключается к wss://<адрес страницы>/livekit (utils/livekitUrl.ts), клиент сам добавляет /rtc…
         '/livekit': { target: livekitTarget, changeOrigin: true, ws: true, xfwd: true, rewrite: (p) => p.replace(/^\/livekit/, '') },
         // Хранилище: бэкенд отдаёт ссылки на файлы относительными (Storage:RelativeUrls=true): /<бакет>/<ключ>?X-Amz-….
         // Подпись посчитана для Storage:Endpoint (localhost:3900), поэтому Host подменяется на адрес цели (changeOrigin: true):
