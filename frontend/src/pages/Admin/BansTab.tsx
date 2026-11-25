@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -8,6 +8,7 @@ import EmptyState from '../../components/staff/EmptyState'
 import FilterBar from '../../components/staff/FilterBar'
 import { SkeletonList } from '../../components/staff/Skeleton'
 import Tag, { type TagTone } from '../../components/staff/Tag'
+import { SEARCH_MAX_LENGTH, useDebouncedSearch } from '../../hooks/useDebouncedSearch'
 import { useUrlParams } from '../../hooks/useUrlParams'
 import { formatDateTime } from '../../utils/dates'
 
@@ -77,28 +78,33 @@ export function BanCard({ ban }: { ban: BanRequest }) {
   )
 }
 
-const BAN_KEYS = ['status'] as const
+const BAN_KEYS = ['status', 'q'] as const
 
 // Запросы на блокировку: по умолчанию ждущие решения. Статус хранится в адресе (/admin/bans?status=Approved), «all» — все.
 export default function BansTab() {
   const { t } = useTranslation()
   const { values, set, reset } = useUrlParams(BAN_KEYS)
-  const [q, setQ] = useState('')
+  const [input, setInput] = useDebouncedSearch(values.q, (v) => set('q', v))
+  const needle = values.q
   const status = (values.status || 'Pending') as BanRequestStatus | 'all'
-  const { data = [], isLoading, error } = useQuery({ queryKey: ['adminBans', status], queryFn: () => getBanRequests(status === 'all' ? undefined : status) })
-  const needle = q.trim().toLowerCase()
-  const shown = needle ? data.filter((b) => [b.userName, b.reason].some((x) => x.toLowerCase().includes(needle))) : data
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: ['adminBans', status, needle],
+    queryFn: () => getBanRequests(status === 'all' ? undefined : status, needle),
+    placeholderData: keepPreviousData,
+  })
+  const shown = data
   const isDefault = status === 'Pending'
   const clear = () => {
     reset()
-    setQ('')
+    setInput('')
   }
   return (
     <div className="space-y-4">
       <FilterBar
-        search={q}
-        onSearch={setQ}
+        search={input}
+        onSearch={setInput}
         searchPlaceholder={t('staffUi.searchBans')}
+        searchMaxLength={SEARCH_MAX_LENGTH}
         filters={[
           {
             key: 'status',

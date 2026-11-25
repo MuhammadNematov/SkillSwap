@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getModCases, type CaseType, type ModScope } from '../../api/cases'
 import { errorMessage } from '../../api/errors'
@@ -7,37 +6,38 @@ import CaseRow from '../../components/staff/CaseRow'
 import EmptyState from '../../components/staff/EmptyState'
 import FilterBar from '../../components/staff/FilterBar'
 import { SkeletonList } from '../../components/staff/Skeleton'
+import { SEARCH_MAX_LENGTH, useDebouncedSearch } from '../../hooks/useDebouncedSearch'
 import { useUrlParams } from '../../hooks/useUrlParams'
 
 const TYPES: CaseType[] = ['Conduct', 'NoShowAbuse', 'ReviewDispute']
-const KEYS = ['type'] as const
+const KEYS = ['type', 'q'] as const
 
 // Список обращений модератора: свободные (очередь), мои в работе или апелляции на проверке. Раздел выбирается в меню слева.
 export default function ModQueue({ scope }: { scope: ModScope }) {
   const { t } = useTranslation()
   const { values, set, reset } = useUrlParams(KEYS)
-  const [q, setQ] = useState('')
-  const { data = [], isLoading, error } = useQuery({ queryKey: ['modCases', scope], queryFn: () => getModCases(scope) })
-
-  // Поиск и тип применяются к уже загруженным обращениям (до 50): сервер для списка модератора их не принимает
-  const needle = q.trim().toLowerCase()
-  const shown = data.filter(
-    (c) =>
-      (!values.type || c.type === values.type) &&
-      (!needle || [c.description, c.openedBy.name, c.against.name].some((x) => x.toLowerCase().includes(needle))),
-  )
+  const [input, setInput] = useDebouncedSearch(values.q, (v) => set('q', v))
+  const needle = values.q
+  // Тип и поиск применяет сервер: список приходит уже отфильтрованным (до 50 записей)
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: ['modCases', scope, needle],
+    queryFn: () => getModCases(scope, needle),
+    placeholderData: keepPreviousData,
+  })
+  const shown = data.filter((c) => !values.type || c.type === values.type)
   const filtered = !!values.type || !!needle
   const clear = () => {
     reset()
-    setQ('')
+    setInput('')
   }
 
   return (
     <div className="space-y-4">
       <FilterBar
-        search={q}
-        onSearch={setQ}
+        search={input}
+        onSearch={setInput}
         searchPlaceholder={t('staffUi.searchCases')}
+        searchMaxLength={SEARCH_MAX_LENGTH}
         filters={[
           {
             key: 'type',

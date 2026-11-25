@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getAdminCases, type CaseStatus, type CaseType } from '../../api/cases'
 import { errorMessage } from '../../api/errors'
@@ -8,35 +7,36 @@ import EmptyState from '../../components/staff/EmptyState'
 import FilterBar from '../../components/staff/FilterBar'
 import { SkeletonList } from '../../components/staff/Skeleton'
 import Tag from '../../components/staff/Tag'
+import { SEARCH_MAX_LENGTH, useDebouncedSearch } from '../../hooks/useDebouncedSearch'
 import { useUrlParams } from '../../hooks/useUrlParams'
 
 const STATUSES: CaseStatus[] = ['Open', 'InProgress', 'WaitingResponse', 'Resolved', 'Appealed', 'AppealReview', 'Closed', 'Withdrawn']
 const TYPES: CaseType[] = ['Conduct', 'NoShowAbuse', 'ReviewDispute']
-const KEYS = ['status', 'type'] as const
+const KEYS = ['status', 'type', 'q'] as const
 
-// Все обращения: админ видит статусы и материалы, но не переписку. Статус и тип берутся из адреса (/admin/cases?status=Open).
+// Все обращения: админ видит статусы и материалы, но не переписку. Статус, тип и поиск берутся из адреса (/admin/cases?status=Open&q=иван); поиск выполняет сервер.
 export default function CasesTab() {
   const { t } = useTranslation()
   const { values, set, reset } = useUrlParams(KEYS)
-  const [q, setQ] = useState('')
   const status = values.status as CaseStatus | ''
   const type = values.type as CaseType | ''
-  const { data = [], isLoading, error } = useQuery({ queryKey: ['adminCases', status, type], queryFn: () => getAdminCases(status, type) })
-
-  // Поиск по уже загруженным обращениям (до 50): сервер поиск по тексту не принимает
-  const needle = q.trim().toLowerCase()
-  const shown = needle ? data.filter((c) => [c.description, c.openedBy.name, c.against.name].some((x) => x.toLowerCase().includes(needle))) : data
+  const [input, setInput] = useDebouncedSearch(values.q, (v) => set('q', v))
+  const q = values.q
+  const { data = [], isLoading, error } = useQuery({ queryKey: ['adminCases', status, type, q], queryFn: () => getAdminCases(status, type, q), placeholderData: keepPreviousData })
+  const shown = data
+  const needle = q
   const clear = () => {
     reset()
-    setQ('')
+    setInput('')
   }
 
   return (
     <div className="space-y-4">
       <FilterBar
-        search={q}
-        onSearch={setQ}
+        search={input}
+        onSearch={setInput}
         searchPlaceholder={t('staffUi.searchCases')}
+        searchMaxLength={SEARCH_MAX_LENGTH}
         filters={[
           {
             key: 'status',

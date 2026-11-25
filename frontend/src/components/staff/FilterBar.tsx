@@ -17,6 +17,7 @@ export default function FilterBar({
   search,
   onSearch,
   searchPlaceholder,
+  searchMaxLength,
   filters,
   extra,
   onReset,
@@ -24,6 +25,7 @@ export default function FilterBar({
   search?: string
   onSearch?: (value: string) => void
   searchPlaceholder?: string
+  searchMaxLength?: number
   filters: FilterDef[]
   extra?: React.ReactNode
   onReset: () => void
@@ -44,6 +46,7 @@ export default function FilterBar({
               type="search"
               value={search ?? ''}
               placeholder={searchPlaceholder}
+              maxLength={searchMaxLength}
               aria-label={searchPlaceholder}
               onChange={(e) => onSearch(e.target.value)}
             />

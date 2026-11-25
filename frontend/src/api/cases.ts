@@ -511,14 +511,18 @@ export async function appealCase({ id, reason }: { id: string; reason: string })
 // ───────── Модератор ─────────
 export type ModScope = 'Queue' | 'Mine' | 'Appeals'
 
-export async function getModCases(scope: ModScope): Promise<ModCase[]> {
+// Поиск q выполняет сервер: часть имени или почты участников либо текста обращения, без учёта регистра (до 100 символов)
+const mockMatches = (q: string | undefined, ...fields: string[]) => !q?.trim() || fields.some((f) => f.toLowerCase().includes(q.trim().toLowerCase()))
+
+export async function getModCases(scope: ModScope, q?: string): Promise<ModCase[]> {
   if (USE_MOCKS) {
     await sleep()
-    if (scope === 'Queue') return mockCases.filter((c) => c.status === 'Open' && c.openedBy.id !== MOCK_ME)
-    if (scope === 'Mine') return mockCases.filter((c) => c.isMine && !['Closed', 'Withdrawn'].includes(c.status))
-    return mockCases.filter((c) => c.isAppealReviewer)
+    const found = (c: ModCase) => mockMatches(q, c.description, c.openedBy.name, c.against.name)
+    if (scope === 'Queue') return mockCases.filter((c) => c.status === 'Open' && c.openedBy.id !== MOCK_ME && found(c))
+    if (scope === 'Mine') return mockCases.filter((c) => c.isMine && !['Closed', 'Withdrawn'].includes(c.status) && found(c))
+    return mockCases.filter((c) => c.isAppealReviewer && found(c))
   }
-  return (await http(() => api.get<CaseList<ModCase>>('/moderation/cases', { params: { scope, page: 1, pageSize: 50 } }))).items
+  return (await http(() => api.get<CaseList<ModCase>>('/moderation/cases', { params: { scope, q: q?.trim() || undefined, page: 1, pageSize: 50 } }))).items
 }
 
 export async function getModCase(id: string): Promise<ModCase> {
@@ -658,12 +662,12 @@ export async function sendAppealConclusion({ id, conclusion }: { id: string; con
 }
 
 // ───────── Админ ─────────
-export async function getAdminCases(status?: CaseStatus | '', type?: CaseType | ''): Promise<AdminCase[]> {
+export async function getAdminCases(status?: CaseStatus | '', type?: CaseType | '', q?: string): Promise<AdminCase[]> {
   if (USE_MOCKS) {
     await sleep()
-    return mockCases.map(mockAdmin).filter((c) => (!status || c.status === status) && (!type || c.type === type))
+    return mockCases.map(mockAdmin).filter((c) => (!status || c.status === status) && (!type || c.type === type) && mockMatches(q, c.description, c.openedBy.name, c.against.name))
   }
-  return (await http(() => api.get<CaseList<AdminCase>>('/admin/cases', { params: { status: status || undefined, type: type || undefined, page: 1, pageSize: 50 } }))).items
+  return (await http(() => api.get<CaseList<AdminCase>>('/admin/cases', { params: { status: status || undefined, type: type || undefined, q: q?.trim() || undefined, page: 1, pageSize: 50 } }))).items
 }
 
 export async function getAdminCase(id: string): Promise<AdminCaseDetail> {
@@ -718,12 +722,12 @@ export async function decideAppeal({ id, outcome, newDecision, alsoWarned, reaso
 const mockBans: BanRequest[] = [
   { id: 'b1', userId: 'u3', userName: 'Rustam', caseId: 'c1', requestedById: 'mod', reason: 'Три предупреждения за 12 месяцев', status: 'Pending', decidedById: null, decidedAt: null, createdAt: iso(-20 * HOUR) },
 ]
-export async function getBanRequests(status?: BanRequestStatus): Promise<BanRequest[]> {
+export async function getBanRequests(status?: BanRequestStatus, q?: string): Promise<BanRequest[]> {
   if (USE_MOCKS) {
     await sleep()
-    return mockBans.filter((b) => !status || b.status === status)
+    return mockBans.filter((b) => (!status || b.status === status) && mockMatches(q, b.userName, b.reason))
   }
-  return (await http(() => api.get<CaseList<BanRequest>>('/admin/ban-requests', { params: { status, page: 1, pageSize: 50 } }))).items
+  return (await http(() => api.get<CaseList<BanRequest>>('/admin/ban-requests', { params: { status, q: q?.trim() || undefined, page: 1, pageSize: 50 } }))).items
 }
 
 export async function decideBan({ id, approve }: { id: string; approve: boolean }): Promise<BanRequest> {
