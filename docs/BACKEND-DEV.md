@@ -639,7 +639,7 @@ Refresh-токен ротируется при каждом обновлении
 **Как открыть комнату.**
 1. Урок `Scheduled` (подтверждён), окно: от старта − 10 минут до старта + 75 минут. Кнопка «Войти» нужна, пока `now ∈ [startAt − 10 мин, startAt + 75 мин)`; эти границы есть в `GET /me/dashboard` (`canJoinFrom`, `canJoinUntil` у ближайшего урока) и в ответе токена (`roomClosesAt`).
 2. `POST /sessions/{id}/join-token` → `{ token, url, roomName, expiresAt, startAt, plannedEndAt, roomClosesAt }`. Подключиться клиентом LiveKit: `room.connect(url, token)`. Обрыв связи и токен уже истёк — запросить токен заново (пока окно открыто) и переподключиться.
-3. **`url` берётся из настроек бэкенда** (`LiveKit:Url`), фронтенд его не конструирует. В Development это `ws://localhost:7880` (задан в `appsettings.Development.json`), на боевом сервере — `wss://…`.
+3. **`url` берётся из настроек бэкенда** (`LiveKit:Url`): на боевом сервере `wss://…`. В Development фронтенд это поле не использует и строит адрес сам: `wss://{адрес страницы}/livekit` через прокси Vite (подробно в разделе про проверку с другого устройства по HTTPS).
 4. «Осталось 5 минут» на 40-й минуте показывает фронтенд сам по таймеру от `plannedEndAt − 5 минут`.
 
 **Что видеть в интерфейсе.**
@@ -732,10 +732,9 @@ WebSocket) и файлы хранилища (`/skillswap/…` → `localhost:390
 4. **Бэкенд** (user-secrets, только Development):
    ```
    dotnet user-secrets set "Frontend:BaseUrl" "https://192.168.0.63:5173"        # ссылки в письмах, CORS
-   dotnet user-secrets set "LiveKit:Url" "wss://192.168.0.63:5173/livekit"       # адрес, который получает браузер
    dotnet user-secrets set "LiveKit:ApiUrl" "http://localhost:7880"              # сам бэкенд ходит в LiveKit напрямую
    ```
-   `LiveKit:ApiUrl` обязателен: иначе бэкенд вызывал бы API LiveKit по `LiveKit:Url` и упёрся бы в самоподписанный сертификат.
+   **`LiveKit:Url` с IP задавать не нужно (и вредно):** в Development фронтенд сам подключается к `wss://{адрес страницы}/livekit` (`frontend/src/utils/livekitUrl.ts`), а прокси Vite ведёт его на `localhost:7880`. Поэтому видеокомната работает и на `https://localhost:5173`, и по адресу в сети, а смена IP её не ломает. Раньше бэкенд отдавал `wss://<IP>:5173/livekit`, и на `https://localhost:5173` браузер не мог подключиться (другой адрес и сертификат): комната сразу закрывалась с «Вы вышли из комнаты». Вне Development адрес по-прежнему берётся из `LiveKit:Url` в ответе `join-token`. Если подключиться не удалось, комната показывает «Не удалось подключиться к видеосерверу» и кнопку «Повторить». Проверка: `SCREENS_ONLY=call npm run screens` (два участника с фейковой камерой видят друг друга).
    Ссылки на файлы (аватары, вложения, голосовые) бэкенд отдаёт **относительными** (`Storage:RelativeUrls`, включено в `appsettings.Development.json`, user-secrets не нужны) и подписывает для `Storage:Endpoint` (`localhost:3900`),
    а прокси Vite (`/skillswap/` → `localhost:3900`, `changeOrigin: true`) выставляет запросу этот же Host. Поэтому аватары работают и на `https://localhost:5173`, и по адресу
    в сети, а смена IP их не ломает (раньше ссылка содержала IP из `Storage:PublicEndpoint` и после смены сети переставала открываться). `Storage:PublicEndpoint` для этого больше не нужен.

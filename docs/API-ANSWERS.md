@@ -88,7 +88,7 @@ await connection.start()
 
 ### 4. LiveKit `url` и проверка с телефона
 
-`url` в ответе `POST /sessions/{id}/join-token` берётся из настройки `LiveKit:Url`, фронтенд его не собирает. В Development это `ws://localhost:7880` (явно записано в `appsettings.Development.json`), на боевом сервере будет `wss://…`. Как заменить `127.0.0.1` на LAN-адрес для проверки с телефона (`node_ip` в `livekit.yaml`, `LiveKit:Url`, `Frontend:BaseUrl`, `--urls http://0.0.0.0:5023`, `npm run dev -- --host`, брандмауэр) и почему камере на телефоне нужен HTTPS (туннель или флаг Chrome) — пошагово в `BACKEND-DEV.md`, подраздел «Проверка видеозвонка с телефона в одной сети».
+`url` в ответе `POST /sessions/{id}/join-token` берётся из настройки `LiveKit:Url` (на боевом сервере `wss://…`). В Development фронтенд это поле не использует: он подключается к `wss://{адрес страницы}/livekit` через прокси Vite, поэтому адрес не зависит от IP. Как заменить `127.0.0.1` на LAN-адрес для проверки с телефона (`node_ip` в `livekit.yaml`, `LiveKit:Url`, `Frontend:BaseUrl`, `--urls http://0.0.0.0:5023`, `npm run dev -- --host`, брандмауэр) и почему камере на телефоне нужен HTTPS (туннель или флаг Chrome) — пошагово в `BACKEND-DEV.md`, подраздел «Проверка видеозвонка с телефона в одной сети».
 
 ### 5. Кто сейчас в комнате (`participantsInRoom`)
 
