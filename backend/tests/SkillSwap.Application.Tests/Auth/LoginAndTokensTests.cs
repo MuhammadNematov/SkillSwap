@@ -455,4 +455,26 @@ public class LoginAndTokensTests
         await Assert.ThrowsAnyAsync<Exception>(() => _fx.Service.RefreshAsync(first.RefreshToken, Client));
         Assert.All(_fx.RefreshTokens.Tokens, t => Assert.True(t.IsRevoked));
     }
+
+    [Fact]
+    public async Task The_successor_token_is_an_HMAC_under_a_key_derived_by_HKDF_from_the_signing_key_not_under_the_signing_key_itself()
+    {
+        AddUser();
+        var first = await Login();
+        var second = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+
+        var signingKey = System.Text.Encoding.UTF8.GetBytes("unit-test-signing-key-0123456789abcdef");
+        var previousHash = System.Text.Encoding.UTF8.GetBytes(AuthTokenService.Hash(first.RefreshToken));
+        var derived = System.Security.Cryptography.HKDF.DeriveKey(
+            System.Security.Cryptography.HashAlgorithmName.SHA256, signingKey, 32, salt: null, info: System.Text.Encoding.UTF8.GetBytes(AuthTokenService.SuccessorKeyLabel));
+        var expected = System.Buffers.Text.Base64Url.EncodeToString(System.Security.Cryptography.HMACSHA256.HashData(derived, previousHash));
+        var underSigningKey = System.Buffers.Text.Base64Url.EncodeToString(System.Security.Cryptography.HMACSHA256.HashData(signingKey, previousHash));
+        var otherLabel = System.Security.Cryptography.HKDF.DeriveKey(
+            System.Security.Cryptography.HashAlgorithmName.SHA256, signingKey, 32, salt: null, info: System.Text.Encoding.UTF8.GetBytes("skillswap/other-purpose/v1"));
+
+        Assert.Equal(expected, second.RefreshToken);                    // отдельный ключ из HKDF с меткой
+        Assert.NotEqual(underSigningKey, second.RefreshToken);          // не ключ подписи JWT
+        Assert.NotEqual(derived, otherLabel);                           // другая метка даёт другой ключ
+        Assert.Equal(43, second.RefreshToken.Length);                   // 32 байта в base64url
+    }
 }

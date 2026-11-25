@@ -20,11 +20,15 @@ public sealed class AuthTokenService
     private const int MaxDeviceInfoLength = 256;
     private const int MaxIpLength = 45;
 
+    /// <summary>Метка назначения ключа для HKDF: другой метке соответствует другой ключ, поэтому ключ преемников не совпадает ни с ключом подписи JWT, ни с ключами других назначений.</summary>
+    internal const string SuccessorKeyLabel = "skillswap/refresh-successor-key/v1";
+
     private readonly UserManager<User> _users;
     private readonly IAccessTokenGenerator _accessTokens;
     private readonly IRefreshTokenRepository _refreshTokens;
     private readonly JwtOptions _jwt;
     private readonly AuthOptions _auth;
+    private readonly byte[] _successorKey;
     private readonly IAuditLog _audit;
     private readonly TimeProvider _clock;
 
@@ -42,6 +46,8 @@ public sealed class AuthTokenService
         _refreshTokens = refreshTokens;
         _jwt = jwt.Value;
         _auth = auth.Value;
+        // Отдельный ключ для токенов-преемников: выводится из ключа подписи JWT через HKDF с меткой назначения, сам ключ подписи в HMAC не участвует
+        _successorKey = HKDF.DeriveKey(HashAlgorithmName.SHA256, Encoding.UTF8.GetBytes(_jwt.SigningKey), outputLength: 32, salt: null, info: Encoding.UTF8.GetBytes(SuccessorKeyLabel));
         _audit = audit;
         _clock = clock;
     }
@@ -167,11 +173,11 @@ public sealed class AuthTokenService
     }
 
     /// <summary>
-    /// Токен-преемник: HMAC-SHA256 от хеша предыдущего токена на ключе подписи сервера (32 байта, base64url). Без ключа его не восстановить ни по базе, ни по хешам,
-    /// а с ключом повтор в льготном окне даёт ровно тот же токен, не храня сырой токен в базе.
+    /// Токен-преемник: HMAC-SHA256 от хеша предыдущего токена на отдельном ключе (HKDF от <c>Jwt:SigningKey</c> с меткой <see cref="SuccessorKeyLabel"/>), 32 байта, base64url.
+    /// Без ключа его не восстановить ни по базе, ни по хешам, а с ключом повтор в льготном окне даёт ровно тот же токен, не храня сырой токен в базе.
     /// </summary>
     private string DeriveSuccessor(string previousTokenHash) =>
-        Base64Url.EncodeToString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(_jwt.SigningKey), Encoding.UTF8.GetBytes("refresh-successor:v1:" + previousTokenHash)));
+        Base64Url.EncodeToString(HMACSHA256.HashData(_successorKey, Encoding.UTF8.GetBytes(previousTokenHash)));
 
     /// <summary>Завершает сеанс: отзывает переданный refresh-токен. Неизвестный токен игнорируется.</summary>
     public async Task RevokeAsync(string? rawToken, CancellationToken ct = default)
