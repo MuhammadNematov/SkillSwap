@@ -397,6 +397,61 @@ public class CaseSeedDevToolsTests
 
     // ---------- вне Development ----------
 
+    // ---------- GET /dev/staff-qr ----------
+
+    [Fact]
+    public async Task The_staff_qr_page_lists_every_dev_staff_account_with_its_real_totp_key_and_a_qr_code()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+        var seeded = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
+
+        var response = await client.GetAsync("/dev/staff-qr");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/html", response.Content.Headers.ContentType!.MediaType);
+        Assert.Contains("no-store", response.Headers.CacheControl!.ToString());
+        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(html, "<svg").Count);   // по QR-коду на каждого
+        foreach (var (property, email) in new[] { ("moderator", "dev-moderator@example.com"), ("secondModerator", "dev-moderator-2@example.com"), ("admin", "dev-admin@example.com"), ("superAdmin", "dev-superadmin@example.com") })
+        {
+            var key = seeded.GetProperty(property).GetProperty("twoFactor").GetProperty("sharedKey").GetString()!;
+            Assert.Contains($"data-email=\"{email}\"", html);
+            Assert.Contains(string.Join(' ', Enumerable.Range(0, (key.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - i * 4)))), html);   // ключ из базы, а не выдуманный
+            Assert.Contains($"otpauth://totp/SkillSwap:{Uri.EscapeDataString(email)}?secret={key}", System.Net.WebUtility.HtmlDecode(html));
+        }
+
+        Assert.Contains(SkillSwap.Api.DevTools.CaseSeedDevTools.StaffPassword, html);
+    }
+
+    [Fact]
+    public async Task The_staff_qr_page_creates_missing_accounts_and_shows_the_same_keys_every_time()
+    {
+        using var app = _factory.WithSettings("Development");
+        var client = app.CreateClient(NoRedirect);
+
+        var first = await (await client.GetAsync("/dev/staff-qr")).Content.ReadAsStringAsync();   // аккаунты могли ещё не существовать
+        var second = await (await client.GetAsync("/dev/staff-qr")).Content.ReadAsStringAsync();
+        var codeOfAdmin = await JsonAsync(await client.PostAsJsonAsync("/dev/staff-code", new { email = "dev-admin@example.com" }));   // 2FA включена: коды выдаются
+
+        string Keys(string html) => string.Concat(System.Text.RegularExpressions.Regex.Matches(html, "class=\"key\">([^<]+)<").Select(m => m.Groups[1].Value));
+        Assert.Equal(Keys(first), Keys(second));
+        Assert.Equal(2, codeOfAdmin.GetProperty("codes").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task The_staff_qr_page_does_not_exist_outside_development()
+    {
+        var response = await _factory.CreateClient(NoRedirect).GetAsync("/dev/staff-qr");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        foreach (var environment in new[] { "Production", "Staging" })
+        {
+            using var app = _factory.WithSettings(environment);
+            Assert.Equal(HttpStatusCode.NotFound, (await app.CreateClient(NoRedirect).GetAsync("/dev/staff-qr")).StatusCode);
+        }
+    }
+
     [Theory]
     [InlineData("/dev/seed-staff")]
     [InlineData("/dev/seed-case")]
