@@ -312,7 +312,7 @@ export default function Chat({ exchange, fill = false }: { exchange: Exchange; f
       {readOnly ? (
         <div className="border-t border-ink-line px-4 py-3 text-center text-sm text-slate-500">{t('exchange.readOnly')}</div>
       ) : (
-        <form onSubmit={onSubmit} className="flex items-center gap-2 border-t border-ink-line p-3">
+        <form onSubmit={onSubmit} className="flex items-center gap-1 border-t border-ink-line p-2 sm:gap-2 sm:p-3">
           <input
             ref={fileRef}
             type="file"
@@ -326,7 +326,7 @@ export default function Chat({ exchange, fill = false }: { exchange: Exchange; f
           />
           <button
             type="button"
-            className={`rounded-lg p-2 text-slate-500 hover:bg-brand-50 ${recording ? 'hidden' : ''}`}
+            className={`rounded-lg p-1.5 text-slate-500 hover:bg-brand-50 sm:p-2 ${recording ? 'hidden' : ''}`}
             aria-label={t('chat.attach')}
             title={t('chat.attach')}
             onClick={() => fileRef.current?.click()}
@@ -335,7 +335,7 @@ export default function Chat({ exchange, fill = false }: { exchange: Exchange; f
           </button>
           <button
             type="button"
-            className={`rounded-lg p-2 text-slate-500 hover:bg-brand-50 ${recording ? 'hidden' : ''}`}
+            className={`rounded-lg p-1.5 text-slate-500 hover:bg-brand-50 sm:p-2 ${recording ? 'hidden' : ''}`}
             aria-label={t('chat.proposeLesson')}
             title={t('chat.proposeLesson')}
             onClick={() => setProposing(true)}
@@ -352,7 +352,7 @@ export default function Chat({ exchange, fill = false }: { exchange: Exchange; f
             }}
           />
           <input
-            className={`input ${recording ? 'hidden' : ''}`}
+            className={`input min-w-0 flex-1 px-3 sm:px-4 ${recording ? 'hidden' : ''}`}
             value={text}
             maxLength={4000}
             placeholder={t('chat.placeholder')}
@@ -364,7 +364,7 @@ export default function Chat({ exchange, fill = false }: { exchange: Exchange; f
               }
             }}
           />
-          <button className={`btn-primary px-3 ${recording ? 'hidden' : ''}`} disabled={!text.trim() || send.isPending || edit.isPending} aria-label={editing ? t('chat.save') : t('chat.send')}>
+          <button className={`btn-primary px-2.5 sm:px-3 ${recording ? 'hidden' : ''}`} disabled={!text.trim() || send.isPending || edit.isPending} aria-label={editing ? t('chat.save') : t('chat.send')}>
             <Icon name="send" />
           </button>
         </form>
