@@ -24,4 +24,10 @@ public interface IRefreshTokenRepository
     Task<int> RevokeAllExceptSessionAsync(Guid userId, Guid keepSessionId, DateTime nowUtc, CancellationToken ct = default);
 
     Task SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Сохраняет ротацию. Возвращает false, если параллельный запрос успел раньше (конфликт версий или тот же преемник уже записан):
+    /// изменения отброшены, нужно перечитать токен и ответить по льготному окну.
+    /// </summary>
+    Task<bool> TrySaveRotationAsync(CancellationToken ct = default);
 }

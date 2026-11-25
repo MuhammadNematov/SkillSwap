@@ -191,6 +191,7 @@ public class LoginAndTokensTests
         AddUser();
         var first = await Login();
         var second = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        _fx.Clock.Advance(TimeSpan.FromSeconds(16));   // льготное окно (15 с) прошло
 
         var ex = await Assert.ThrowsAsync<UnauthorizedException>(
             () => _fx.Service.RefreshAsync(first.RefreshToken, Client));   // кто-то предъявил уже заменённый токен
@@ -325,10 +326,133 @@ public class LoginAndTokensTests
         var laptop = await Login();
         var phone = await Login();
         await _fx.Service.RefreshAsync(laptop.RefreshToken, Client);   // ротация: старый токен ноутбука заменён
+        _fx.Clock.Advance(TimeSpan.FromSeconds(16));   // льготное окно прошло
 
         var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(laptop.RefreshToken, Client));
 
         Assert.Equal("refresh_token_reused", ex.Code);
         await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(phone.RefreshToken, Client));   // телефон тоже отозван
+    }
+
+    // ---------- льготное окно после ротации (Auth:RefreshGraceSeconds) ----------
+
+    [Fact]
+    public async Task A_repeat_with_the_old_token_inside_the_grace_window_returns_the_same_successor_and_keeps_the_session()
+    {
+        AddUser();
+        var first = await Login();
+        var second = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        _fx.Clock.Advance(TimeSpan.FromSeconds(5));
+
+        var repeat = await _fx.Service.RefreshAsync(first.RefreshToken, Client);   // вкладка не получила ответ и повторила
+
+        Assert.Equal(second.RefreshToken, repeat.RefreshToken);                    // тот же токен, не новый
+        Assert.Equal(second.RefreshTokenExpiresAt, repeat.RefreshTokenExpiresAt);
+        Assert.Equal(2, _fx.RefreshTokens.Tokens.Count);                           // цепочка не ветвится
+        Assert.DoesNotContain(_fx.RefreshTokens.Tokens, t => t.IsRevoked && t.TokenHash == AuthTokenService.Hash(second.RefreshToken));
+        var next = await _fx.Service.RefreshAsync(repeat.RefreshToken, Client);    // и сеанс жив: преемник продолжает работать
+        Assert.NotEqual(second.RefreshToken, next.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Several_repeats_inside_the_window_all_get_the_same_token_and_each_use_is_audited()
+    {
+        var user = AddUser();
+        var first = await Login();
+        var second = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+
+        var a = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        _fx.Clock.Advance(TimeSpan.FromSeconds(10));
+        var b = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+
+        Assert.Equal(second.RefreshToken, a.RefreshToken);
+        Assert.Equal(second.RefreshToken, b.RefreshToken);
+        Assert.Equal(2, _fx.RefreshTokens.Tokens.Count);   // вход и одна ротация: ветвления нет
+        Assert.Equal(2, _fx.Audit.Entries.Count(e => e.Action == "RefreshGraceUsed" && e.ActorId == user.Id && e.TargetType == "Session"));
+    }
+
+    [Fact]
+    public async Task A_repeat_after_the_grace_window_is_reuse_and_revokes_the_sessions()
+    {
+        AddUser();
+        var first = await Login();
+        await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        _fx.Clock.Advance(TimeSpan.FromSeconds(15) + TimeSpan.FromMilliseconds(1));
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(first.RefreshToken, Client));
+
+        Assert.Equal("refresh_token_reused", ex.Code);
+        Assert.All(_fx.RefreshTokens.Tokens, t => Assert.True(t.IsRevoked));
+        Assert.Empty(_fx.Audit.Entries);   // отказ не выдаёт льготный токен
+    }
+
+    [Fact]
+    public async Task The_window_boundary_is_inclusive_at_exactly_the_configured_seconds()
+    {
+        AddUser();
+        var first = await Login();
+        var second = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        _fx.Clock.Advance(TimeSpan.FromSeconds(15));
+
+        Assert.Equal(second.RefreshToken, (await _fx.Service.RefreshAsync(first.RefreshToken, Client)).RefreshToken);
+    }
+
+    [Fact]
+    public async Task A_repeat_inside_the_window_after_the_successor_was_already_used_is_reuse()
+    {
+        AddUser();
+        var phone = await Login();   // второй сеанс: он тоже должен быть отозван
+        var first = await Login();
+        var second = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        await _fx.Service.RefreshAsync(second.RefreshToken, Client);   // преемник сам использован (ротация дальше)
+        _fx.Clock.Advance(TimeSpan.FromSeconds(3));                      // окно ещё не закончилось
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(first.RefreshToken, Client));
+
+        Assert.Equal("refresh_token_reused", ex.Code);
+        Assert.All(_fx.RefreshTokens.Tokens, t => Assert.True(t.IsRevoked));
+        await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(phone.RefreshToken, Client));
+        Assert.Empty(_fx.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task A_repeat_inside_the_window_after_logout_of_the_successor_is_just_invalid_not_reuse()
+    {
+        AddUser();
+        var other = await Login();
+        var first = await Login();
+        var second = await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        await _fx.Service.LogoutAsync(second.RefreshToken);   // вышли
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => _fx.Service.RefreshAsync(first.RefreshToken, Client));
+
+        Assert.Equal("invalid_refresh_token", ex.Code);
+        await _fx.Service.RefreshAsync(other.RefreshToken, Client);   // чужой сеанс не тронут
+    }
+
+    [Fact]
+    public async Task With_the_window_set_to_zero_any_repeat_is_reuse()
+    {
+        var fx = new AuthFixture(graceSeconds: 0);
+        fx.Users.Existing = User.CreateRegular("ali@example.com", "Ali", new DateOnly(2000, 1, 1), "ru");
+        fx.Users.Existing.EmailConfirmed = true;
+        var login = await fx.Service.LoginAsync(new LoginRequest("ali@example.com", "abc12345"), Client);
+        await fx.Service.RefreshAsync(login.RefreshToken!, Client);
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() => fx.Service.RefreshAsync(login.RefreshToken!, Client));
+
+        Assert.Equal("refresh_token_reused", ex.Code);
+    }
+
+    [Fact]
+    public async Task A_blocked_account_gets_no_token_from_the_window()
+    {
+        var user = AddUser();
+        var first = await Login();
+        await _fx.Service.RefreshAsync(first.RefreshToken, Client);
+        user.Block();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => _fx.Service.RefreshAsync(first.RefreshToken, Client));
+        Assert.All(_fx.RefreshTokens.Tokens, t => Assert.True(t.IsRevoked));
     }
 }

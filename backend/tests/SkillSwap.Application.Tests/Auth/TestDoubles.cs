@@ -233,6 +233,25 @@ internal sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
         SaveCalls++;
         return Task.CompletedTask;
     }
+
+    public Task<bool> TrySaveRotationAsync(CancellationToken ct = default)
+    {
+        SaveCalls++;
+        return Task.FromResult(true);
+    }
+}
+
+internal sealed class FakeAuditLog : SkillSwap.Application.Moderation.IAuditLog
+{
+    public List<SkillSwap.Application.Moderation.AuditEntry> Entries { get; } = [];
+
+    public void Add(SkillSwap.Application.Moderation.AuditEntry entry) => Entries.Add(entry);
+
+    public Task WriteAsync(SkillSwap.Application.Moderation.AuditEntry entry, CancellationToken ct)
+    {
+        Entries.Add(entry);
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeRecoveryCodeStore : IRecoveryCodeStore
@@ -358,14 +377,19 @@ internal sealed class AuthFixture
     public string TotpCode(int offset = 0) =>
         Totp.Compute(Users.AuthenticatorKey!, Totp.StepAt(Clock.GetUtcNow()) + offset);
 
-    public AuthFixture()
+    public FakeAuditLog Audit { get; } = new();
+
+    /// <param name="graceSeconds">Льготное окно refresh-токена (по умолчанию 15 секунд, как в настройках).</param>
+    public AuthFixture(int graceSeconds = 15)
     {
         RefreshTokens.Clock = Clock;
         var tokens = new AuthTokenService(
             Users,
             AccessTokens,
             RefreshTokens,
-            Microsoft.Extensions.Options.Options.Create(new JwtOptions { RefreshTokenDays = 30 }),
+            Microsoft.Extensions.Options.Options.Create(new JwtOptions { RefreshTokenDays = 30, SigningKey = "unit-test-signing-key-0123456789abcdef" }),
+            Microsoft.Extensions.Options.Options.Create(new AuthOptions { RefreshGraceSeconds = graceSeconds }),
+            Audit,
             Clock);
 
         Service = new AuthService(

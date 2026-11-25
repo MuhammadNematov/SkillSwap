@@ -249,6 +249,74 @@ public class AuthFlowTests
         Assert.Equal(AuthApi.Sha256Hex(refresh2!), old.ReplacedByTokenHash);
     }
 
+    // ---------- льготное окно после ротации (Auth:RefreshGraceSeconds = 15) ----------
+
+    [Fact]
+    public async Task A_repeat_with_the_old_refresh_token_inside_the_grace_window_returns_the_same_token_and_the_session_survives()
+    {
+        var email = await _api.RegisterConfirmedUserAsync();
+        var (_, refresh1) = await _api.LoginTokensAsync(email);
+        var first = await _api.RefreshAsync(refresh1);
+        var refresh2 = AuthApi.RefreshTokenFrom(first)!;
+        _factory.Clock.Advance(TimeSpan.FromSeconds(4));
+
+        var repeat = await _api.RefreshAsync(refresh1);   // ответ первого запроса потерялся, вкладка повторила
+
+        Assert.Equal(HttpStatusCode.OK, repeat.StatusCode);
+        Assert.Equal(refresh2, AuthApi.RefreshTokenFrom(repeat));                                              // тот же преемник
+        Assert.Equal(HttpStatusCode.OK, (await _api.MeAsync(await AuthApi.ReadAccessTokenAsync(repeat))).StatusCode);
+
+        var userId = (await FindUserAsync(email)).Id;
+        var rows = await _factory.QueryAsync(db => db.Set<RefreshToken>().Where(t => t.UserId == userId).ToListAsync());
+        Assert.Equal(1, rows.Count(t => t.RevokedAt == null));                                             // цепочка не ветвится: один действующий токен
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(HttpStatusCode.OK, (await _api.RefreshAsync(refresh2)).StatusCode);                       // и преемник работает
+
+        var audit = await _factory.QueryAsync(db => db.AuditLogs.AsNoTracking().Where(a => a.ActorId == userId && a.Action == "RefreshGraceUsed").ToListAsync());
+        var entry = Assert.Single(audit);
+        Assert.Equal("Session", entry.TargetType);
+        Assert.Equal(rows[0].SessionId, entry.TargetId);
+    }
+
+    [Fact]
+    public async Task A_repeat_inside_the_window_after_the_successor_was_used_revokes_the_session()
+    {
+        var email = await _api.RegisterConfirmedUserAsync();
+        var (_, refresh1) = await _api.LoginTokensAsync(email);
+        var refresh2 = AuthApi.RefreshTokenFrom(await _api.RefreshAsync(refresh1))!;
+        var refresh3 = AuthApi.RefreshTokenFrom(await _api.RefreshAsync(refresh2))!;   // преемник использован
+        _factory.Clock.Advance(TimeSpan.FromSeconds(2));
+
+        var reuse = await _api.RefreshAsync(refresh1);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
+        Assert.Equal("refresh_token_reused", await AuthApi.ReadCodeAsync(reuse));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _api.RefreshAsync(refresh3)).StatusCode);
+        var userId = (await FindUserAsync(email)).Id;
+        Assert.Equal(0, await _factory.QueryAsync(db => db.AuditLogs.CountAsync(a => a.ActorId == userId && a.Action == "RefreshGraceUsed")));
+    }
+
+    [Fact]
+    public async Task Two_parallel_refreshes_with_the_same_token_both_succeed_and_share_one_successor()
+    {
+        for (var round = 0; round < 5; round++)
+        {
+            var email = await _api.RegisterConfirmedUserAsync();
+            var (_, refresh1) = await _api.LoginTokensAsync(email);
+
+            var results = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => _api.RefreshAsync(refresh1)));   // три вкладки одновременно
+
+            Assert.All(results, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+            var cookies = results.Select(AuthApi.RefreshTokenFrom).Distinct().ToList();
+            Assert.Single(cookies);                                                                           // один и тот же преемник у всех
+            var userId = (await FindUserAsync(email)).Id;
+            var rows = await _factory.QueryAsync(db => db.Set<RefreshToken>().Where(t => t.UserId == userId).ToListAsync());
+            Assert.Equal(2, rows.Count);                                                                      // вход и один преемник, ветвления нет
+            Assert.Equal(1, rows.Count(t => t.RevokedAt == null));
+            Assert.Equal(HttpStatusCode.OK, (await _api.RefreshAsync(cookies[0])).StatusCode);                // сеанс жив
+        }
+    }
+
     [Fact]
     public async Task Reusing_an_old_refresh_token_gives_refresh_token_reused_and_revokes_every_session()
     {
@@ -256,6 +324,7 @@ public class AuthFlowTests
         var (_, refresh1) = await _api.LoginTokensAsync(email);
         var refresh2 = AuthApi.RefreshTokenFrom(await _api.RefreshAsync(refresh1))!;
         var otherDevice = (await _api.LoginTokensAsync(email)).RefreshToken;   // второй сеанс того же пользователя
+        _factory.Clock.Advance(TimeSpan.FromSeconds(16));                       // льготное окно (15 с) прошло
 
         var reuse = await _api.RefreshAsync(refresh1);   // кто-то предъявил уже заменённый токен
 
@@ -278,20 +347,6 @@ public class AuthFlowTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("invalid_refresh_token", await AuthApi.ReadCodeAsync(response));
-    }
-
-    [Fact]
-    public async Task Two_parallel_refreshes_with_the_same_token_let_only_one_through()
-    {
-        var email = await _api.RegisterConfirmedUserAsync();
-        var (_, refresh) = await _api.LoginTokensAsync(email);
-
-        var results = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => _api.RefreshAsync(refresh)));
-
-        // Победитель — 200. Проигравший: 409 (конфликт по xmin) или 401 (токен уже отозван).
-        Assert.Equal(1, results.Count(r => r.StatusCode == HttpStatusCode.OK));
-        Assert.All(results.Where(r => r.StatusCode != HttpStatusCode.OK),
-            r => Assert.Contains(r.StatusCode, new[] { HttpStatusCode.Conflict, HttpStatusCode.Unauthorized }));
     }
 
     // ---------- logout ----------

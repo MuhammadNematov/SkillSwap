@@ -47,4 +47,19 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
                 .SetProperty(t => t.UpdatedAt, nowUtc), ct);
 
     public Task SaveChangesAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
+
+    public async Task<bool> TrySaveRotationAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            // Включая DbUpdateConcurrencyException (xmin) и нарушение уникальности хеша преемника: параллельный запрос выиграл
+            _db.ChangeTracker.Clear();
+            return false;
+        }
+    }
 }

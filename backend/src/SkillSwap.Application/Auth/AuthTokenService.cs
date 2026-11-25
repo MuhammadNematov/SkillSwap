@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Exceptions;
+using SkillSwap.Application.Moderation;
 using SkillSwap.Application.Options;
 using SkillSwap.Domain.Entities;
 
@@ -12,7 +13,7 @@ namespace SkillSwap.Application.Auth;
 
 /// <summary>
 /// Выпуск и ротация токенов (раздел 10.1 ТЗ): access JWT 15 минут, refresh 30 дней с ротацией.
-/// Повторное использование уже заменённого refresh-токена отзывает все сеансы пользователя.
+/// Повторное использование уже заменённого refresh-токена отзывает все сеансы пользователя (кроме льготного окна: Auth:RefreshGraceSeconds).
 /// </summary>
 public sealed class AuthTokenService
 {
@@ -23,6 +24,8 @@ public sealed class AuthTokenService
     private readonly IAccessTokenGenerator _accessTokens;
     private readonly IRefreshTokenRepository _refreshTokens;
     private readonly JwtOptions _jwt;
+    private readonly AuthOptions _auth;
+    private readonly IAuditLog _audit;
     private readonly TimeProvider _clock;
 
     public AuthTokenService(
@@ -30,12 +33,16 @@ public sealed class AuthTokenService
         IAccessTokenGenerator accessTokens,
         IRefreshTokenRepository refreshTokens,
         IOptions<JwtOptions> jwt,
+        IOptions<AuthOptions> auth,
+        IAuditLog audit,
         TimeProvider clock)
     {
         _users = users;
         _accessTokens = accessTokens;
         _refreshTokens = refreshTokens;
         _jwt = jwt.Value;
+        _auth = auth.Value;
+        _audit = audit;
         _clock = clock;
     }
 
@@ -49,7 +56,10 @@ public sealed class AuthTokenService
         return result;
     }
 
-    /// <summary>Меняет действующий refresh-токен на новый.</summary>
+    /// <summary>
+    /// Меняет действующий refresh-токен на новый. Преемник выводится из предыдущего токена и ключа сервера (<see cref="DeriveSuccessor"/>), поэтому повтор
+    /// в льготном окне (<see cref="AuthOptions.RefreshGraceSeconds"/>) возвращает тот же токен, а не новую ветку цепочки; параллельные запросы дают один и тот же преемник.
+    /// </summary>
     public async Task<AuthResult> RefreshAsync(string? rawToken, ClientInfo client, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(rawToken))
@@ -57,34 +67,91 @@ public sealed class AuthTokenService
             throw InvalidRefreshToken();
         }
 
-        var now = _clock.GetUtcNow().UtcDateTime;
-        var stored = await _refreshTokens.FindByHashAsync(Hash(rawToken), ct);
-        if (stored is null)
+        var hash = Hash(rawToken);
+        for (var attempt = 0; ; attempt++)
         {
-            throw InvalidRefreshToken();
-        }
+            var now = _clock.GetUtcNow().UtcDateTime;
+            var stored = await _refreshTokens.FindByHashAsync(hash, ct) ?? throw InvalidRefreshToken();
 
-        if (stored.IsRevoked)
-        {
-            // Токен, уже ЗАМЕНЁННЫЙ ротацией, предъявили повторно: возможно, его украли. Отзываем все сеансы.
-            if (stored.WasRotated)
+            if (stored.IsRevoked)
             {
-                await _refreshTokens.RevokeAllForUserAsync(stored.UserId, now, ct);
-                throw new UnauthorizedException("refresh_token_reused", "Токен уже использован. Войдите заново.");
+                // Токен, уже ЗАМЕНЁННЫЙ ротацией, предъявили повторно. В льготном окне и пока преемник не использован это повтор того же клиента (не кража):
+                // отдаём прежнего преемника. Иначе возможна кража: отзываем все сеансы.
+                if (stored.WasRotated)
+                {
+                    return await RepeatedRotatedTokenAsync(stored, client, now, ct);
+                }
+
+                // Токен отозван иначе (выход, завершение сеанса в списке сеансов, сброс пароля): это не кража.
+                // Просто отказываем, не трогая остальные сеансы: иначе завершённое вручную устройство
+                // при следующей попытке обновиться разлогинило бы все остальные.
+                throw InvalidRefreshToken();
             }
 
-            // Токен отозван иначе (выход, завершение сеанса в списке сеансов, сброс пароля): это не кража.
-            // Просто отказываем, не трогая остальные сеансы: иначе завершённое вручную устройство
-            // при следующей попытке обновиться разлогинило бы все остальные.
-            throw InvalidRefreshToken();
-        }
+            if (!stored.IsActive(now))
+            {
+                throw InvalidRefreshToken();
+            }
 
-        if (!stored.IsActive(now))
+            var user = await RequireUsableUserAsync(stored.UserId, now, ct);
+
+            // Ротация продолжает тот же сеанс: SessionId и время начала переходят к новому токену.
+            var successorRaw = DeriveSuccessor(stored.TokenHash);
+            var result = CreateTokens(user, client, stored.SessionId, stored.SessionStartedAt, out var replacement, successorRaw);
+            stored.Revoke(now, replacement.TokenHash);
+            _refreshTokens.Add(replacement);
+
+            // Два одновременных обновления одним токеном: проигравший (конфликт xmin или тот же хеш преемника) перечитывает токен и получает ответ по льготному окну
+            if (await _refreshTokens.TrySaveRotationAsync(ct))
+            {
+                return result;
+            }
+
+            if (attempt >= 2)
+            {
+                throw new ConflictException("concurrent_refresh", "Обновление уже выполняется. Повторите запрос.");
+            }
+        }
+    }
+
+    /// <summary>Повторное предъявление заменённого токена: льготное окно (тот же преемник) либо отзыв всех сеансов.</summary>
+    private async Task<AuthResult> RepeatedRotatedTokenAsync(RefreshToken stored, ClientInfo client, DateTime now, CancellationToken ct)
+    {
+        var withinGrace = _auth.RefreshGraceSeconds > 0 && stored.RevokedAt is { } revokedAt && now - revokedAt <= TimeSpan.FromSeconds(_auth.RefreshGraceSeconds);
+        var successor = withinGrace ? await _refreshTokens.FindByHashAsync(stored.ReplacedByTokenHash!, ct) : null;
+
+        if (successor is not null && !successor.IsRevoked)
         {
+            var user = await RequireUsableUserAsync(stored.UserId, now, ct);
+            var raw = DeriveSuccessor(stored.TokenHash);
+            if (Hash(raw) == successor.TokenHash)
+            {
+                // Тот же токен, что уже выдан (он не использован); новый только access-токен. Цепочка не ветвится.
+                await _audit.WriteAsync(new AuditEntry(stored.UserId, "RefreshGraceUsed", "Session", stored.SessionId, new
+                {
+                    graceSeconds = _auth.RefreshGraceSeconds,
+                    secondsAfterRotation = Math.Round((now - stored.RevokedAt!.Value).TotalSeconds, 1),
+                }), ct);
+                var access = _accessTokens.Create(user, stored.SessionId);
+                var summary = new UserSummary(user.Id, user.Email!, user.Name, user.Role, user.UiLanguage);
+                return new AuthResult(new AuthResponse(access.Value, access.ExpiresAt, summary), raw, successor.ExpiresAt);
+            }
+        }
+
+        if (successor is not null && successor.IsRevoked && !successor.WasRotated)
+        {
+            // Преемник закрыт иначе (выход, завершение сеанса): не кража
             throw InvalidRefreshToken();
         }
 
-        var user = await _users.FindByIdAsync(stored.UserId.ToString());
+        // Окно прошло, либо преемник уже использован (WasRotated), либо его нет: прежняя защита от кражи
+        await _refreshTokens.RevokeAllForUserAsync(stored.UserId, now, ct);
+        throw new UnauthorizedException("refresh_token_reused", "Токен уже использован. Войдите заново.");
+    }
+
+    private async Task<User> RequireUsableUserAsync(Guid userId, DateTime now, CancellationToken ct)
+    {
+        var user = await _users.FindByIdAsync(userId.ToString());
         if (user is null || user.Status == Domain.Enums.UserStatus.Deleted)
         {
             throw InvalidRefreshToken();
@@ -96,15 +163,15 @@ public sealed class AuthTokenService
             throw new ForbiddenException("account_blocked", "Аккаунт заблокирован.");
         }
 
-        // Ротация продолжает тот же сеанс: SessionId и время начала переходят к новому токену.
-        var result = CreateTokens(user, client, stored.SessionId, stored.SessionStartedAt, out var replacement);
-        stored.Revoke(now, replacement.TokenHash);
-        _refreshTokens.Add(replacement);
-
-        // Два одновременных обновления одним токеном: второе упадёт на xmin → 409 (раздел 10.2 ТЗ).
-        await _refreshTokens.SaveChangesAsync(ct);
-        return result;
+        return user;
     }
+
+    /// <summary>
+    /// Токен-преемник: HMAC-SHA256 от хеша предыдущего токена на ключе подписи сервера (32 байта, base64url). Без ключа его не восстановить ни по базе, ни по хешам,
+    /// а с ключом повтор в льготном окне даёт ровно тот же токен, не храня сырой токен в базе.
+    /// </summary>
+    private string DeriveSuccessor(string previousTokenHash) =>
+        Base64Url.EncodeToString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(_jwt.SigningKey), Encoding.UTF8.GetBytes("refresh-successor:v1:" + previousTokenHash)));
 
     /// <summary>Завершает сеанс: отзывает переданный refresh-токен. Неизвестный токен игнорируется.</summary>
     public async Task RevokeAsync(string? rawToken, CancellationToken ct = default)
@@ -125,12 +192,12 @@ public sealed class AuthTokenService
     }
 
     private AuthResult CreateTokens(
-        User user, ClientInfo client, Guid sessionId, DateTime sessionStartedAt, out RefreshToken refreshEntity)
+        User user, ClientInfo client, Guid sessionId, DateTime sessionStartedAt, out RefreshToken refreshEntity, string? rawRefreshOverride = null)
     {
         var now = _clock.GetUtcNow().UtcDateTime;
         var access = _accessTokens.Create(user, sessionId);
 
-        var rawRefresh = GenerateRawToken();
+        var rawRefresh = rawRefreshOverride ?? GenerateRawToken();
         var refreshExpires = now.AddDays(_jwt.RefreshTokenDays);
         refreshEntity = RefreshToken.Create(
             user.Id,
