@@ -27,7 +27,7 @@ public class ModerationController : ControllerBase
     /// <summary>
     /// Очередь и мои обращения. <c>scope=Queue</c> (по умолчанию): не взятые, сначала высокий приоритет, затем ближайший срок реакции (<c>dueAt</c>, <c>isOverdue</c>);
     /// <c>scope=Mine</c>: взятые мной и не закрытые. Обращения, где у модератора конфликт интересов (его личный аккаунт или бывший партнёр личного аккаунта по обмену),
-    /// не показываются. Фильтры <c>type</c> и <c>priority</c>.
+    /// не показываются. Фильтры <c>type</c> и <c>priority</c>; поиск <c>q</c> (до 100 символов, 400 <c>invalid_search</c>): часть имени или почты любого участника либо текста обращения, без учёта регистра.
     /// </summary>
     [HttpGet("cases")]
     [ProducesResponseType<ModerationCaseListDto>(StatusCodes.Status200OK)]
@@ -36,8 +36,8 @@ public class ModerationController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> List(
         [FromQuery] ModeratorScope scope = ModeratorScope.Queue, [FromQuery] CaseType? type = null, [FromQuery] CasePriority? priority = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        Ok(await _moderation.ListAsync(ModeratorId(), scope, type, priority, page, pageSize, ct));
+        [FromQuery] string? q = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        Ok(await _moderation.ListAsync(ModeratorId(), scope, type, priority, q, page, pageSize, ct));
 
     /// <summary>
     /// Обращение: из очереди или взятое мной (<c>hasChatAccess</c> — есть ли у меня доступ к чату). Чужое взятое обращение и обращение с конфликтом интересов — 404 <c>case_not_found</c>.

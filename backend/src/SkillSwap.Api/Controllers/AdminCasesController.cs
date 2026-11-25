@@ -26,15 +26,15 @@ public class AdminCasesController : ControllerBase
         _bans = bans;
     }
 
-    /// <summary>Все обращения (новые сверху) с фильтрами <c>status</c> и <c>type</c>; апелляции, ждущие решения: <c>status=Appealed</c>, идущие проверки: <c>status=AppealReview</c>.</summary>
+    /// <summary>Все обращения (новые сверху) с фильтрами <c>status</c> и <c>type</c> и поиском <c>q</c> (до 100 символов, 400 <c>invalid_search</c>: часть имени или почты любого участника либо текста обращения, без учёта регистра); апелляции, ждущие решения: <c>status=Appealed</c>, идущие проверки: <c>status=AppealReview</c>.</summary>
     [HttpGet("cases")]
     [ProducesResponseType<AdminCaseListDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> List(
-        [FromQuery] CaseStatus? status = null, [FromQuery] CaseType? type = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        Ok(await _cases.ListAsync(AdminId(), status, type, page, pageSize, ct));
+        [FromQuery] CaseStatus? status = null, [FromQuery] CaseType? type = null, [FromQuery] string? q = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        Ok(await _cases.ListAsync(AdminId(), status, type, q, page, pageSize, ct));
 
     /// <summary>
     /// Материалы обращения: описание, оспариваемый отзыв, приложенные сообщения (удалённые и с прежними версиями), пояснения, предупреждения, запросы на бан, апелляция.
@@ -86,15 +86,15 @@ public class AdminCasesController : ControllerBase
     public async Task<IActionResult> Decide(Guid caseId, [FromBody] DecideAppealRequest request, CancellationToken ct) =>
         Ok(await _cases.DecideAsync(AdminId(), caseId, request, ct));
 
-    /// <summary>Запросы на блокировку (новые сверху), фильтр <c>status</c>: <c>Pending</c>, <c>Approved</c>, <c>Rejected</c>.</summary>
+    /// <summary>Запросы на блокировку (новые сверху), фильтр <c>status</c>: <c>Pending</c>, <c>Approved</c>, <c>Rejected</c>; поиск <c>q</c> (до 100 символов): часть имени или почты того, на кого запрос, или того, кто его подал, либо текста причины, без учёта регистра.</summary>
     [HttpGet("ban-requests")]
     [ProducesResponseType<BanRequestListDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> BanRequests(
-        [FromQuery] BanRequestStatus? status = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        Ok(await _bans.ListAsync(AdminId(), status, page, pageSize, ct));
+        [FromQuery] BanRequestStatus? status = null, [FromQuery] string? q = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        Ok(await _bans.ListAsync(AdminId(), status, q, page, pageSize, ct));
 
     /// <summary>
     /// Одобрить блокировку: аккаунт сразу получает статус <c>Blocked</c>, все его сеансы отзываются, открытые соединения SignalR обрываются, активные и замороженные обмены прерываются

@@ -62,11 +62,12 @@ public sealed class BanRequestService
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
 
-    public async Task<BanRequestListDto> ListAsync(Guid adminId, BanRequestStatus? status, int page, int pageSize, CancellationToken ct)
+    public async Task<BanRequestListDto> ListAsync(Guid adminId, BanRequestStatus? status, string? search, int page, int pageSize, CancellationToken ct)
     {
         Paging.Validate(page, pageSize);
+        var text = SearchText.Normalize(search);
         await RequireAdminAsync(adminId, ct);
-        var (items, total) = await _cases.ListBanRequestsAsync(status, page, pageSize, ct);
+        var (items, total) = await _cases.ListBanRequestsAsync(status, text, page, pageSize, ct);
         return new BanRequestListDto(await _admin.BanDtosAsync(items, ct), page, pageSize, total);
     }
 

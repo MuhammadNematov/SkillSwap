@@ -29,8 +29,8 @@ public sealed class AdminUserStore : IAdminUserStore
 
         if (search is not null)
         {
-            var pattern = "%" + search.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
-            query = query.Where(u => EF.Functions.ILike(u.Name, pattern, "\\") || (u.Email != null && EF.Functions.ILike(u.Email, pattern, "\\")));
+            var pattern = Persistence.SearchPattern.Contains(search);
+            query = query.Where(u => EF.Functions.ILike(u.Name, pattern, Persistence.SearchPattern.Escape) || (u.Email != null && EF.Functions.ILike(u.Email, pattern, Persistence.SearchPattern.Escape)));
         }
 
         var total = await query.CountAsync(ct);

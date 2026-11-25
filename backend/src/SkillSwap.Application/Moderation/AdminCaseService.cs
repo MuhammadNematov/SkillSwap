@@ -67,11 +67,12 @@ public sealed class AdminCaseService
 
     // ---------- чтение ----------
 
-    public async Task<AdminCaseListDto> ListAsync(Guid adminId, CaseStatus? status, CaseType? type, int page, int pageSize, CancellationToken ct)
+    public async Task<AdminCaseListDto> ListAsync(Guid adminId, CaseStatus? status, CaseType? type, string? search, int page, int pageSize, CancellationToken ct)
     {
         Paging.Validate(page, pageSize);
+        var text = SearchText.Normalize(search);
         await RequireAdminAsync(adminId, ct);
-        var (items, total) = await _cases.ListForAdminAsync(status, type, page, pageSize, ct);
+        var (items, total) = await _cases.ListForAdminAsync(status, type, text, page, pageSize, ct);
         return new AdminCaseListDto(await ToDtosAsync(items, ct), page, pageSize, total);
     }
 

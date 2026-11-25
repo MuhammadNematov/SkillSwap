@@ -138,6 +138,25 @@ public class AdminSeedDevToolsTests
         Assert.False(after.GetProperty("warnings")[0].GetProperty("isActive").GetBoolean());
     }
 
+    /// <summary>Есть ли в списке админов запись по условию: в общей базе админов много (их создают и другие тесты), поэтому листаем все страницы, а не смотрим первую.</summary>
+    private async Task<bool> ListedAsync(HttpClient client, string token, bool removed, Func<JsonElement, bool> match)
+    {
+        for (var page = 1; ; page++)
+        {
+            var body = await JsonAsync(await GetAsync(client, token, $"/api/v1/admin/staff/admins?pageSize=50&page={page}&removed={removed.ToString().ToLowerInvariant()}"));
+            var items = body.GetProperty("items").EnumerateArray().ToList();
+            if (items.Any(match))
+            {
+                return true;
+            }
+
+            if (items.Count == 0 || page * 50 >= body.GetProperty("totalCount").GetInt32())
+            {
+                return false;
+            }
+        }
+    }
+
     [Fact]
     public async Task The_admin_seed_gives_a_new_removable_admin_each_time_and_the_superadmin_can_remove_it()
     {
@@ -153,8 +172,7 @@ public class AdminSeedDevToolsTests
 
         var superAdmin = second.GetProperty("superAdmin");
         var token = superAdmin.GetProperty("accessToken").GetString()!;
-        var listed = await JsonAsync(await GetAsync(client, token, "/api/v1/admin/staff/admins?pageSize=50&removed=false"));
-        Assert.Contains(listed.GetProperty("items").EnumerateArray(), a => a.GetProperty("id").GetGuid() == removableId);
+        Assert.True(await ListedAsync(client, token, removed: false, a => a.GetProperty("id").GetGuid() == removableId));
 
         // Подтверждение действия: пароль и текущий код 2FA суперадмина (сидер отдаёт текущий и следующий)
         HttpResponseMessage? removed = null;
@@ -172,8 +190,7 @@ public class AdminSeedDevToolsTests
         }
 
         Assert.True(removed!.StatusCode == HttpStatusCode.OK, await removed.Content.ReadAsStringAsync());
-        var gone = await JsonAsync(await GetAsync(client, token, "/api/v1/admin/staff/admins?pageSize=50&removed=true"));
-        Assert.Contains(gone.GetProperty("items").EnumerateArray(), a => a.GetProperty("id").GetGuid() == removableId && a.GetProperty("removed").GetBoolean());
+        Assert.True(await ListedAsync(client, token, removed: true, a => a.GetProperty("id").GetGuid() == removableId && a.GetProperty("removed").GetBoolean()));
     }
 
     [Fact]

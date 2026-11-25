@@ -63,7 +63,7 @@ public sealed class CaseStore : ICaseStore
     }
 
     public async Task<(IReadOnlyList<Case> Items, int Total)> ListForModeratorAsync(
-        ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct)
+        ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, string? search, int page, int pageSize, CancellationToken ct)
     {
         var query = _db.Cases.AsNoTracking().AsQueryable();
         query = scope switch
@@ -87,6 +87,7 @@ public sealed class CaseStore : ICaseStore
             query = query.Where(c => c.Priority == p);
         }
 
+        query = WhereMatches(query, search);
         var total = await query.CountAsync(ct);
         var items = await query.OrderBy(c => c.Priority == CasePriority.High ? 0 : 1).ThenBy(c => c.DueAt).ThenBy(c => c.Id)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
@@ -133,7 +134,7 @@ public sealed class CaseStore : ICaseStore
     public async Task<IReadOnlyList<User>> ListModeratorsAsync(CancellationToken ct) =>
         await _db.Users.AsNoTracking().Where(u => u.Role == UserRole.Moderator && u.Status == UserStatus.Active).OrderBy(u => u.Name).ToListAsync(ct);
 
-    public async Task<(IReadOnlyList<Case> Items, int Total)> ListForAdminAsync(CaseStatus? status, CaseType? type, int page, int pageSize, CancellationToken ct)
+    public async Task<(IReadOnlyList<Case> Items, int Total)> ListForAdminAsync(CaseStatus? status, CaseType? type, string? search, int page, int pageSize, CancellationToken ct)
     {
         var query = _db.Cases.AsNoTracking().AsQueryable();
         if (status is { } s)
@@ -146,9 +147,28 @@ public sealed class CaseStore : ICaseStore
             query = query.Where(c => c.Type == t);
         }
 
+        query = WhereMatches(query, search);
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(c => c.CreatedAt).ThenBy(c => c.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         return (items, total);
+    }
+
+    /// <summary>
+    /// Поиск по обращениям: имя или почта любого из двух участников либо текст обращения, часть строки без учёта регистра (ILIKE).
+    /// Участники проверяются подзапросом по пользователям, без загрузки их в память.
+    /// </summary>
+    private IQueryable<Case> WhereMatches(IQueryable<Case> query, string? search)
+    {
+        if (search is null)
+        {
+            return query;
+        }
+
+        var pattern = SearchPattern.Contains(search);
+        return query.Where(c =>
+            EF.Functions.ILike(c.Description, pattern, SearchPattern.Escape)
+            || _db.Users.Any(u => (u.Id == c.OpenedById || u.Id == c.AgainstUserId)
+                && (EF.Functions.ILike(u.Name, pattern, SearchPattern.Escape) || (u.Email != null && EF.Functions.ILike(u.Email, pattern, SearchPattern.Escape)))));
     }
 
     public async Task<IReadOnlyList<Warning>> FindWarningsForCaseAsync(Guid caseId, CancellationToken ct) =>
@@ -184,12 +204,22 @@ public sealed class CaseStore : ICaseStore
     public async Task<IReadOnlyList<BanRequest>> ListBanRequestsForUserAsync(Guid userId, CancellationToken ct) =>
         await _db.BanRequests.AsNoTracking().Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).ToListAsync(ct);
 
-    public async Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct)
+    public async Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, string? search, int page, int pageSize, CancellationToken ct)
     {
         var query = _db.BanRequests.AsNoTracking().AsQueryable();
         if (status is { } s)
         {
             query = query.Where(b => b.Status == s);
+        }
+
+        if (search is not null)
+        {
+            // Имя или почта того, на кого запрос, или того, кто его подал; текст причины
+            var pattern = SearchPattern.Contains(search);
+            query = query.Where(b =>
+                EF.Functions.ILike(b.Reason, pattern, SearchPattern.Escape)
+                || _db.Users.Any(u => (u.Id == b.UserId || u.Id == b.RequestedById)
+                    && (EF.Functions.ILike(u.Name, pattern, SearchPattern.Escape) || (u.Email != null && EF.Functions.ILike(u.Email, pattern, SearchPattern.Escape)))));
         }
 
         var total = await query.CountAsync(ct);

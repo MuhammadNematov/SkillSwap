@@ -108,7 +108,7 @@ public interface ICaseStore
     /// Обращения, где участвует кто-то из <paramref name="excludedUsers"/> (конфликт интересов), не возвращаются.
     /// </summary>
     Task<(IReadOnlyList<Case> Items, int Total)> ListForModeratorAsync(
-        ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct);
+        ModeratorScope scope, Guid moderatorId, IReadOnlyCollection<Guid> excludedUsers, CaseType? type, CasePriority? priority, string? search, int page, int pageSize, CancellationToken ct);
 
     /// <summary>
     /// Все, с кем у сотрудника конфликт интересов (раздел 3 ТЗ, правило 3): **все** личные аккаунты, когда-либо привязанные к нему (история привязок, а также текущая привязка),
@@ -128,8 +128,8 @@ public interface ICaseStore
     /// <summary>Действующие модераторы (для выбора проверяющего по апелляции).</summary>
     Task<IReadOnlyList<User>> ListModeratorsAsync(CancellationToken ct);
 
-    /// <summary>Все обращения для админа: фильтры по статусу и типу, новые сверху.</summary>
-    Task<(IReadOnlyList<Case> Items, int Total)> ListForAdminAsync(CaseStatus? status, CaseType? type, int page, int pageSize, CancellationToken ct);
+    /// <summary>Все обращения для админа: фильтры по статусу и типу и поиск <paramref name="search"/> (имя или почта участников, текст обращения; без учёта регистра), новые сверху.</summary>
+    Task<(IReadOnlyList<Case> Items, int Total)> ListForAdminAsync(CaseStatus? status, CaseType? type, string? search, int page, int pageSize, CancellationToken ct);
 
     /// <summary>Предупреждения, вынесенные по обращению (с отслеживанием): их отзывают при отмене решения.</summary>
     Task<IReadOnlyList<Warning>> FindWarningsForCaseAsync(Guid caseId, CancellationToken ct);
@@ -156,7 +156,7 @@ public interface ICaseStore
     /// <summary>Все запросы на бан по пользователю, новые сверху (только чтение).</summary>
     Task<IReadOnlyList<BanRequest>> ListBanRequestsForUserAsync(Guid userId, CancellationToken ct);
 
-    Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, int page, int pageSize, CancellationToken ct);
+    Task<(IReadOnlyList<BanRequest> Items, int Total)> ListBanRequestsAsync(BanRequestStatus? status, string? search, int page, int pageSize, CancellationToken ct);
 
     void AddWarning(Warning warning);
 

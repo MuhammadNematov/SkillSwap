@@ -473,6 +473,13 @@
             }
           },
           {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "schema": {
@@ -1092,6 +1099,13 @@
             "in": "query",
             "schema": {
               "$ref": "#/components/schemas/BanRequestStatus"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -11273,6 +11287,13 @@
             "in": "query",
             "schema": {
               "$ref": "#/components/schemas/CasePriority"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           },
           {

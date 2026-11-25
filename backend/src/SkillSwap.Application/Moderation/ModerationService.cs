@@ -59,12 +59,13 @@ public sealed class ModerationService
     // ---------- очередь и карточка ----------
 
     public async Task<ModerationCaseListDto> ListAsync(
-        Guid moderatorId, ModeratorScope scope, CaseType? type, CasePriority? priority, int page, int pageSize, CancellationToken ct)
+        Guid moderatorId, ModeratorScope scope, CaseType? type, CasePriority? priority, string? search, int page, int pageSize, CancellationToken ct)
     {
         Paging.Validate(page, pageSize);
+        var text = SearchText.Normalize(search);
         var moderator = await RequireModeratorAsync(moderatorId, ct);
         var excluded = await ConflictUsersAsync(moderator, ct);
-        var (items, total) = await _cases.ListForModeratorAsync(scope, moderatorId, excluded, type, priority, page, pageSize, ct);
+        var (items, total) = await _cases.ListForModeratorAsync(scope, moderatorId, excluded, type, priority, text, page, pageSize, ct);
         return new ModerationCaseListDto(await ToDtosAsync(moderatorId, items, ct), page, pageSize, total);
     }
 
