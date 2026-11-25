@@ -183,7 +183,7 @@ function MergeModal({ s, preselected, onDone, onClose }: { s: Suggestion; presel
       ) : (
         <div>
           <span className="mb-1 block text-sm font-medium text-slate-700">{t('suggestions.chooseSkill')}</span>
-          <Select value={chosen} ariaLabel={t('suggestions.chooseSkill')} onChange={setPicked} options={options} />
+          <Select value={chosen} ariaLabel={t('suggestions.chooseSkill')} searchPlaceholder={t('onboarding.searchSkill')} onChange={setPicked} options={options} />
         </div>
       )}
       <label className="flex items-center gap-2 text-sm text-slate-600">

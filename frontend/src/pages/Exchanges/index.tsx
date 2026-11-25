@@ -222,6 +222,7 @@ function PartnerSkillSelect({ partnerId, value, onChange }: { partnerId: string;
       className="w-56"
       value={value}
       ariaLabel={t('exchanges.pickSkill')}
+      searchPlaceholder={t('onboarding.searchSkill')}
       onChange={onChange}
       options={[{ value: '', label: t('exchanges.pickSkill') }, ...(data?.teach ?? []).map((x) => ({ value: x.skillId, label: x.name }))]}
     />

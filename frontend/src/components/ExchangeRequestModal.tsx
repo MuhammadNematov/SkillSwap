@@ -76,7 +76,7 @@ export default function ExchangeRequestModal({ partner, partnerSkills, matchType
               control={control}
               name="fromSkill"
               render={({ field }) => (
-                <Select value={field.value} options={fromOptions} onChange={field.onChange} ariaLabel={t('request.iTeach')} />
+                <Select value={field.value} options={fromOptions} onChange={field.onChange} ariaLabel={t('request.iTeach')} searchPlaceholder={t('onboarding.searchSkill')} />
               )}
             />
           </div>
@@ -86,7 +86,7 @@ export default function ExchangeRequestModal({ partner, partnerSkills, matchType
               control={control}
               name="toSkill"
               render={({ field }) => (
-                <Select value={field.value} options={toOptions} onChange={field.onChange} ariaLabel={t('request.iLearn')} />
+                <Select value={field.value} options={toOptions} onChange={field.onChange} ariaLabel={t('request.iLearn')} searchPlaceholder={t('onboarding.searchSkill')} />
               )}
             />
           </div>

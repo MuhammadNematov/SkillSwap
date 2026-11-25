@@ -341,6 +341,85 @@ async function checkSearch(page: Page) {
   if ((await page.getByPlaceholder('Поиск по тексту и именам').inputValue()) !== '' || new URL(page.url()).searchParams.has('q')) problems.push('поиск: «Сбросить» не очистил поле и адрес')
 }
 
+// Фильтр «Язык общения» (поиск партнёров): открытый список, поиск, клавиатура, высота, шторка на телефоне; снимки открытого состояния
+async function checkLanguageSelect(page: Page) {
+  const dir = `${OUT}user/`
+  mkdirSync(dir, { recursive: true })
+  const names = ['Любой', 'Таджикский', 'Русский', 'Английский'] // названия на языке интерфейса (как в выборе языков занятий), рядом коды TG, RU, EN
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 })
+    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
+    await openPage(page, '/app/matches')
+    const tag = `язык-фильтр ${width}`
+    const trigger = page.getByRole('combobox', { name: 'Язык общения' })
+    await trigger.scrollIntoViewIfNeeded()
+    await trigger.click()
+    const search = page.getByRole('searchbox')
+    await search.waitFor({ timeout: 3000 }).catch(() => undefined)
+    if (!(await search.evaluate((el) => el === document.activeElement).catch(() => false))) problems.push(`${tag}: поле поиска не в фокусе после открытия`)
+    const opts = page.getByRole('option')
+    const texts = (await opts.allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim())
+    if (!names.every((n, i) => texts[i]?.startsWith(n))) problems.push(`${tag}: сверху должны быть ${names.join(', ')}, а есть: ${texts.slice(0, 5).join(' | ')}`)
+    if (texts.length !== 11) problems.push(`${tag}: ожидалось 11 вариантов без поиска (Любой, 3 основных, 7 популярных), есть ${texts.length}`)
+    if (!(await page.getByText('Частые').first().isVisible().catch(() => false)) && !(await page.getByText('Популярные').first().isVisible().catch(() => false))) problems.push(`${tag}: нет разделителя «популярные»`)
+    const geo = await page.evaluate(() => {
+      const list = document.querySelector('[role="listbox"]')!
+      const panel = list.parentElement!.getBoundingClientRect()
+      return { top: panel.top, bottom: panel.bottom, height: panel.height, vh: window.innerHeight, fixed: getComputedStyle(list.parentElement!).position, scrollW: document.documentElement.scrollWidth - window.innerWidth }
+    })
+    if (geo.bottom > geo.vh + 1 || geo.top < -1) problems.push(`${tag}: список вылезает за экран (top ${Math.round(geo.top)}, bottom ${Math.round(geo.bottom)}, окно ${geo.vh})`)
+    if (width >= 640 && geo.height > 330) problems.push(`${tag}: список выше 320 px (${Math.round(geo.height)})`)
+    if (width < 640 && (geo.fixed !== 'fixed' || geo.height > geo.vh * 0.8 + 1)) problems.push(`${tag}: на телефоне нужна нижняя шторка не выше 80% экрана (position ${geo.fixed}, ${Math.round(geo.height)} из ${geo.vh})`)
+    if (geo.scrollW > 1) problems.push(`${tag}: открытый список даёт горизонтальную прокрутку`)
+    for (const theme of THEMES) {
+      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
+      await page.evaluate((d) => document.documentElement.classList.toggle('dark', d), theme === 'dark')
+      await page.waitForTimeout(200)
+      await page.screenshot({ path: `${dir}matches_language_open-${theme}-${width}.png` })
+    }
+    await page.evaluate(() => document.documentElement.classList.remove('dark'))
+
+    // Поиск: по названию на любом языке и по коду, без регистра, не больше 8
+    await search.fill('УЗБ')
+    let found = (await opts.allInnerTexts()).join(' ')
+    if (!/Узбек|Uzbek|Ӯзбек/i.test(found)) problems.push(`${tag}: поиск «УЗБ» не нашёл узбекский: ${found.slice(0, 80)}`)
+    await search.fill('TURK')
+    found = (await opts.allInnerTexts()).join(' ')
+    if (!/Турецк|Turk|Туркӣ/i.test(found)) problems.push(`${tag}: поиск «TURK» не нашёл турецкий: ${found.slice(0, 80)}`)
+    await search.fill('fa')
+    if ((await opts.count()) > 8) problems.push(`${tag}: в результатах больше 8 записей`)
+    await opts.first().waitFor({ timeout: 4000 }).catch(() => undefined)
+    if (!/FA/.test(((await opts.first().innerText({ timeout: 2000 }).catch(() => '')) || '').toUpperCase())) problems.push(`${tag}: по коду «fa» первым должен идти персидский`)
+    await search.fill('zzzzqq')
+    if ((await opts.count()) !== 0 || !(await page.getByText('Ничего не найдено').isVisible().catch(() => false))) problems.push(`${tag}: нет сообщения «Ничего не найдено»`)
+    await search.fill('')
+    await search.fill('нем')
+    await page.screenshot({ path: `${dir}matches_language_search-light-${width}.png` })
+
+    // Клавиатура: ↓ ↓ Enter выбирает вторую найденную запись, галочка у выбранного, Esc закрывает
+    await search.fill('')
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    const label = (await trigger.innerText()).trim()
+    if (label === 'Любой' || (await page.getByRole('listbox').count()) !== 0) problems.push(`${tag}: ↓↓ Enter не выбрали язык или список не закрылся (кнопка: «${label}»)`)
+    await trigger.click()
+    const selected = page.locator('[role="option"][aria-selected="true"]').first()
+    if (!(await selected.locator('svg').count())) problems.push(`${tag}: у выбранного языка нет галочки`)
+    await page.keyboard.press('Escape')
+    if ((await page.getByRole('listbox').count()) !== 0) problems.push(`${tag}: Esc не закрыл список`)
+    // Сброс на «Любой» и закрытие кликом вне списка
+    await trigger.click()
+    await page.getByRole('option', { name: /^Любой/ }).click()
+    if ((await trigger.innerText()).trim() !== 'Любой') problems.push(`${tag}: сброс на «Любой» не сработал`)
+    await trigger.click()
+    await page.mouse.click(width >= 640 ? 900 : 180, 8)
+    await page.waitForTimeout(200)
+    if ((await page.getByRole('listbox').count()) !== 0) problems.push(`${tag}: клик вне списка не закрыл его`)
+  }
+}
+
 async function main() {
   const seed = await (async () => {
     const browser0 = await chromium.launch({ channel: 'chromium' })
@@ -398,6 +477,7 @@ async function main() {
     }
     if (def.menu && !FILTER) await shootMenu(page, role, def.screens[0].path)
     if (role === 'admin' && (!FILTER || FILTER === 'search')) await checkSearch(page)
+    if (role === 'user' && (!FILTER || FILTER === 'language')) await checkLanguageSelect(page).catch((e) => problems.push(`язык-фильтр: проверка прервалась: ${String(e.message).split('\n')[0]}`))
     await ctx.close()
   }
   await browser.close()

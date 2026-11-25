@@ -11,6 +11,7 @@ import Avatar from '../../components/Avatar'
 import ExchangeRequestModal from '../../components/ExchangeRequestModal'
 import Icon from '../../components/Icon'
 import RatingBadge from '../../components/RatingBadge'
+import LanguageSelect from '../../components/LanguageSelect'
 import Select from '../../components/Select'
 import SkillChip from '../../components/SkillChip'
 import { pickName } from '../../utils/localized'
@@ -99,17 +100,13 @@ export default function Matches() {
               value={filters.skill}
               onChange={set('skill')}
               ariaLabel={t('matches.filters.skill')}
+              searchPlaceholder={t('onboarding.searchSkill')}
               options={[any, ...(mine?.learn ?? []).map((s) => ({ value: s.skillId, label: s.names ? pickName(s.names, lang) : s.skillId }))]}
             />
           </div>
           <div>
             <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('matches.filters.language')}</span>
-            <Select
-              value={filters.lang}
-              onChange={set('lang')}
-              ariaLabel={t('matches.filters.language')}
-              options={[any, ...languages.map((l) => ({ value: l.code, label: pickName(l.names, lang) }))]}
-            />
+            <LanguageSelect value={filters.lang} onChange={set('lang')} ariaLabel={t('matches.filters.language')} options={languages} anyLabel={t('matches.filters.any')} />
           </div>
           <div>
             <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('matches.filters.level')}</span>

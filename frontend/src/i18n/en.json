@@ -1894,5 +1894,11 @@
         "Appeals": "Appeals the admin assigns to you for a second review will appear here."
       }
     }
+  },
+  "select": {
+    "search": "Search…",
+    "noResults": "Nothing found",
+    "close": "Close",
+    "popular": "Popular"
   }
 }
