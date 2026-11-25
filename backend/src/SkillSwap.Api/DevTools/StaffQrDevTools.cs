@@ -88,7 +88,7 @@ public static class StaffQrDevTools
           main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
           h1 { font-size: 24px; margin: 0 0 6px; }
           .warn { background: #fef3c7; color: #92400e; border-radius: 10px; padding: 10px 14px; margin: 12px 0 20px; }
-          .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; }
           .card { background: #fff; border: 1px solid #ece9f7; border-radius: 12px; padding: 16px; }
           .card h2 { font-size: 16px; margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
           .role { font-size: 12px; background: #eee9ff; color: #4a2a9a; border-radius: 999px; padding: 2px 10px; }
