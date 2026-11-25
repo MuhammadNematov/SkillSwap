@@ -46,7 +46,7 @@ const openFirst = (selector: string) => async (page: Page) => {
 }
 
 const ROLES: Record<string, { screens: Screen[]; menu?: boolean }> = {
-  public: { screens: ['/', '/login', '/register', '/forgot-password', '/reset-password?token=x&userId=u1', '/confirm-email'].map((p) => screen(p)) },
+  public: { screens: ['/', '/login', '/register', '/forgot-password', '/reset-password?token=x&userId=u1', '/confirm-email', '/dev/staff-qr'].map((p) => screen(p)) },
   user: {
     menu: true,
     screens: [
@@ -62,7 +62,7 @@ const ROLES: Record<string, { screens: Screen[]; menu?: boolean }> = {
   },
   admin: {
     menu: true,
-    screens: ['/admin', '/admin/cases', '/admin/cases?status=Open', '/admin/bans', '/admin/users', '/admin/suggestions', '/admin/skills', '/admin/categories', '/admin/staff', '/admin/notifications'].map((p) => screen(p)),
+    screens: ['/admin', '/admin/cases', '/admin/cases?status=Open', '/admin/cases?q=%D0%BF%D0%BE%D0%B2%D0%B5%D0%B4%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BD%D0%B5%D1%82%D1%82%D0%B0%D0%BA%D0%BE%D0%B3%D0%BE', '/admin/bans?q=dev', '/admin/bans', '/admin/users', '/admin/suggestions', '/admin/skills', '/admin/categories', '/admin/staff', '/admin/notifications'].map((p) => screen(p)),
   },
   superadmin: {
     menu: true,
@@ -182,7 +182,13 @@ async function shootTwoFactor(page: Page, acc: Account) {
       await page.waitForTimeout(2500)
       await page.getByRole('button', { name: /^(Войти|Sign in|Log in|Ворид шудан)$/ }).click()
       const cell = page.locator('input[autocomplete="one-time-code"]').first()
-      await cell.waitFor({ timeout: 15000 }).catch(() => undefined)
+      await cell.waitFor({ timeout: 6000 }).catch(() => undefined)
+      if (!(await cell.isVisible().catch(() => false))) {
+        // Тестовая капча иногда не успевает: ждём и нажимаем ещё раз
+        await page.waitForTimeout(4000)
+        await page.getByRole('button', { name: /^(Войти|Sign in|Log in|Ворид шудан)$/ }).click().catch(() => undefined)
+        await cell.waitFor({ timeout: 15000 }).catch(() => undefined)
+      }
       if (!(await cell.isVisible().catch(() => false))) {
         problems.push(`flows/2fa ${theme} ${width}: экран кода не открылся`)
         await page.screenshot({ path: `${dir}2fa-missing-${theme}-${width}.png` })
@@ -217,6 +223,124 @@ async function shootMenu(page: Page, role: string, path: string) {
   }
 }
 
+
+// ───────── Автоматические проверки поведения (кроме снимков): результат идёт в общий список замечаний ─────────
+
+const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password?token=x&userId=u1', '/confirm-email']
+
+// Фон страниц входа: метки под содержимым, без кликов, приглушены, вне центральной полосы формы и вне шапки и подвала; на телефоне скрыты; при reduced motion стоят
+async function checkFloaters(page: Page) {
+  for (const path of AUTH_PAGES) {
+    for (const width of [1440, 768, 360]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await openPage(page, path)
+      const tag = `фон ${path.split('?')[0]} ${width}`
+      const info = await page.evaluate(() => {
+        const box = [...document.querySelectorAll<HTMLElement>('section div[aria-hidden="true"]')].find((d) => d.querySelector('span.will-change-transform'))
+        if (!box) return null
+        const cs = getComputedStyle(box)
+        const formSection = box.closest('section')!
+        const section = formSection.getBoundingClientRect()
+        const cx = section.left + section.width / 2
+        const spans = [...box.querySelectorAll<HTMLElement>('span.will-change-transform')]
+        const content = [...formSection.querySelectorAll<HTMLElement>('h1, label, input, button, p, a')].filter((e) => !box.contains(e) && e.getBoundingClientRect().width > 0)
+        const header = formSection.querySelector('a[href="/"]')?.getBoundingClientRect()
+        const footer = [...formSection.querySelectorAll<HTMLElement>('p')].pop()?.getBoundingClientRect()
+        const contentRects = content.map((e) => e.getBoundingClientRect())
+        const box0 = box.getBoundingClientRect()
+        // Содержимое формы: всё, что внутри колонки формы (кроме шапки и подвала), должно лежать в полосе ±212 px, где метки полностью скрыты маской
+        const formRects = contentRects.filter((r) => header && footer && r.top > header.bottom && r.bottom < footer.top)
+        return {
+          display: cs.display,
+          pointerEvents: cs.pointerEvents,
+          zIndex: cs.zIndex,
+          mask: cs.maskImage || cs.webkitMaskImage,
+          opacity: Math.max(0, ...spans.map((e) => Number(getComputedStyle(e).opacity))),
+          count: spans.length,
+          boxTop: box0.top,
+          boxBottom: box0.bottom,
+          headerBottom: header?.bottom ?? 0,
+          footerTop: footer?.top ?? 9999,
+          formInsideBand: formRects.every((r) => r.left >= cx - 212 && r.right <= cx + 212),
+          contentZ: [...formSection.querySelectorAll<HTMLElement>('.z-10')].map((e) => getComputedStyle(e).zIndex),
+          t0: spans.map((e) => e.style.transform).join('|'),
+        }
+      })
+      if (width < 768) {
+        if (info && info.display !== 'none') problems.push(`${tag}: на телефоне метки должны быть скрыты (display=${info.display})`)
+        continue
+      }
+      if (!info) {
+        problems.push(`${tag}: контейнер с метками не найден`)
+        continue
+      }
+      if (info.pointerEvents !== 'none') problems.push(`${tag}: у фона нет pointer-events: none`)
+      if (!(Number(info.zIndex) <= 0 || info.zIndex === '0') || !info.contentZ.every((z) => Number(z) > Number(info.zIndex))) problems.push(`${tag}: метки не под содержимым (z фона ${info.zIndex}, содержимого ${info.contentZ.join(',')})`)
+      if (!info.mask || info.mask === 'none') problems.push(`${tag}: нет маски безопасной зоны`)
+      if (info.opacity > 0.5) problems.push(`${tag}: метки слишком яркие (opacity ${info.opacity})`)
+      if (info.count > 12) problems.push(`${tag}: слишком много меток (${info.count})`)
+      if (info.boxTop < info.headerBottom || info.boxBottom > info.footerTop + 1) problems.push(`${tag}: фон заходит на шапку или подвал`)
+      if (!info.formInsideBand) problems.push(`${tag}: содержимое формы шире безопасной полосы (метки могли бы налезть)`)
+      // Движение есть без reduced motion и нет с ним
+      await page.waitForTimeout(1500)
+      const moved = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('span.will-change-transform')].map((e) => e.style.transform).join('|'))
+      if (moved === info.t0) problems.push(`${tag}: метки не двигаются`)
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await openPage(page, path)
+      const still0 = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('span.will-change-transform')].map((e) => e.style.transform).join('|'))
+      await page.waitForTimeout(1500)
+      const still1 = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('span.will-change-transform')].map((e) => e.style.transform).join('|'))
+      if (still0 !== still1) problems.push(`${tag}: при prefers-reduced-motion метки двигаются`)
+    }
+  }
+}
+
+// «Обязательное поле» не показывается, пока не было попытки отправки (заход в поле и выход из него не считаются)
+async function checkRequired(page: Page) {
+  const word = 'Обязательное поле'
+  for (const path of ['/login', '/register', '/forgot-password']) {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await openPage(page, path)
+    const inputs = page.locator('section input:not([type="checkbox"]):not([type="hidden"])')
+    const n = Math.min(await inputs.count(), 3)
+    for (let i = 0; i < n; i++) {
+      await inputs.nth(i).focus()
+      await inputs.nth(i).blur()
+    }
+    await page.keyboard.press('Tab')
+    if ((await page.locator(`text=${word}`).count()) > 0) problems.push(`${path}: «${word}» показано до попытки отправки`)
+    await page.locator('section form button[type="submit"], section form button:not([type])').first().click()
+    await page.waitForTimeout(400)
+    if ((await page.locator(`text=${word}`).count()) === 0) problems.push(`${path}: после попытки отправки «${word}» не появилось`)
+  }
+}
+
+// Серверный поиск в «Обращениях» админа: один запрос через ~300 мс после последнего символа, значение в адресе, сброс очищает и поле, и адрес
+async function checkSearch(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await openPage(page, '/admin/cases')
+  const requests: string[] = []
+  page.on('request', (r) => {
+    if (r.url().includes('/api/v1/admin/cases?')) requests.push(r.url())
+  })
+  const box = page.getByPlaceholder('Поиск по тексту и именам')
+  await box.pressSequentially('dev-user', { delay: 60 })
+  const startedAt = Date.now()
+  await page.waitForResponse((r) => r.url().includes('/admin/cases?') && r.url().includes('q=dev-user'), { timeout: 5000 }).catch(() => undefined)
+  const waited = Date.now() - startedAt
+  const withQ = requests.filter((u) => u.includes('q='))
+  if (withQ.length !== 1) problems.push(`поиск: ожидался один запрос с q после набора, а их ${withQ.length}: ${withQ.map((u) => new URL(u).searchParams.get('q')).join(', ')}`)
+  if (waited < 150) problems.push(`поиск: запрос ушёл слишком рано (${waited} мс после последнего символа)`)
+  if (!new URL(page.url()).searchParams.get('q')?.includes('dev-user')) problems.push('поиск: значение не попало в адрес')
+  await page.reload({ waitUntil: 'load' })
+  await page.waitForSelector('[aria-busy="true"]', { state: 'detached', timeout: 30_000 }).catch(() => undefined)
+  if ((await page.getByPlaceholder('Поиск по тексту и именам').inputValue()) !== 'dev-user') problems.push('поиск: после обновления страницы поле не восстановилось из адреса')
+  await page.getByRole('button', { name: 'Сбросить' }).first().click()
+  await page.waitForTimeout(600)
+  if ((await page.getByPlaceholder('Поиск по тексту и именам').inputValue()) !== '' || new URL(page.url()).searchParams.has('q')) problems.push('поиск: «Сбросить» не очистил поле и адрес')
+}
+
 async function main() {
   const seed = await (async () => {
     const browser0 = await chromium.launch({ channel: 'chromium' })
@@ -233,6 +357,14 @@ async function main() {
   }
 
   const browser: Browser = await chromium.launch({ channel: 'chromium' })
+  if (!ONLY || ONLY.includes('checks')) {
+    const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU' })
+    const page = await ctx.newPage()
+    page.on('response', () => undefined)
+    await checkFloaters(page)
+    await checkRequired(page)
+    await ctx.close()
+  }
   if (!ONLY || ONLY.includes('flows')) {
     const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU' })
     const page = await ctx.newPage()
@@ -265,6 +397,7 @@ async function main() {
       await page.waitForTimeout(4000) // не упираться в лимит обновления токена (30 в минуту с одного IP)
     }
     if (def.menu && !FILTER) await shootMenu(page, role, def.screens[0].path)
+    if (role === 'admin' && (!FILTER || FILTER === 'search')) await checkSearch(page)
     await ctx.close()
   }
   await browser.close()

@@ -53,7 +53,7 @@ export default function Register() {
     getValues,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterForm>({ mode: 'onTouched', defaultValues: { acceptTerms: false, consentModeratorAccess: false } })
+  } = useForm<RegisterForm>({ defaultValues: { acceptTerms: false, consentModeratorAccess: false } })
 
   const score = passwordScore(watch('password') ?? '')
 

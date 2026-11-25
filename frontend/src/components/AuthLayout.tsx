@@ -34,7 +34,7 @@ export default function AuthLayout({ title, subtitle, children }: Props) {
           </div>
         </div>
         {/* Краткое описание под формой: только на планшете (768–1279 px) и при высоте от 700 px; на телефоне оно отнимало место у формы, на широком экране есть правая панель */}
-        <div className="relative z-10 mb-2 hidden [@media(min-width:768px)_and_(max-width:1279px)_and_(min-height:700px)]:block">
+        <div className="relative z-10 mx-auto mb-2 hidden w-full max-w-[400px] [@media(min-width:768px)_and_(max-width:1279px)_and_(min-height:700px)]:block">
           <AuthInfo compact />
         </div>
         <p className="relative z-10 text-center text-xs text-ink-soft">{t('authPromo.footer')}</p>

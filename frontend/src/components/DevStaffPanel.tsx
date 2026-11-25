@@ -44,6 +44,9 @@ export default function DevStaffPanel({ onSession }: { onSession: (s: AuthSessio
 
       <div className="space-y-2 border-t border-ink-line pt-3">
         <p className="text-xs text-ink-soft">{t('dev.staffPassword')}</p>
+        <a className="inline-block text-sm font-semibold text-brand-600 hover:underline" href="/dev/staff-qr" target="_blank" rel="noreferrer">
+          {t('dev.staffQr')}
+        </a>
         <button type="button" className="btn-secondary" disabled={code.isPending} onClick={() => code.mutate()}>
           {code.isPending ? t('common.loading') : t('dev.staffCode')}
         </button>

@@ -1680,6 +1680,7 @@
     }
   },
   "dev": {
+    "staffQr": "2FA QR codes for Google Authenticator",
     "title": "Developer mode: test lesson",
     "hint": "Creates two users and a lesson that starts in 2 minutes. Works only with a Development backend.",
     "create": "Create a test lesson",

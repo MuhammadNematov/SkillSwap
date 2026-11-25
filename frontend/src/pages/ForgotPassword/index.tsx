@@ -19,7 +19,7 @@ export default function ForgotPassword() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<{ email: string }>({ mode: 'onTouched' })
+  } = useForm<{ email: string }>()
 
   async function onSubmit({ email }: { email: string }) {
     setServerError(null)

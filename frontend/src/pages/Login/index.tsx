@@ -40,9 +40,9 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const captcha = useRef<TurnstileHandle>(null)
 
-  // onTouched: «Обязательное поле» появляется после ухода с поля или попытки отправки, а не сразу
-  const credentialsForm = useForm<CredentialsForm>({ mode: 'onTouched' })
-  const codeForm = useForm<CodeForm>({ mode: 'onTouched' })
+  // Проверка полей только после попытки отправки (режим onSubmit по умолчанию), а потом по мере исправления: «Обязательное поле» не появляется от того, что человек просто зашёл в поле и вышел
+  const credentialsForm = useForm<CredentialsForm>()
+  const codeForm = useForm<CodeForm>()
   const [totp, setTotp] = useState('') // код из приложения: шесть клеток
   const [totpAttempt, setTotpAttempt] = useState(0)
   const [totpBusy, setTotpBusy] = useState(false)
