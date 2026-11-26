@@ -294,7 +294,7 @@ _jobs.Schedule<ReminderJobs>(j => j.SendAsync(sessionId), startAt.AddHours(-24))
 
 Всё идёт через очередь Hangfire (`TelegramDeliveryJobs`). Ответ 429 откладывает сообщение на `retry_after` (до 8 раз), сбой сети и 5xx бросают исключение, и Hangfire повторяет задачу, прочие отказы только пишутся в журнал. Если Telegram не принимает адрес в кнопке (например, `localhost` в разработке), ссылка уходит текстом. У HTTP-клиента выключены журналы (`RemoveAllLoggers`): токен входит в путь запроса.
 
-Ограничение: присутствие «на сайте» и очередь окна сообщений хранятся для одного экземпляра API (см. пункт про Redis в `RELEASE-CHECKLIST.md`). Тесты: `TelegramLinkTests`, `TelegramNotificationTests`, `TelegramClientTests` (подставной бот; настоящий токен в тесты не попадает).
+Окно «раз в 5 минут» хранится в базе. Ограничение: присутствие «на сайте» известно только своему экземпляру API (см. пункт про Redis в `RELEASE-CHECKLIST.md`). Тесты: `TelegramLinkTests`, `TelegramNotificationTests`, `TelegramClientTests` (подставной бот; настоящий токен в тесты не попадает).
 
 ## Льготное окно refresh-токена (Auth:RefreshGraceSeconds)
 
