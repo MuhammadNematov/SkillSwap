@@ -1,5 +1,8 @@
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using SkillSwap.Application.Abstractions;
+using SkillSwap.Application.Options;
+using SkillSwap.Application.Telegram;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
 
@@ -27,12 +30,14 @@ public sealed class NotificationPublisher : INotificationPublisher
 
     private readonly INotificationStore _store;
     private readonly IBackgroundJobs _jobs;
+    private readonly TelegramOptions _telegram;
     private readonly List<Notification> _pending = [];
 
-    public NotificationPublisher(INotificationStore store, IBackgroundJobs jobs)
+    public NotificationPublisher(INotificationStore store, IBackgroundJobs jobs, IOptions<TelegramOptions> telegram)
     {
         _store = store;
         _jobs = jobs;
+        _telegram = telegram.Value;
     }
 
     public void Add(Guid userId, NotificationType type, object payload)
@@ -51,6 +56,11 @@ public sealed class NotificationPublisher : INotificationPublisher
             if (NotificationPolicy.SendsEmail(notification.Type))
             {
                 _jobs.Enqueue<NotificationJobs>(j => j.EmailAsync(id));
+            }
+
+            if (_telegram.IsConfigured && NotificationCategories.ForTelegram(notification.Type) is not null)
+            {
+                _jobs.Enqueue<TelegramJobs>(j => j.NotificationAsync(id));
             }
         }
 

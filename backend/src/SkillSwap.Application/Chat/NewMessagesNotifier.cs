@@ -5,6 +5,7 @@ using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Options;
 using SkillSwap.Application.Profile;
+using SkillSwap.Application.Telegram;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
 
@@ -27,10 +28,12 @@ public sealed class NewMessagesNotifier
     private readonly IUnitOfWork _uow;
     private readonly IBackgroundJobs _jobs;
     private readonly TimeProvider _clock;
+    private readonly TelegramOptions _telegram;
 
     public NewMessagesNotifier(
-        INotificationStore notifications, IMessageStore messages, IUnitOfWork uow, IBackgroundJobs jobs, TimeProvider clock)
+        INotificationStore notifications, IMessageStore messages, IUnitOfWork uow, IBackgroundJobs jobs, IOptions<TelegramOptions> telegram, TimeProvider clock)
     {
+        _telegram = telegram.Value;
         _notifications = notifications;
         _messages = messages;
         _uow = uow;
@@ -74,6 +77,11 @@ public sealed class NewMessagesNotifier
         // После фиксации: показать (или обновить на экране) уведомление. Клиент заменяет его по id.
         var id = notificationId;
         _jobs.Enqueue<NotificationJobs>(j => j.PushAsync(id));
+        if (_telegram.IsConfigured)
+        {
+            var dialog = message.ExchangeId;
+            _jobs.Enqueue<TelegramJobs>(j => j.NewMessageAsync(recipientId, dialog, senderId));
+        }
 
         if (created)
         {
@@ -117,11 +125,13 @@ public sealed class UnreadMessagesJobs
     private readonly IBackgroundJobs _jobs;
     private readonly FrontendOptions _frontend;
     private readonly TimeProvider _clock;
+    private readonly ITelegramStore _preferences;
 
     public UnreadMessagesJobs(
         IMessageStore messages, INotificationStore notifications, IExchangeStore exchanges, IProfileStore profiles, IMailSender mail,
-        IUnitOfWork uow, IBackgroundJobs jobs, IOptions<FrontendOptions> frontend, TimeProvider clock)
+        IUnitOfWork uow, IBackgroundJobs jobs, IOptions<FrontendOptions> frontend, ITelegramStore preferences, TimeProvider clock)
     {
+        _preferences = preferences;
         _messages = messages;
         _notifications = notifications;
         _exchanges = exchanges;
@@ -168,7 +178,8 @@ public sealed class UnreadMessagesJobs
             return;
         }
 
-        if (string.IsNullOrEmpty(user.Email) || !user.EmailConfirmed)
+        if (string.IsNullOrEmpty(user.Email) || !user.EmailConfirmed
+            || !await _preferences.IsEnabledAsync(recipientId, NotificationCategory.Messages, NotificationChannel.Email, ct))
         {
             return;
         }

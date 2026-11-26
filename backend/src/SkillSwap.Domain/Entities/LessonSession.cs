@@ -77,6 +77,11 @@ public class LessonSession : BaseEntity
 
     public bool Reminder15Sent { get; private set; }
 
+    /// <summary>Напоминания в Telegram за 1 час и за 10 минут уже отправлены (сбрасываются при переносе).</summary>
+    public bool TelegramReminder60Sent { get; private set; }
+
+    public bool TelegramReminder10Sent { get; private set; }
+
     /// <summary>Когда задача закрытия комнаты подвела итог урока. С этого момента статус окончательный (NoShow и Missed после этого уже не меняются): неявки считаются только окончательные.</summary>
     public DateTime? RoomClosedAt { get; private set; }
 
@@ -272,6 +277,8 @@ public class LessonSession : BaseEntity
         ConfirmedByB = false;
         Reminder24Sent = false;
         Reminder15Sent = false;
+        TelegramReminder60Sent = false;
+        TelegramReminder10Sent = false;
     }
 
     /// <summary>
@@ -353,6 +360,20 @@ public class LessonSession : BaseEntity
 
         Status = SessionStatus.NotCounted;
         return true;
+    }
+
+    public bool TelegramReminderSent(int minutesBefore) => minutesBefore == 60 ? TelegramReminder60Sent : TelegramReminder10Sent;
+
+    public void MarkTelegramReminderSent(int minutesBefore)
+    {
+        if (minutesBefore == 60)
+        {
+            TelegramReminder60Sent = true;
+        }
+        else
+        {
+            TelegramReminder10Sent = true;
+        }
     }
 
     public void MarkReminderSent(int minutesBefore)

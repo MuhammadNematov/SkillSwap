@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Profile;
+using SkillSwap.Application.Telegram;
 
 namespace SkillSwap.Api.Hubs;
 
@@ -58,4 +59,20 @@ public sealed class SignalRNotificationPusher : INotificationPusher
 
     public Task PushAsync(Guid userId, NotificationDto notification, CancellationToken ct) =>
         _hub.Clients.User(userId.ToString()).SendAsync(NotificationsHub.EventName, notification, ct);
+}
+
+/// <summary>Сообщает открытым вкладкам, что Telegram подключён или отключён (событие <c>telegramStatus</c> того же хаба).</summary>
+public sealed class SignalRTelegramStatusPusher : ITelegramStatusPusher
+{
+    public const string EventName = "telegramStatus";
+
+    private readonly IHubContext<NotificationsHub> _hub;
+
+    public SignalRTelegramStatusPusher(IHubContext<NotificationsHub> hub)
+    {
+        _hub = hub;
+    }
+
+    public Task PushAsync(Guid userId, bool connected, CancellationToken ct) =>
+        _hub.Clients.User(userId.ToString()).SendAsync(EventName, new { connected }, ct);
 }

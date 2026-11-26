@@ -5,7 +5,10 @@ using SkillSwap.Application.Chat;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Files;
+using Microsoft.Extensions.Options;
 using SkillSwap.Application.Notifications;
+using SkillSwap.Application.Options;
+using SkillSwap.Application.Telegram;
 using SkillSwap.Application.Profile;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
@@ -44,12 +47,18 @@ public sealed class LessonSessionService
     private readonly TimeProvider _clock;
     private readonly ILogger<LessonSessionService> _logger;
 
+    private readonly TelegramOptions _telegram;
+
+    /// <summary>Уроки, которые были запланированы и отменены остановкой обмена в этой транзакции (сообщение в Telegram уходит после фиксации).</summary>
+    private readonly List<Guid> _cancelledScheduled = [];
+
     public LessonSessionService(
         ILessonSessionStore sessions, ISessionAttendanceStore attendance, IExchangeStore exchanges, IProfileStore profiles, IMessageStore messages, ChatService chat,
         IChatBroadcaster broadcaster, IUnitOfWork uow, IBackgroundJobs jobs, INotificationPublisher notify, AvatarUrls avatars,
         IValidator<ProposeSessionRequest> proposeValidator, IValidator<RescheduleSessionRequest> rescheduleValidator,
-        TimeProvider clock, ILogger<LessonSessionService> logger)
+        IOptions<TelegramOptions> telegram, TimeProvider clock, ILogger<LessonSessionService> logger)
     {
+        _telegram = telegram.Value;
         _sessions = sessions;
         _attendance = attendance;
         _exchanges = exchanges;
@@ -337,9 +346,14 @@ public sealed class LessonSessionService
         var result = new List<LessonSessionDto>();
         foreach (var session in await _sessions.FindOpenForExchangeAsync(exchangeId, ct))
         {
+            var wasScheduled = session.Status == SessionStatus.Scheduled;
             if (session.CancelByExchange())
             {
                 result.Add(ToDto(session, userAId, userBId));
+                if (wasScheduled)
+                {
+                    _cancelledScheduled.Add(session.Id);
+                }
             }
         }
 
@@ -351,6 +365,12 @@ public sealed class LessonSessionService
         foreach (var update in updates)
         {
             await PublishUpdateAsync(update);
+            // Запланированный урок отменён остановкой обмена: после фиксации транзакции — сообщение в Telegram
+            if (_telegram.IsConfigured && _cancelledScheduled.Remove(update.Id))
+            {
+                var sessionId = update.Id;
+                _jobs.Enqueue<TelegramJobs>(j => j.LessonCancelledByExchangeAsync(sessionId));
+            }
         }
     }
 
@@ -437,6 +457,20 @@ public sealed class LessonSessionService
             {
                 var m = minutes;
                 _jobs.Schedule<LessonSessionJobs>(j => j.RemindAsync(id, ticks, m), new DateTimeOffset(at, TimeSpan.Zero));
+            }
+        }
+
+        if (_telegram.IsConfigured)
+        {
+            // Напоминания в Telegram за 1 час и за 10 минут. Задачи на прежнее время после переноса или отмены ничего не делают (сверяют время и состояние).
+            foreach (var minutes in TelegramJobs.ReminderMinutes)
+            {
+                var at = s.StartAt.AddMinutes(-minutes);
+                if (at > now)
+                {
+                    var m = minutes;
+                    _jobs.Schedule<TelegramJobs>(j => j.ReminderAsync(id, ticks, m), new DateTimeOffset(at, TimeSpan.Zero));
+                }
             }
         }
 

@@ -35,6 +35,8 @@ builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, Skil
 builder.Services.AddSingleton<SkillSwap.Api.Hubs.ConnectionRegistry>();
 builder.Services.AddSingleton<SkillSwap.Application.Moderation.IRealtimeDisconnector>(sp => sp.GetRequiredService<SkillSwap.Api.Hubs.ConnectionRegistry>());
 builder.Services.AddScoped<SkillSwap.Application.Notifications.INotificationPusher, SkillSwap.Api.Hubs.SignalRNotificationPusher>();
+builder.Services.AddSingleton<SkillSwap.Application.Telegram.IUserPresence>(sp => sp.GetRequiredService<SkillSwap.Api.Hubs.ConnectionRegistry>());
+builder.Services.AddSingleton<SkillSwap.Application.Telegram.ITelegramStatusPusher, SkillSwap.Api.Hubs.SignalRTelegramStatusPusher>();
 builder.Services.AddScoped<SkillSwap.Application.Chat.IChatBroadcaster, SkillSwap.Api.Hubs.SignalRChatBroadcaster>();
 
 // CORS: refresh-токен едет в cookie, поэтому нужен AllowCredentials и точный адрес фронтенда (не "*").

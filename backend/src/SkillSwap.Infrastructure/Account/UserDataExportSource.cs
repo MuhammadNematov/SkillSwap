@@ -70,9 +70,39 @@ public sealed class UserDataExportSource : IUserDataExportSource
         json.WriteEndArray();
 
         await WriteReviewsAsync(json, userId, names, ct);
+        await WriteNotificationSettingsAsync(json, userId, ct);
 
         json.WriteEndObject();
         await json.FlushAsync(ct);
+    }
+
+    /// <summary>Связь с Telegram (идентификатор чата — данные пользователя) и выключенные или включённые вручную переключатели уведомлений.</summary>
+    private async Task WriteNotificationSettingsAsync(Utf8JsonWriter json, Guid userId, CancellationToken ct)
+    {
+        var link = await _db.TelegramLinks.AsNoTracking().FirstOrDefaultAsync(l => l.UserId == userId, ct);
+        if (link is null)
+        {
+            json.WriteNull("telegram");
+        }
+        else
+        {
+            json.WriteStartObject("telegram");
+            json.WriteNumber("chatId", link.ChatId);
+            json.WriteString("linkedAt", link.LinkedAt);
+            json.WriteEndObject();
+        }
+
+        json.WriteStartArray("notificationSettings");
+        foreach (var p in await _db.NotificationPreferences.AsNoTracking().Where(p => p.UserId == userId).OrderBy(p => p.Category).ThenBy(p => p.Channel).ToListAsync(ct))
+        {
+            json.WriteStartObject();
+            json.WriteString("category", p.Category.ToString());
+            json.WriteString("channel", p.Channel.ToString());
+            json.WriteBoolean("enabled", p.Enabled);
+            json.WriteEndObject();
+        }
+
+        json.WriteEndArray();
     }
 
     /// <summary>

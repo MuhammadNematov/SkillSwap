@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using SkillSwap.Application.Abstractions;
 using SkillSwap.Application.Options;
 using SkillSwap.Application.Profile;
+using SkillSwap.Application.Telegram;
 using SkillSwap.Domain.Enums;
 
 namespace SkillSwap.Application.Notifications;
@@ -16,11 +17,13 @@ public sealed class NotificationJobs
     private readonly IMailSender _mail;
     private readonly FrontendOptions _frontend;
     private readonly TimeProvider _clock;
+    private readonly ITelegramStore _preferences;
 
     public NotificationJobs(
         INotificationStore store, INotificationPusher pusher, IProfileStore profiles, IMailSender mail,
-        IOptions<FrontendOptions> frontend, TimeProvider clock)
+        IOptions<FrontendOptions> frontend, ITelegramStore preferences, TimeProvider clock)
     {
+        _preferences = preferences;
         _store = store;
         _pusher = pusher;
         _profiles = profiles;
@@ -54,6 +57,12 @@ public sealed class NotificationJobs
         if (user is null || user.Status != UserStatus.Active || string.IsNullOrEmpty(user.Email) || !user.EmailConfirmed)
         {
             return;
+        }
+
+        if (NotificationCategories.ForEmail(notification.Type) is { } category
+            && !await _preferences.IsEnabledAsync(user.Id, category, NotificationChannel.Email, CancellationToken.None))
+        {
+            return;   // пользователь выключил письма этой группы
         }
 
         using var payload = JsonDocument.Parse(notification.PayloadJson);

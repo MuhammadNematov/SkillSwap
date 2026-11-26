@@ -1,5 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
+using System.Text;
+using SkillSwap.Application.Options;
+using SkillSwap.Application.Telegram;
+using SkillSwap.Infrastructure.Telegram;
 using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.LiveKit;
 
@@ -15,10 +21,51 @@ public class WebhooksController : ControllerBase
     public const int MaxBodyBytes = 256 * 1024;
 
     private readonly LiveKitWebhookService _liveKit;
+    private readonly TelegramUpdateHandler _telegramUpdates;
+    private readonly TelegramOptions _telegram;
+    private readonly IHostEnvironment _environment;
 
-    public WebhooksController(LiveKitWebhookService liveKit)
+    public WebhooksController(LiveKitWebhookService liveKit, TelegramUpdateHandler telegramUpdates, IOptions<TelegramOptions> telegram, IHostEnvironment environment)
     {
         _liveKit = liveKit;
+        _telegramUpdates = telegramUpdates;
+        _telegram = telegram.Value;
+        _environment = environment;
+    }
+
+    /// <summary>Заголовок, в котором Telegram повторяет секрет, заданный при установке webhook.</summary>
+    public const string TelegramSecretHeader = "X-Telegram-Bot-Api-Secret-Token";
+
+    /// <summary>
+    /// Обновления бота (команды <c>/start код</c> и <c>/stop</c>). Только вне Development (там long polling) и только с верным секретом в заголовке
+    /// <c>X-Telegram-Bot-Api-Secret-Token</c> (401 <c>invalid_webhook_signature</c>). Без настроенного бота — 404.
+    /// </summary>
+    [HttpPost("telegram")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    public async Task<IActionResult> Telegram(CancellationToken ct)
+    {
+        if (_environment.IsDevelopment() || !_telegram.IsConfigured)
+        {
+            return NotFound();
+        }
+
+        var presented = Encoding.UTF8.GetBytes(Request.Headers[TelegramSecretHeader].ToString());
+        var expected = Encoding.UTF8.GetBytes(_telegram.WebhookSecret);
+        if (expected.Length == 0 || !CryptographicOperations.FixedTimeEquals(presented, expected))
+        {
+            throw new UnauthorizedException("invalid_webhook_signature", "Секрет webhook неверный.");
+        }
+
+        var body = await ReadBodyAsync(ct);
+        var update = TelegramBotClient.ParseUpdate(Encoding.UTF8.GetString(body))
+            ?? throw new BadRequestException("invalid_webhook_payload", "Тело не похоже на обновление Telegram.");
+        await _telegramUpdates.HandleAsync(update, ct);
+        return Ok();
     }
 
     /// <summary>

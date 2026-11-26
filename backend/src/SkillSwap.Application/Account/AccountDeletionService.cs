@@ -8,6 +8,7 @@ using SkillSwap.Application.Exceptions;
 using SkillSwap.Application.Exchanges;
 using SkillSwap.Application.Notifications;
 using SkillSwap.Application.Sessions;
+using SkillSwap.Application.Telegram;
 using SkillSwap.Domain.Entities;
 using SkillSwap.Domain.Enums;
 
@@ -34,6 +35,7 @@ public sealed class AccountDeletionService
     private readonly IRecoveryCodeStore _recoveryCodes;
     private readonly ITwoFactorStepStore _steps;
     private readonly LessonSessionService _lessons;
+    private readonly ITelegramStore _telegram;
     private readonly INotificationPublisher _notify;
     private readonly IFileStorage _storage;
     private readonly IMailSender _mail;
@@ -44,8 +46,9 @@ public sealed class AccountDeletionService
         UserManager<User> users, TwoFactorService twoFactor, IUnitOfWork uow, IExchangeStore exchanges, IExchangeRequestStore requests,
         IUserBlockStore blocks, IAccountStore account, IErasureHold hold, IRefreshTokenRepository refreshTokens, IRecoveryCodeStore recoveryCodes,
         ITwoFactorStepStore steps, LessonSessionService lessons, INotificationPublisher notify, IFileStorage storage, IMailSender mail,
-        IValidator<DeleteAccountRequest> validator, TimeProvider clock)
+        IValidator<DeleteAccountRequest> validator, ITelegramStore telegram, TimeProvider clock)
     {
+        _telegram = telegram;
         _users = users;
         _twoFactor = twoFactor;
         _uow = uow;
@@ -113,6 +116,7 @@ public sealed class AccountDeletionService
 
             await _blocks.RemoveAllForUserAsync(userId, token);
             await _account.DeleteNotificationsAsync(userId, token);
+            await _telegram.DeleteUserDataAsync(userId, token);   // связь с Telegram, коды и настройки уведомлений
             await _account.AnonymizeNotificationNamesAsync(userId, Domain.Entities.User.DeletedDisplayName, token);
 
             var current = await _users.FindByIdAsync(userId.ToString()) ?? throw new NotFoundException("user_not_found", "Пользователь не найден.");

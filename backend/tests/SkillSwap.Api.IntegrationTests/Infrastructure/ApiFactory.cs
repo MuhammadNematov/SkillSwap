@@ -30,6 +30,17 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     // Тесты читают письма отсюда вместо консоли.
     public CapturingMailSender Mail { get; } = new();
 
+    /// <summary>Bot API Telegram в тестах — подставной клиент (по умолчанию бот не настроен: настройки пустые).</summary>
+    public FakeTelegramClient Telegram { get; } = new();
+
+    /// <summary>Настройки включённого бота для тестов Telegram.</summary>
+    public static readonly (string, string?)[] TelegramOn =
+    [
+        ("Telegram:BotToken", "123456:TEST-token-never-real"),
+        ("Telegram:BotUsername", "skillswap_test_bot"),
+        ("Telegram:WebhookSecret", "integration-webhook-secret-123456"),
+    ];
+
     /// <summary>Серверный API LiveKit (удаление комнат) в тестах — заглушка.</summary>
     public FakeLiveKitRooms Rooms { get; } = new();
 
@@ -85,6 +96,11 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // Капча выключена: остальные тесты не передают токен. Секрет задан всё равно, как в реальном окружении.
         settings["Turnstile:Enabled"] = "false";
         settings["Turnstile:SecretKey"] = TurnstileTestSecret;
+
+        // Бот Telegram по умолчанию не настроен: тесты, которым он нужен, включают его сами (настоящий токен из user-secrets не должен попасть ни в один тест).
+        settings["Telegram:BotToken"] = "";
+        settings["Telegram:BotUsername"] = "";
+        settings["Telegram:WebhookSecret"] = "";
 
         settings["LiveKit:ApiKey"] = LiveKitApiKey;
         settings["LiveKit:ApiSecret"] = LiveKitApiSecret;
@@ -147,6 +163,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                     ["DataProtection:CertificatePath"] = "",
                     ["DataProtection:CertificateBase64"] = TestCertificates.Shared.Base64,
                     ["DataProtection:CertificatePassword"] = TestCertificates.Shared.Password,
+                    ["Telegram:BotToken"] = "",
+                    ["Telegram:BotUsername"] = "",
                 };
                 foreach (var (key, value) in settings)
                 {
@@ -182,6 +200,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<IMailSender>(Mail);
             services.RemoveAll<ILiveKitRoomService>();
             services.AddSingleton<ILiveKitRoomService>(Rooms);
+            services.RemoveAll<SkillSwap.Application.Telegram.ITelegramClient>();
+            services.AddSingleton<SkillSwap.Application.Telegram.ITelegramClient>(Telegram);
 
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);

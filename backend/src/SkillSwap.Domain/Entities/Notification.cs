@@ -27,6 +27,11 @@ public class Notification : BaseEntity
     /// <summary>Когда письмо-дубль поставлено в очередь (null — не отправлялось); защита от повторной отправки при повторе задачи.</summary>
     public DateTime? EmailQueuedAt { get; private set; }
 
+    /// <summary>Когда уведомление передано в отправку в Telegram; защита от повторной отправки при повторе задачи.</summary>
+    public DateTime? TelegramQueuedAt { get; private set; }
+
+    public void MarkTelegramQueued(DateTime now) => TelegramQueuedAt ??= now;
+
     public static Notification Create(Guid userId, NotificationType type, string payloadJson, Guid? exchangeId = null)
     {
         EnsurePayload(payloadJson);

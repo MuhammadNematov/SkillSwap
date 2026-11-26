@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 using SkillSwap.Application.Moderation;
 using SkillSwap.Application.Profile;
+using SkillSwap.Application.Telegram;
 using SkillSwap.Domain.Enums;
 
 namespace SkillSwap.Api.Hubs;
@@ -10,7 +11,7 @@ namespace SkillSwap.Api.Hubs;
 /// Открытые соединения SignalR по пользователям (оба хаба). Нужен, чтобы после блокировки аккаунта сразу оборвать его соединения: токен доступа живёт ещё какое-то
 /// время, и без этого заблокированный продолжал бы получать события. Хранится в памяти процесса (при нескольких экземплярах каждый отключает свои соединения).
 /// </summary>
-public sealed class ConnectionRegistry : IRealtimeDisconnector
+public sealed class ConnectionRegistry : IRealtimeDisconnector, IUserPresence
 {
     private readonly ConcurrentDictionary<string, (Guid UserId, HubCallerContext Context)> _connections = new();
 
@@ -19,6 +20,9 @@ public sealed class ConnectionRegistry : IRealtimeDisconnector
     public void Remove(string connectionId) => _connections.TryRemove(connectionId, out _);
 
     public int CountFor(Guid userId) => _connections.Values.Count(c => c.UserId == userId);
+
+    /// <summary>Открыт сайт (есть соединение хотя бы с одним хабом): сообщения чата тогда в Telegram не дублируются.</summary>
+    public bool IsOnline(Guid userId) => _connections.Values.Any(c => c.UserId == userId);
 
     public Task DisconnectUserAsync(Guid userId, CancellationToken ct)
     {

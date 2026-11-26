@@ -126,6 +126,20 @@ public static class DependencyInjection
             ? ActivatorUtilities.CreateInstance<SmtpMailTransport>(sp)
             : ActivatorUtilities.CreateInstance<ConsoleMailSender>(sp));
         services.AddScoped<IMailSender, BackgroundMailSender>();
+
+        // Telegram-бот для уведомлений. Токен в пути запроса: журналы HttpClient выключены, чтобы он не попал в лог.
+        services.AddOptions<TelegramOptions>().Bind(configuration.GetSection(TelegramOptions.SectionName));
+        services.AddHttpClient(SkillSwap.Infrastructure.Telegram.TelegramBotClient.HttpClientName)
+            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(15))
+            .RemoveAllLoggers();
+        services.AddHttpClient(SkillSwap.Infrastructure.Telegram.TelegramBotClient.PollingHttpClientName)
+            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(40))
+            .RemoveAllLoggers();
+        services.AddSingleton<SkillSwap.Application.Telegram.ITelegramClient, SkillSwap.Infrastructure.Telegram.TelegramBotClient>();
+        services.AddScoped<SkillSwap.Application.Telegram.ITelegramStore, SkillSwap.Infrastructure.Telegram.TelegramStore>();
+        services.AddHostedService<SkillSwap.Infrastructure.Telegram.TelegramStartupCheck>();
+        services.AddHostedService<SkillSwap.Infrastructure.Telegram.TelegramPollingService>();
+        services.AddHostedService<SkillSwap.Infrastructure.Telegram.TelegramWebhookRegistration>();
         services.AddScoped<MailJobs>();
 
         // Файлы: закрытый бакет S3 (Garage, облачное S3 сменой настроек); пока не настроено (только Development и Testing), загрузка отвечает 503.

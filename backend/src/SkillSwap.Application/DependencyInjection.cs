@@ -42,6 +42,11 @@ public static class DependencyInjection
         services.AddScoped<INotificationPublisher, NotificationPublisher>();
         services.AddScoped<NotificationService>();
         services.AddScoped<NotificationJobs>();
+        services.AddScoped<Telegram.TelegramService>();
+        services.AddScoped<Telegram.TelegramUpdateHandler>();
+        services.AddScoped<Telegram.NotificationSettingsService>();
+        services.AddScoped<Telegram.TelegramJobs>();
+        services.AddScoped<Telegram.TelegramDeliveryJobs>();
         services.AddScoped<ChatService>();
         services.AddSingleton<ChatThrottle>();
         services.AddScoped<NewMessagesNotifier>();
