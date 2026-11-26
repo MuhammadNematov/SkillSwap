@@ -49,6 +49,56 @@ public class LessonSeedDevToolsTests
         return (token, response);
     }
 
+    // ---------- необязательные параметры (проверка уведомлений) ----------
+
+    [Fact]
+    public async Task The_seed_can_reuse_an_existing_dev_student_and_start_the_lesson_later()
+    {
+        try
+        {
+            using var app = _factory.WithSettings("Development", Short);
+            var client = app.CreateClient(NoRedirect);
+            var first = await JsonAsync(await client.PostAsync("/dev/seed-lesson", null));
+            var student = first.GetProperty("users").EnumerateArray().Single(u => u.GetProperty("role").GetString() == "student");
+
+            var response = await client.PostAsJsonAsync("/dev/seed-lesson", new { studentEmail = student.GetProperty("email").GetString(), startsInMinutes = 61 });
+
+            Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+            var body = await JsonAsync(response);
+            var again = body.GetProperty("users").EnumerateArray().Single(u => u.GetProperty("role").GetString() == "student");
+            Assert.Equal(student.GetProperty("userId").GetGuid(), again.GetProperty("userId").GetGuid());
+            Assert.Equal(JsonValueKind.Null, again.GetProperty("password").ValueKind);   // пароль чужого аккаунта не выдаётся
+            Assert.Equal(Now.AddMinutes(61), body.GetProperty("startAt").GetDateTime(), TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            LessonTiming.Reset();
+        }
+    }
+
+    [Theory]
+    [InlineData("nobody@example.com", 5, "seed_student_not_found")]
+    [InlineData("dev-nobody@example.com", 5, "seed_student_not_found")]
+    [InlineData("dev-admin@gmail.com", 5, "seed_student_not_found")]
+    [InlineData(null, 0, "invalid_seed_request")]
+    [InlineData(null, 181, "invalid_seed_request")]
+    public async Task The_seed_refuses_other_accounts_and_odd_start_times(string? email, int startsIn, string code)
+    {
+        try
+        {
+            using var app = _factory.WithSettings("Development", Short);
+
+            var response = await app.CreateClient(NoRedirect).PostAsJsonAsync("/dev/seed-lesson", new { studentEmail = email, startsInMinutes = startsIn });
+
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(code, (await JsonAsync(response)).GetProperty("code").GetString());
+        }
+        finally
+        {
+            LessonTiming.Reset();
+        }
+    }
+
     // ---------- сидер ----------
 
     [Fact]

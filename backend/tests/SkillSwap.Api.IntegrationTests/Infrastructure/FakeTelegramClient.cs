@@ -34,6 +34,11 @@ public sealed class FakeTelegramClient : ITelegramClient
 
     public void PushUpdate(TelegramUpdate update) => _updates.Enqueue(update);
 
+    public List<int> RequestedTimeouts { get; } = [];
+
+    /// <summary>Столько следующих запросов обновлений «обрываются» (как долгий опрос на плохой сети).</summary>
+    public int FailPolls;
+
     public Task<TelegramSendResult> SendMessageAsync(long chatId, string text, TelegramButton? button, CancellationToken ct)
     {
         var result = _replies.TryGetValue(chatId, out var queue) && queue.TryDequeue(out var next) ? next : TelegramSendResult.Ok;
@@ -50,6 +55,12 @@ public sealed class FakeTelegramClient : ITelegramClient
         lock (RequestedOffsets)
         {
             RequestedOffsets.Add(offset);
+            RequestedTimeouts.Add(timeoutSeconds);
+        }
+
+        if (Interlocked.Decrement(ref FailPolls) >= 0)
+        {
+            throw new TelegramUnavailableException("Telegram getUpdates: истекло время ожидания");
         }
 
         var batch = new List<TelegramUpdate>();

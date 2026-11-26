@@ -322,6 +322,29 @@ public class TelegramLinkTests : IClassFixture<TelegramApiFactory>
     }
 
     [Fact]
+    public async Task After_a_broken_long_poll_the_waiting_window_is_shortened_and_updates_still_arrive()
+    {
+        _factory.Telegram.FailPolls = 1;   // первый долгий запрос обрывается, как на сети, рвущей простаивающие соединения
+        using var t = new TelegramTestApp(_factory, "Development");
+        var user = await UserAsync();
+        var chat = TelegramTestApp.NextChat();
+
+        t.Bot.PushUpdate(new TelegramUpdate(60_000, new TelegramIncomingMessage(chat, true, $"/start {await t.CodeAsync(user)}", "ru")));
+
+        for (var i = 0; i < 200 && await LinkRowAsync(user) is null; i++)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.NotNull(await LinkRowAsync(user));
+        lock (t.Bot.RequestedOffsets)
+        {
+            Assert.Contains(25, t.Bot.RequestedTimeouts);
+            Assert.Contains(5, t.Bot.RequestedTimeouts);
+        }
+    }
+
+    [Fact]
     public async Task In_development_long_polling_receives_start_and_no_webhook_is_set()
     {
         using var t = new TelegramTestApp(_factory, "Development");

@@ -86,7 +86,9 @@ public sealed class TelegramBotClient : ITelegramClient
 
     public async Task<IReadOnlyList<TelegramUpdate>> GetUpdatesAsync(long offset, int timeoutSeconds, CancellationToken ct)
     {
-        var updates = await CallAsync<List<RawUpdate>>(PollingHttpClientName, "getUpdates", new { offset, timeout = timeoutSeconds, allowed_updates = new[] { "message" } }, ct);
+        // Своё ограничение по времени: зависший запрос обрывается вскоре после окна ожидания, а не только по общему таймауту клиента
+        var updates = await CallAsync<List<RawUpdate>>(
+            PollingHttpClientName, "getUpdates", new { offset, timeout = timeoutSeconds, allowed_updates = new[] { "message" } }, ct, TimeSpan.FromSeconds(timeoutSeconds + 10));
         return (updates ?? []).Select(u => u.ToUpdate()).ToList();
     }
 
@@ -95,12 +97,18 @@ public sealed class TelegramBotClient : ITelegramClient
     public Task SetWebhookAsync(string url, string secretToken, CancellationToken ct) =>
         CallAsync<bool>(HttpClientName, "setWebhook", new { url, secret_token = secretToken, allowed_updates = new[] { "message" } }, ct);
 
-    private async Task<T?> CallAsync<T>(string client, string method, object body, CancellationToken ct)
+    private async Task<T?> CallAsync<T>(string client, string method, object body, CancellationToken ct, TimeSpan? limit = null)
     {
+        using var window = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (limit is { } time)
+        {
+            window.CancelAfter(time);
+        }
+
         try
         {
-            using var response = await PostAsync(client, method, body, ct);
-            var reply = await ReadAsync<T>(response, ct);
+            using var response = await PostAsync(client, method, body, window.Token);
+            var reply = await ReadAsync<T>(response, window.Token);
             if (response.IsSuccessStatusCode && reply is { Ok: true })
             {
                 return reply.Result;

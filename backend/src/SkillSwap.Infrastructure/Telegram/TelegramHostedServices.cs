@@ -11,7 +11,10 @@ namespace SkillSwap.Infrastructure.Telegram;
 /// <summary>Development: long polling (<c>getUpdates</c>), вебхук не нужен. Запускается только если бот настроен.</summary>
 public sealed class TelegramPollingService : BackgroundService
 {
-    private const int LongPollSeconds = 25;
+    /// <summary>Сколько Telegram держит запрос в ожидании обновлений. После обрыва окно сокращается: часть сетей (мобильный интернет, NAT) обрывает долгие простаивающие соединения.</summary>
+    public const int LongPollSeconds = 25;
+
+    public const int ShortPollSeconds = 5;
 
     private readonly IServiceScopeFactory _scopes;
     private readonly ITelegramClient _client;
@@ -39,6 +42,7 @@ public sealed class TelegramPollingService : BackgroundService
         await Task.Yield();   // не задерживать запуск приложения
         long offset = 0;
         var webhookRemoved = false;
+        var pollSeconds = LongPollSeconds;
         _logger.LogInformation("Telegram: long polling запущен для бота @{Bot}.", _options.BotName);
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -50,7 +54,7 @@ public sealed class TelegramPollingService : BackgroundService
                     webhookRemoved = true;
                 }
 
-                foreach (var update in await _client.GetUpdatesAsync(offset, LongPollSeconds, stoppingToken))
+                foreach (var update in await _client.GetUpdatesAsync(offset, pollSeconds, stoppingToken))
                 {
                     offset = update.UpdateId + 1;   // обработанное обновление не запрашиваем снова, даже если обработка упала
                     await HandleAsync(update, stoppingToken);
@@ -62,6 +66,13 @@ public sealed class TelegramPollingService : BackgroundService
             }
             catch (Exception ex)
             {
+                if (webhookRemoved && pollSeconds > ShortPollSeconds)
+                {
+                    pollSeconds = ShortPollSeconds;
+                    _logger.LogWarning("Telegram: долгий опрос не удался ({Message}). Дальше окно ожидания {Seconds} с.", ex.Message, pollSeconds);
+                    continue;
+                }
+
                 _logger.LogWarning("Telegram: опрос не удался ({Message}). Повтор через 5 секунд.", ex.Message);
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             }

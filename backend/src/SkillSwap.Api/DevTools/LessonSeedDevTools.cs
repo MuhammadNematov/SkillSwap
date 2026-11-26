@@ -14,6 +14,8 @@ namespace SkillSwap.Api.DevTools;
 /// Подготовка данных для ручной проверки видеокомнаты: <c>POST /dev/seed-lesson</c> создаёт двух подтверждённых пользователей с анкетами, обмен и подтверждённый урок,
 /// который начинается через две минуты. Подключается ТОЛЬКО в среде Development (см. Program.cs): в остальных средах маршрута нет вообще (404).
 /// Всё идёт через настоящие сервисы (заявка, принятие, предложение и подтверждение урока), поэтому ставятся и настоящие фоновые задачи урока.
+/// Необязательное тело: <c>startsInMinutes</c> (1–180, по умолчанию 2; например 61 или 11, чтобы через минуту сработало напоминание в Telegram за 1 час или 10 минут)
+/// и <c>studentEmail</c> — уже существующий dev-ученик (например, с подключённым Telegram) вместо нового; тогда пароль в ответе не возвращается.
 /// Пароли пользователей возвращаются в ответе: это тестовые учётные записи на локальной базе.
 /// Чтобы урок можно было назначить на «через две минуты», сроки урока сокращены в <c>appsettings.Development.json</c> (секция <c>Lessons</c>).
 /// </summary>
@@ -28,8 +30,13 @@ public static class LessonSeedDevTools
         return app;
     }
 
+    /// <param name="StartsInMinutes">Через сколько минут начнётся урок.</param>
+    /// <param name="StudentEmail">Почта существующего dev-ученика (адрес <c>dev-…@example.com</c>).</param>
+    public sealed record SeedLessonRequest(int? StartsInMinutes, string? StudentEmail);
+
     private static async Task<IResult> SeedAsync(
         HttpContext http,
+        SeedLessonRequest? body,
         AppDbContext db,
         UserManager<User> users,
         ExchangeRequestService requests,
@@ -42,10 +49,29 @@ public static class LessonSeedDevTools
         http.Response.Headers.CacheControl = "no-store";   // в ответе пароли
 
         // Урок «через две минуты» возможен, только если слот можно назначить так близко: в ТЗ это не раньше чем за час.
-        if (timing.Value.MinLeadMinutes >= StartsInMinutes)
+        var startsIn = body?.StartsInMinutes ?? StartsInMinutes;
+        if (startsIn is < 1 or > 180)
+        {
+            return Problem(StatusCodes.Status400BadRequest, "invalid_seed_request", "startsInMinutes: от 1 до 180.");
+        }
+
+        User? existingStudent = null;
+        if (!string.IsNullOrWhiteSpace(body?.StudentEmail))
+        {
+            var email = body.StudentEmail.Trim();
+            existingStudent = email.StartsWith("dev-", StringComparison.Ordinal) && email.EndsWith("@example.com", StringComparison.Ordinal)
+                ? await users.FindByEmailAsync(email)
+                : null;
+            if (existingStudent is null || !existingStudent.IsRegular)
+            {
+                return Problem(StatusCodes.Status404NotFound, "seed_student_not_found", "Существующий dev-ученик не найден (адрес вида dev-…@example.com).");
+            }
+        }
+
+        if (timing.Value.MinLeadMinutes >= startsIn)
         {
             return Problem(StatusCodes.Status409Conflict, "lesson_timing_not_shortened",
-                $"Слот можно назначить не раньше чем за {timing.Value.MinLeadMinutes} мин., а урок начнётся через {StartsInMinutes}. " +
+                $"Слот можно назначить не раньше чем за {timing.Value.MinLeadMinutes} мин., а урок начнётся через {startsIn}. " +
                 "Сократите сроки в appsettings.Development.json (секция Lessons: MinLeadMinutes = 1) и перезапустите приложение.");
         }
 
@@ -59,14 +85,16 @@ public static class LessonSeedDevTools
 
         var suffix = Guid.NewGuid().ToString("N")[..8];
         var teacher = await CreateUserAsync(users, db, $"dev-teacher-{suffix}@example.com", "Преподаватель (dev)", skills[0], skills[1], ct);
-        var student = await CreateUserAsync(users, db, $"dev-student-{suffix}@example.com", "Ученик (dev)", skills[1], skills[0], ct);
+        var student = existingStudent is null
+            ? await CreateUserAsync(users, db, $"dev-student-{suffix}@example.com", "Ученик (dev)", skills[1], skills[0], ct)
+            : new Seeded(existingStudent, string.Empty);
 
         // Заявка и её принятие — те же сервисы, что у API.
         var request = await requests.CreateAsync(teacher.User.Id, new CreateExchangeRequestRequest(student.User.Id, skills[1], skills[0], 30, null), ct);
         var accepted = await requests.AcceptAsync(student.User.Id, request.Id, null, ct);
         var exchangeId = accepted.ExchangeId ?? throw new InvalidOperationException("Принятая заявка не вернула обмен.");
 
-        var start = clock.GetUtcNow().AddMinutes(StartsInMinutes);
+        var start = clock.GetUtcNow().AddMinutes(startsIn);
         var session = await lessons.ProposeAsync(teacher.User.Id, exchangeId, new ProposeSessionRequest(start, teacher.User.Id, "Проверка видеокомнаты (dev)"), ct);
         session = await lessons.ConfirmAsync(student.User.Id, session.Id, ct);
 
@@ -84,7 +112,7 @@ public static class LessonSeedDevTools
             users = new[]
             {
                 new { role = "teacher", userId = teacher.User.Id, email = teacher.User.Email, password = teacher.Password, name = teacher.User.Name },
-                new { role = "student", userId = student.User.Id, email = student.User.Email, password = student.Password, name = student.User.Name },
+                new { role = "student", userId = student.User.Id, email = student.User.Email, password = student.Password.Length == 0 ? null : student.Password, name = student.User.Name },
             },
             exchangeUrl = $"{baseUrl}/exchanges/{exchangeId}",
             hint = "Войдите двумя пользователями в разных браузерах (или в обычном окне и окне инкогнито), откройте обмен и урок. Вход в комнату открывается за "

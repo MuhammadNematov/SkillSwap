@@ -77,7 +77,8 @@ public sealed class NewMessagesNotifier
         // После фиксации: показать (или обновить на экране) уведомление. Клиент заменяет его по id.
         var id = notificationId;
         _jobs.Enqueue<NotificationJobs>(j => j.PushAsync(id));
-        if (_telegram.IsConfigured)
+        // В Telegram только то, что написал или прислал сам собеседник: карточка урока и системные строки не «сообщение» (об уроках есть свои уведомления)
+        if (_telegram.IsConfigured && message.Type is MessageType.Text or MessageType.Voice or MessageType.File)
         {
             var dialog = message.ExchangeId;
             _jobs.Enqueue<TelegramJobs>(j => j.NewMessageAsync(recipientId, dialog, senderId));

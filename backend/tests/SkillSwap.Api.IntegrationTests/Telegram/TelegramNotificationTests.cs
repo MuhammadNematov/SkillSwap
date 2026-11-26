@@ -277,6 +277,20 @@ public class TelegramNotificationTests : IClassFixture<TelegramApiFactory>
     }
 
     [Fact]
+    public async Task A_lesson_card_in_the_chat_is_not_a_new_message_and_does_not_use_up_the_window()
+    {
+        var (t, a, b, exchangeId, _, chatB) = await PairAsync();
+        using var _ = t;
+        await WaitUntilOfflineAsync(t, b);
+
+        await t.OkAsync(a, HttpMethod.Post, $"/exchanges/{exchangeId}/sessions", new { startAt = t.Slot(5).ToString("O"), teacherId = a.Id });
+        Assert.Empty(NewMessages(t.Bot, chatB));
+
+        await SayAsync(t, a, exchangeId, "Видел предложение?");
+        Assert.Single(NewMessages(t.Bot, chatB));
+    }
+
+    [Fact]
     public async Task No_message_goes_to_telegram_while_the_recipient_is_on_the_site()
     {
         var (t, a, b, exchangeId, _, chatB) = await PairAsync();
