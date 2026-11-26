@@ -4,6 +4,7 @@
 // Результат: frontend/screenshots/<роль>/<экран>-<тема>-<ширина>.png (папка в .gitignore) и отчёт о горизонтальной прокрутке и ошибках консоли.
 //
 // Переменные: SCREENS_BASE (по умолчанию https://localhost:5173), SCREENS_ONLY=user,admin (роли), SCREENS_FILTER=admin/cases (подстрока в имени экрана).
+// SCREENS_ONLY=user SCREENS_FILTER=home — только проверка верхнего блока главной и шапки при прокрутке (1440, 430, 390, 360 px, три языка).
 import { mkdirSync, rmSync } from 'node:fs'
 import { chromium, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test'
 
@@ -133,6 +134,14 @@ async function openPage(page: Page, path: string, retry = true) {
   }
 }
 
+async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
+  await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
+  await page.waitForFunction((d) => document.documentElement.classList.contains('dark') === d, theme === 'dark', { timeout: 4000 }).catch(async () => {
+    // Событие смены системной темы иногда не доходит до страницы: ставим класс сами, чтобы снимок был в нужной теме (на пользователя это не влияет: тема переключается кнопкой)
+    await page.evaluate((d) => document.documentElement.classList.toggle('dark', d), theme === 'dark')
+  })
+}
+
 async function shoot(page: Page, role: string, s: Screen) {
   const dir = `${OUT}${role}/`
   mkdirSync(dir, { recursive: true })
@@ -143,11 +152,7 @@ async function shoot(page: Page, role: string, s: Screen) {
     await openPage(page, s.path)
     await s.after?.(page)
     for (const theme of THEMES) {
-      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
-      await page.waitForFunction((d) => document.documentElement.classList.contains("dark") === d, theme === "dark", { timeout: 4000 }).catch(async () => {
-        // Событие смены системной темы иногда не доходит до страницы: ставим класс сами, чтобы снимок был в нужной теме (на пользователя это не влияет: тема переключается кнопкой)
-        await page.evaluate((d) => document.documentElement.classList.toggle('dark', d), theme === 'dark')
-      })
+      await setTheme(page, theme)
       const tag = `${role}/${s.name} ${theme} ${width}`
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
       if (overflow > 1) {
@@ -340,6 +345,83 @@ async function checkSearch(page: Page) {
   await page.getByRole('button', { name: 'Сбросить' }).first().click()
   await page.waitForTimeout(600)
   if ((await page.getByPlaceholder('Поиск по тексту и именам').inputValue()) !== '' || new URL(page.url()).searchParams.has('q')) problems.push('поиск: «Сбросить» не очистил поле и адрес')
+}
+
+// Главная пользователя: верхний блок целиком в своей карточке и без картинок, строки заголовка не переносятся, на телефоне кнопки в столбик
+// на всю ширину; шапка непрозрачна и при любой прокрутке лежит поверх содержимого. Снимки: сверху и с прокруткой
+async function checkHome(page: Page) {
+  const dir = `${OUT}user/`
+  mkdirSync(dir, { recursive: true })
+  const scrollTo = (y: number) => page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), y)
+  await openPage(page, '/app') // localStorage доступен только на странице приложения
+  for (const lang of ['tg', 'en', 'ru']) {
+    // Русский последним: язык запоминается в контексте, дальше снимки должны идти на нём
+    await page.evaluate((l) => localStorage.setItem('i18nextLng', l), lang)
+    for (const width of [1440, 430, 390, 360]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 800 : 760 })
+      await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
+      await openPage(page, '/app')
+      await page.getByTestId('home-hero').waitFor({ timeout: 70_000 })
+      for (const theme of THEMES) {
+        await setTheme(page, theme)
+        await scrollTo(0)
+        const tag = `главная ${lang} ${theme} ${width}`
+        const found = await page.evaluate((phone) => {
+          const out: string[] = []
+          const header = document.querySelector('header')!
+          const hero = document.querySelector('[data-testid="home-hero"]')!
+          const box = hero.getBoundingClientRect()
+          if (box.top < header.getBoundingClientRect().bottom) out.push('блок заезжает на шапку')
+          if (hero.querySelector('img')) out.push('в блоке осталась картинка')
+          for (const el of hero.querySelectorAll('*')) {
+            const r = el.getBoundingClientRect()
+            if (r.top < box.top - 0.5 || r.bottom > box.bottom + 0.5 || r.left < box.left - 0.5 || r.right > box.right + 0.5) out.push(`<${el.tagName.toLowerCase()}> выходит за карточку`)
+          }
+          for (const line of hero.querySelectorAll('h1 > span')) {
+            if (line.getBoundingClientRect().height > parseFloat(getComputedStyle(line).lineHeight) * 1.5 || line.scrollWidth > line.clientWidth + 1) out.push(`строка заголовка переносится: «${line.textContent}»`)
+          }
+          const [a, b] = [...hero.querySelectorAll('a')].map((el) => el.getBoundingClientRect())
+          const inner = box.width - parseFloat(getComputedStyle(hero).paddingLeft) * 2 - 2
+          if (phone && (b.top < a.bottom || Math.abs(a.width - inner) > 1 || Math.abs(b.width - inner) > 1)) out.push(`кнопки не в столбик на всю ширину: ${Math.round(a.width)} и ${Math.round(b.width)} из ${Math.round(inner)}`)
+          if (!phone && Math.abs(a.top - b.top) > 1) out.push('на широком экране кнопки не в ряд')
+          if (!/^rgb\(/.test(getComputedStyle(header).backgroundColor) || getComputedStyle(header).opacity !== '1') out.push(`шапка прозрачная: ${getComputedStyle(header).backgroundColor}`)
+          if (document.documentElement.scrollWidth - window.innerWidth > 1) out.push('горизонтальная прокрутка')
+          return out
+        }, width < 640)
+        // Прокручиваем всю страницу шагами: в любой точке шапки должен быть элемент самой шапки, а не содержимое под ней
+        const max = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)
+        if (max <= 0) found.push('страница не прокручивается: наложение на шапку не проверено')
+        for (let y = 0; y <= max; y += 40) {
+          await scrollTo(y)
+          const covered = await page.evaluate(() => {
+            const header = document.querySelector('header')!
+            const r = header.getBoundingClientRect()
+            if (Math.abs(r.top) > 0.5) return `шапка уехала на ${Math.round(r.top)}px`
+            for (let py = 2; py < r.height - 1; py += 8)
+              for (let px = r.left + 2; px < r.right - 1; px += 12) {
+                const hit = document.elementFromPoint(px, py)
+                if (hit && !header.contains(hit)) return `поверх шапки <${hit.tagName.toLowerCase()}> «${(hit.textContent ?? '').trim().slice(0, 30)}»`
+              }
+            return null
+          })
+          if (covered) {
+            found.push(`прокрутка ${y}: ${covered}`)
+            break
+          }
+        }
+        problems.push(...found.map((f) => `${tag}: ${f}`))
+        if (width !== 430 && lang === 'ru') {
+          await scrollTo(0)
+          await page.screenshot({ path: `${dir}home-top-${theme}-${width}.png`, fullPage: true })
+          await scrollTo(170)
+          await page.screenshot({ path: `${dir}home-scroll-${theme}-${width}.png` })
+        } else if (width === 360 && theme === 'light') {
+          await scrollTo(0)
+          await page.screenshot({ path: `${dir}home-top-${lang}-${width}.png` })
+        }
+      }
+    }
+  }
 }
 
 // Фильтр «Язык общения» (поиск партнёров): открытый список, поиск, клавиатура, высота, шторка на телефоне; снимки открытого состояния
@@ -674,6 +756,7 @@ async function main() {
     }
     if (def.menu && !FILTER) await shootMenu(page, role, def.screens[0].path)
     if (role === 'admin' && (!FILTER || FILTER === 'search')) await checkSearch(page)
+    if (role === 'user' && (!FILTER || FILTER === 'home')) await checkHome(page).catch((e) => problems.push(`главная: проверка прервалась: ${String(e.message).split('\n')[0]}`))
     if (role === 'user' && (!FILTER || FILTER === 'language')) await checkLanguageSelect(page).catch((e) => problems.push(`язык-фильтр: проверка прервалась: ${String(e.message).split('\n')[0]}`))
     await ctx.close()
   }

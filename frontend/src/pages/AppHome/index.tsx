@@ -7,7 +7,6 @@ import Avatar from '../../components/Avatar'
 import Icon, { type IconName } from '../../components/Icon'
 import DevSeedLesson from '../../components/DevSeedLesson'
 import Spinner from '../../components/Spinner'
-import SwapStage from '../../components/SwapScene'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateTime, formatTime, isJoinWindowOpen, isSameDay } from '../../utils/dates'
 
@@ -22,6 +21,15 @@ function StatCard({ icon, label, value, tone }: { icon: IconName; label: string;
         <div className="text-2xl font-bold text-slate-900">{value}</div>
       </div>
     </div>
+  )
+}
+
+function Rating({ value, className }: { value: number; className: string }) {
+  return (
+    <span className={`flex items-center gap-1 font-medium text-amber-600 ${className}`}>
+      <Icon name="star" className="h-4 w-4" />
+      {value.toFixed(1)}
+    </span>
   )
 }
 
@@ -43,26 +51,21 @@ export default function AppHome() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl border border-ink-line bg-surface">
-        <SwapStage centerWidth={560} links={false} compact className="min-h-[340px]">
-          <div className="w-full px-4 py-10 text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">{t('dashboard.heroEyebrow', { name: user?.name?.split(' ')[0] })}</p>
-            <h1 className="mt-3 text-4xl font-extrabold leading-[1.08] tracking-tight text-ink sm:text-[52px]">
-              {t('dashboard.heroTitle1')}
-              <br />
-              <span className="text-brand-600">{t('dashboard.heroTitle2')}</span>
-            </h1>
-            <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-ink-soft">{t('dashboard.heroText')}</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-              <Link to="/app/matches" className="btn-primary h-12 rounded-2xl px-6 text-[15px]">
-                {t('dashboard.heroMatches')}
-              </Link>
-              <Link to="/app/calendar" className="btn-secondary h-12 rounded-2xl px-6 text-[15px]">
-                {t('dashboard.heroSchedule')}
-              </Link>
-            </div>
-          </div>
-        </SwapStage>
+      <section className="rounded-2xl border border-ink-line bg-surface px-4 py-7 text-center sm:px-8 sm:py-9" data-testid="home-hero">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">{t('dashboard.heroEyebrow', { name: user?.name?.split(' ')[0] })}</p>
+        <h1 className="mt-2.5 text-[26px] font-extrabold leading-tight tracking-tight text-ink sm:text-4xl">
+          <span className="block">{t('dashboard.heroTitle1')}</span>
+          <span className="block text-brand-600">{t('dashboard.heroTitle2')}</span>
+        </h1>
+        <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-ink-soft">{t('dashboard.heroText')}</p>
+        <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+          <Link to="/app/matches" className="btn-primary h-12 rounded-2xl px-6 text-[15px]">
+            {t('dashboard.heroMatches')}
+          </Link>
+          <Link to="/app/calendar" className="btn-secondary h-12 rounded-2xl px-6 text-[15px]">
+            {t('dashboard.heroSchedule')}
+          </Link>
+        </div>
       </section>
 
       <div className="grid grid-cols-1 gap-4">
@@ -143,18 +146,17 @@ export default function AppHome() {
             {data.recommended.map((p) => (
               <li key={p.id} className="flex items-center gap-3 py-3">
                 <Avatar name={p.name} src={p.avatarUrl} />
+                {/* На телефоне имя не обрезается, а переносится, и рейтинг стоит под навыками: рядом с кнопкой ему нет места */}
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold text-slate-900">{p.name}</div>
+                  <div className="break-words text-sm font-semibold text-slate-900 sm:truncate sm:text-base">{p.name}</div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span className={`h-2 w-2 rounded-full ${p.online ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                    {p.skills.join(' · ')}
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${p.online ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <span className="min-w-0 break-words">{p.skills.join(' · ')}</span>
                   </div>
+                  <Rating value={p.rating} className="mt-0.5 text-xs sm:hidden" />
                 </div>
-                <span className="flex items-center gap-1 text-sm font-medium text-amber-600">
-                  <Icon name="star" className="h-4 w-4" />
-                  {p.rating.toFixed(1)}
-                </span>
-                <Link to={`/app/users/${p.id}`} className="btn-secondary px-4 py-2">
+                <Rating value={p.rating} className="hidden text-sm sm:flex" />
+                <Link to={`/app/users/${p.id}`} className="btn-secondary shrink-0 px-3 py-2 sm:px-4">
                   {t('dashboard.profile')}
                 </Link>
               </li>

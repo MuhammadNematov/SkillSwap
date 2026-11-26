@@ -91,7 +91,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen lg:flex">
-      {menuOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink-line bg-surface transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
@@ -136,7 +136,7 @@ export default function AppLayout() {
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-ink-line bg-brand-50/90 px-4 py-3.5 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-ink-line bg-brand-50 px-4 py-3.5 sm:px-8">
           <button
             className="rounded-lg p-2 text-ink-soft hover:bg-brand-100 lg:hidden"
             aria-label={t('shell.menu')}

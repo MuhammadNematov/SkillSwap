@@ -141,7 +141,7 @@ export default function LanguagePicker({ options, value, onChange, max = 10 }: P
           <ul
             id={listId}
             role="listbox"
-            className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-ink-line bg-surface p-1 shadow-glass"
+            className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-ink-line bg-surface p-1 shadow-glass"
           >
             {results.length === 0 ? (
               <li className="px-3 py-2.5 text-sm text-slate-500">{t('languagePicker.noResults')}</li>

@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 
-// Сцена входа и регистрации: слева парень, справа девушка (3D, без фона), посередине форма.
-// Знания бесконечно летают между ними по знаку ∞ за формой. Только SVG/CSS, без библиотек.
+// Сцена лендинга: слева парень, справа девушка (3D, без фона), посередине содержимое.
+// При links знания летают между ними по знаку ∞ за содержимым. Только SVG/CSS, без библиотек.
 
 const TOKENS = ['React', 'UI/UX', 'English', 'Python', 'Figma', 'Math']
 
@@ -57,14 +57,12 @@ function Infinity() {
   )
 }
 
-function Character({ side, compact }: { side: 'left' | 'right'; compact?: boolean }) {
+function Character({ side }: { side: 'left' | 'right' }) {
   const left = side === 'left'
   return (
     <div
       className={`pointer-events-none relative z-30 hidden self-end lg:block ${
-        left
-          ? `${compact ? 'w-[clamp(120px,11vw,190px)]' : 'w-[clamp(170px,18vw,270px)]'} justify-self-end -mr-6`
-          : `${compact ? 'w-[clamp(140px,13vw,215px)]' : 'w-[clamp(200px,21vw,310px)]'} justify-self-start -ml-6`
+        left ? 'w-[clamp(170px,18vw,270px)] justify-self-end -mr-6' : 'w-[clamp(200px,21vw,310px)] justify-self-start -ml-6'
       }`}
       style={{ animation: `swap-float 6s ease-in-out ${left ? '0s' : '-3s'} infinite` }}
     >
@@ -73,19 +71,19 @@ function Character({ side, compact }: { side: 'left' | 'right'; compact?: boolea
   )
 }
 
-// Центральная колонка (форма) в обрамлении двух персонажей
-export default function SwapStage({ children, centerWidth = 540, className = '', links = true, compact = false }: { children: ReactNode; centerWidth?: number; className?: string; links?: boolean; compact?: boolean }) {
+// Центральная колонка в обрамлении двух персонажей
+export default function SwapStage({ children, centerWidth = 540, className = '', links = true }: { children: ReactNode; centerWidth?: number; className?: string; links?: boolean }) {
   return (
     <main
       className={`relative flex flex-1 items-center justify-center overflow-hidden lg:grid lg:[grid-template-columns:1fr_minmax(0,var(--cw))_1fr] lg:items-end ${className}`}
       style={{ ['--cw' as string]: `${centerWidth}px` }}
     >
       {links && <Infinity />}
-      <Character side="left" compact={compact} />
+      <Character side="left" />
       <div className="relative z-20 flex w-full self-stretch lg:self-center" style={{ maxWidth: centerWidth }}>
         {children}
       </div>
-      <Character side="right" compact={compact} />
+      <Character side="right" />
     </main>
   )
 }
