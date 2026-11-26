@@ -52,6 +52,7 @@ const ROLES: Record<string, { screens: Screen[]; menu?: boolean }> = {
     screens: [
       ...['/app', '/app/matches', '/app/exchanges', '/app/messages', '/app/calendar', '/app/notifications', '/app/reviews', '/app/cases', '/app/profile', '/app/settings'].map((p) => screen(p)),
       { name: 'app_messages_chat', path: '/app/messages', after: openFirst('a[href^="/app/messages/"]') },
+      { name: 'app_notifications_settings', path: '/app/notifications?settings=1' },
       { name: 'app_exchange_detail', path: '/app/exchanges', after: openFirst('a[href^="/app/exchanges/"]') },
       { name: 'app_case_detail', path: '/app/cases', after: openFirst('a[href^="/app/cases/"]') },
     ],

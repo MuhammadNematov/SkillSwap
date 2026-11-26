@@ -1018,7 +1018,9 @@
       "forbidden": "You do not have permission to do this",
       "conflict": "This cannot be done now: the data has changed",
       "service_unavailable": "The server is temporarily unavailable, try again later",
-      "api_unreachable": "The API server is not responding. Make sure the backend is running and refresh the page"
+      "api_unreachable": "The API server is not responding. Make sure the backend is running and refresh the page",
+      "telegram_not_configured": "Telegram notifications are not set up yet",
+      "invalid_notification_settings": "This setting cannot be changed"
     },
     "validation": {
       "required": "Fill in this field",
@@ -1931,5 +1933,30 @@
     "noResults": "Nothing found",
     "close": "Close",
     "popular": "Popular"
+  },
+  "telegram": {
+    "hint": "Lesson reminders and important events right in Telegram.",
+    "connected": "Connected: messages come from @{{bot}}.",
+    "on": "Connected",
+    "off": "Not connected",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "waiting": "Telegram should open: press “Start” in the @{{bot}} bot. The status here updates by itself.",
+    "openAgain": "Open Telegram again",
+    "expires": "The link works once and expires in 10 minutes.",
+    "choose": "What to send",
+    "settingsTitle": "Which notifications to send",
+    "connectHint": "Connect Telegram to get notifications there.",
+    "toSettings": "Open settings",
+    "kind": "Event",
+    "email": "Email",
+    "noEmail": "No emails about this",
+    "category": {
+      "LessonReminders": "Lesson reminders",
+      "LessonChanges": "Lesson cancelled or moved",
+      "ExchangeRequests": "Exchange requests",
+      "Messages": "New messages",
+      "Cases": "Case updates"
+    }
   }
 }

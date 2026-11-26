@@ -15,6 +15,7 @@ import Modal from '../../components/Modal'
 import Spinner from '../../components/Spinner'
 import TwoFactorSetup from '../../components/TwoFactorSetup'
 import SessionsSection from './SessionsSection'
+import TelegramSection from './TelegramSection'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateTime } from '../../utils/dates'
 
@@ -26,6 +27,7 @@ export default function Settings() {
     <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{t('settings.title')}</h1>
       <ProfileSection />
+      <TelegramSection />
       <TwoFactorSection />
       <SessionsSection />
       <BlocksSection />

@@ -38,8 +38,16 @@ export function useNotificationsHub() {
       })
       qc.invalidateQueries({ queryKey: ['notifications', 'unread'] })
     })
+    // Telegram подключили или отключили (в боте или на другой вкладке): обновляем блок настроек
+    conn.on('telegramStatus', () => {
+      qc.invalidateQueries({ queryKey: ['telegram'] })
+      qc.invalidateQueries({ queryKey: ['notificationSettings'] })
+    })
     // после обрыва подтягиваем пропущенное
-    conn.onreconnected(() => qc.invalidateQueries({ queryKey: ['notifications'] }))
+    conn.onreconnected(() => {
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+      qc.invalidateQueries({ queryKey: ['telegram'] })
+    })
 
     void startHub(conn).then((ok) => {
       if (stopped && ok) void conn.stop()

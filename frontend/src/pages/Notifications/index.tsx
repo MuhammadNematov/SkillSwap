@@ -8,6 +8,7 @@ import { useNotifications } from '../../hooks/useNotifications'
 import { getMyId } from '../../api/identity'
 import { useInvalidateAll } from '../../hooks/useSessionActions'
 import { formatDateTime } from '../../utils/dates'
+import NotificationSettingsCard from './NotificationSettingsCard'
 
 // Куда ведёт уведомление
 export type NotificationsArea = 'app' | 'moderation' | 'admin'
@@ -105,6 +106,9 @@ export default function Notifications({ area = 'app' }: { area?: NotificationsAr
           </button>
         )}
       </div>
+
+      {/* Переключатели каналов есть только у обычных аккаунтов: служебным письма и Telegram не настраиваются */}
+      {area === 'app' && <NotificationSettingsCard />}
 
       {data.length === 0 ? (
         <div className="card text-sm text-slate-500">{t('notifications.empty')}</div>
