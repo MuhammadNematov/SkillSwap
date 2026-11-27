@@ -15,6 +15,7 @@ namespace SkillSwap.Api.IntegrationTests.RateLimiting;
 /// Часы приложения заморожены, поэтому Retry-After точен и сравнивается с ожидаемым значением секунда в секунду.
 /// Каждый тест «приходит» со своего IP и со своими email, поэтому тесты не мешают друг другу.
 /// </summary>
+[Collection(OwnHostsCollection.Name)]
 public class RateLimitingTests : IClassFixture<RateLimitedApiFactory>
 {
     private const int Hour = 3600;

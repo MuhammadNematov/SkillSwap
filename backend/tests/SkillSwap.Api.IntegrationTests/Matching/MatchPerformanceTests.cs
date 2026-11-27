@@ -15,6 +15,7 @@ namespace SkillSwap.Api.IntegrationTests.Matching;
 /// (худший случай: кандидатов в выдаче — тысячи), через настоящее приложение и настоящий PostgreSQL.
 /// Отдельный контейнер БД: данные замера не попадают в остальные тесты.
 /// </summary>
+[Collection(OwnHostsCollection.Name)]
 public class MatchPerformanceTests : IClassFixture<ApiFactory>
 {
     // По умолчанию 5000 (раздел 14 ТЗ: «несколько тысяч»). Для проверки запаса: SKILLSWAP_PERF_USERS=20000.

@@ -42,7 +42,7 @@ public class AdminSeedDevToolsTests
     public async Task The_staff_seed_also_creates_a_superadmin_whose_token_opens_the_superadmin_routes_only()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         var first = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
         var second = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
@@ -64,7 +64,7 @@ public class AdminSeedDevToolsTests
     public async Task The_admin_seed_creates_data_for_every_admin_screen_with_working_links()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         var response = await client.PostAsync("/dev/seed-admin", null);
 
@@ -115,7 +115,7 @@ public class AdminSeedDevToolsTests
     public async Task The_admin_seed_gives_a_real_active_warning_that_the_admin_can_revoke()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         var seed = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
         var adminToken = seed.GetProperty("admin").GetProperty("accessToken").GetString()!;
         var warning = seed.GetProperty("warning");
@@ -161,7 +161,7 @@ public class AdminSeedDevToolsTests
     public async Task The_admin_seed_gives_a_new_removable_admin_each_time_and_the_superadmin_can_remove_it()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         var first = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
         var second = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
         var removable = second.GetProperty("removableAdmin");
@@ -197,7 +197,7 @@ public class AdminSeedDevToolsTests
     public async Task A_repeated_admin_seed_adds_new_data_and_replaces_the_pending_link_request_of_the_same_moderator()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         var first = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
         var second = await JsonAsync(await client.PostAsync("/dev/seed-admin", null));
@@ -215,7 +215,7 @@ public class AdminSeedDevToolsTests
     public async Task The_admin_seed_does_not_exist_outside_development()
     {
         using var production = _factory.WithSettings("Production");
-        var client = production.CreateClient(NoRedirect);
+        var client = production.CreateLocalClient(NoRedirect);
 
         Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsync("/dev/seed-admin", null)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsync("/dev/seed-staff", null)).StatusCode);

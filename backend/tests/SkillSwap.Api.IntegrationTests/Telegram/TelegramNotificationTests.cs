@@ -12,6 +12,7 @@ using SkillSwap.Domain.Enums;
 namespace SkillSwap.Api.IntegrationTests.Telegram;
 
 /// <summary>Что и когда уходит в Telegram: заявки, уроки и напоминания, сообщения, обращения, переключатели, лимиты и сбои отправки.</summary>
+[Collection(OwnHostsCollection.Name)]
 public class TelegramNotificationTests : IClassFixture<TelegramApiFactory>
 {
     private readonly ApiFactory _factory;

@@ -7,6 +7,7 @@ using SkillSwap.Api.RateLimiting;
 namespace SkillSwap.Api.IntegrationTests.RateLimiting;
 
 /// <summary>Значения лимитов берутся из конфигурации: приложение с заниженными значениями ведёт себя иначе.</summary>
+[Collection(OwnHostsCollection.Name)]
 public class RateLimitingConfigurationTests : IClassFixture<CustomLimitsApiFactory>
 {
     private readonly CustomLimitsApiFactory _factory;

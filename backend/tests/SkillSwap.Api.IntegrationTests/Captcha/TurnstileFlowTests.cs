@@ -13,6 +13,7 @@ namespace SkillSwap.Api.IntegrationTests.Captcha;
 /// вместо Cloudflare — заглушка. Главное: проверка идёт ДО всей остальной логики.
 /// Лимит по IP включён, чтобы проверить и порядок защит. Каждый тест «приходит» со своего IP.
 /// </summary>
+[Collection(OwnHostsCollection.Name)]
 public class TurnstileFlowTests : IClassFixture<CaptchaApiFactory>
 {
     private readonly CaptchaApiFactory _factory;

@@ -57,7 +57,7 @@ public class CaseSeedDevToolsTests
     public async Task The_staff_seed_creates_the_accounts_once_and_hands_out_working_tokens()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         var first = await client.PostAsync("/dev/seed-staff", null);
         var second = await client.PostAsync("/dev/seed-staff", null);
@@ -105,7 +105,7 @@ public class CaseSeedDevToolsTests
     public async Task The_seeded_admin_can_confirm_real_actions_with_the_given_codes_and_each_code_works_once()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         await client.PostAsync("/dev/seed-staff", null);
         await ResetTotpStepsAsync();
         var seeded = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
@@ -127,7 +127,7 @@ public class CaseSeedDevToolsTests
     public async Task The_staff_code_route_gives_the_current_and_the_next_code_that_confirm_actions()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         var seeded = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
         await ResetTotpStepsAsync();
         var token = seeded.GetProperty("admin").GetProperty("accessToken").GetString()!;
@@ -150,7 +150,7 @@ public class CaseSeedDevToolsTests
     public async Task The_staff_code_route_refuses_unknown_addresses(string? email)
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         var response = await client.PostAsJsonAsync("/dev/staff-code", new { email });
 
@@ -162,7 +162,7 @@ public class CaseSeedDevToolsTests
     public async Task The_staff_code_route_does_not_hand_out_codes_of_regular_users()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         var seeded = await JsonAsync(await client.PostAsync("/dev/seed-case", JsonContent.Create(new { })));
 
         var response = await client.PostAsJsonAsync("/dev/staff-code", new { email = seeded.GetProperty("opener").GetProperty("email").GetString() });
@@ -174,7 +174,7 @@ public class CaseSeedDevToolsTests
     public async Task An_account_from_the_older_seeder_is_brought_to_the_known_password_and_two_factor()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         await client.PostAsync("/dev/seed-staff", null);
         using (var scope = _factory.Services.CreateScope())
         {
@@ -209,7 +209,7 @@ public class CaseSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var response = await SeedAsync(client, new { type = "Conduct", stage });
 
@@ -266,7 +266,7 @@ public class CaseSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var body = await JsonAsync(await SeedAsync(client, new { stage = "Waiting" }));
 
@@ -296,7 +296,7 @@ public class CaseSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var body = await JsonAsync(await SeedAsync(client, new { stage = "Resolved" }));
 
@@ -317,7 +317,7 @@ public class CaseSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var body = await JsonAsync(await SeedAsync(client, new { type = "ReviewDispute", stage = "Resolved" }));
 
@@ -341,7 +341,7 @@ public class CaseSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var ended = await JsonAsync(await SeedAsync(client, new { stage = "Resolved", decision = "ExchangeEnded" }));
             var wrong = await SeedAsync(client, new { stage = "Resolved", decision = "ReviewKept" });   // для жалобы не подходит
@@ -364,7 +364,7 @@ public class CaseSeedDevToolsTests
     public async Task A_bad_request_is_refused_with_a_clear_code_and_creates_nothing(string json, string code)
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         var before = await _factory.QueryAsync(db => db.Users.CountAsync(u => u.Email!.StartsWith("dev-opener-")));
 
         var response = await client.PostAsync("/dev/seed-case", new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
@@ -380,7 +380,7 @@ public class CaseSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var first = await JsonAsync(await SeedAsync(client));
             var second = await JsonAsync(await SeedAsync(client));
@@ -403,7 +403,7 @@ public class CaseSeedDevToolsTests
     public async Task The_staff_qr_page_lists_every_dev_staff_account_with_its_real_totp_key_and_a_qr_code()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         var seeded = await JsonAsync(await client.PostAsync("/dev/seed-staff", null));
 
         var response = await client.GetAsync("/dev/staff-qr");
@@ -428,7 +428,7 @@ public class CaseSeedDevToolsTests
     public async Task The_staff_qr_page_creates_missing_accounts_and_shows_the_same_keys_every_time()
     {
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         var first = await (await client.GetAsync("/dev/staff-qr")).Content.ReadAsStringAsync();   // аккаунты могли ещё не существовать
         var second = await (await client.GetAsync("/dev/staff-qr")).Content.ReadAsStringAsync();
@@ -442,13 +442,13 @@ public class CaseSeedDevToolsTests
     [Fact]
     public async Task The_staff_qr_page_does_not_exist_outside_development()
     {
-        var response = await _factory.CreateClient(NoRedirect).GetAsync("/dev/staff-qr");
+        var response = await _factory.CreateLocalClient(NoRedirect).GetAsync("/dev/staff-qr");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         foreach (var environment in new[] { "Production", "Staging" })
         {
             using var app = _factory.WithSettings(environment);
-            Assert.Equal(HttpStatusCode.NotFound, (await app.CreateClient(NoRedirect).GetAsync("/dev/staff-qr")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await app.CreateLocalClient(NoRedirect).GetAsync("/dev/staff-qr")).StatusCode);
         }
     }
 
@@ -458,7 +458,7 @@ public class CaseSeedDevToolsTests
     [InlineData("/dev/staff-code")]
     public async Task The_seed_routes_do_not_exist_outside_development(string url)
     {
-        var client = _factory.CreateClient(NoRedirect);
+        var client = _factory.CreateLocalClient(NoRedirect);
 
         var response = await client.PostAsync(url, null);
 
@@ -470,18 +470,18 @@ public class CaseSeedDevToolsTests
     {
         using (var shortened = _factory.WithSettings("Production", Short))
         {
-            var error = Assert.ThrowsAny<Exception>(() => shortened.CreateClient());
+            var error = Assert.ThrowsAny<Exception>(() => shortened.CreateLocalClient());
             Assert.Contains("Cases", error.ToString());
         }
 
         using (var broken = _factory.WithSettings("Development", ("Cases:ExplanationWindowMinutes", "5"), ("Cases:ExplanationReminderBeforeMinutes", "9")))
         {
-            Assert.ThrowsAny<Exception>(() => broken.CreateClient());   // напоминание позже конца срока: недопустимо
+            Assert.ThrowsAny<Exception>(() => broken.CreateLocalClient());   // напоминание позже конца срока: недопустимо
         }
 
         using (var specification = _factory.WithSettings("Production"))
         {
-            specification.CreateClient();   // значения ТЗ в боевой среде допустимы
+            specification.CreateLocalClient();   // значения ТЗ в боевой среде допустимы
         }
 
         Assert.Equal(CaseTiming.Defaults, CaseTiming.Current);
@@ -493,7 +493,7 @@ public class CaseSeedDevToolsTests
     {
         // Фабрика тестов задаёт значения ТЗ и в Development: сокращённые из appsettings.Development.json не подхватываются, другие тесты не страдают.
         using var app = _factory.WithSettings("Development");
-        app.CreateClient();
+        app.CreateLocalClient();
 
         Assert.Equal(CaseTiming.Defaults, CaseTiming.Current);
         await Task.CompletedTask;

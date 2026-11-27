@@ -7,6 +7,7 @@ using SkillSwap.Application.Options;
 namespace SkillSwap.Api.IntegrationTests.Captcha;
 
 /// <summary>Настройка Turnstile:SendClientIp: IP клиента уходит в Cloudflare только если это разрешено.</summary>
+[Collection(OwnHostsCollection.Name)]
 public class TurnstileSendIpTests : IClassFixture<CaptchaSendIpApiFactory>
 {
     private readonly CaptchaSendIpApiFactory _factory;

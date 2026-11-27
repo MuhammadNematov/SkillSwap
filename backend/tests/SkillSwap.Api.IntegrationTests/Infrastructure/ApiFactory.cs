@@ -251,6 +251,17 @@ internal sealed class TestRemoteIpStartupFilter : IStartupFilter
     };
 }
 
+/// <summary>
+/// Классы со своим хостом (своя фабрика или контейнер) идут отдельно и не параллельно остальным. Сроки урока и обращений (<see cref="SkillSwap.Domain.Entities.LessonTiming"/>,
+/// <c>CaseTiming</c>) общие на процесс и выставляются при старте каждого хоста: хост, запущенный параллельно, возвращал значения ТЗ посреди теста с сокращёнными сроками
+/// (например, «Сбросить урок» через минуту падал с slot_too_soon).
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class OwnHostsCollection
+{
+    public const string Name = "own-hosts";
+}
+
 [CollectionDefinition(Name)]
 public sealed class ApiCollection : ICollectionFixture<ApiFactory>
 {

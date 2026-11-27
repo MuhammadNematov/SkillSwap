@@ -1,3 +1,4 @@
+using SkillSwap.Api.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.Options;
 using SkillSwap.Application.Options;
 using SkillSwap.Infrastructure.Email;
@@ -5,6 +6,7 @@ using SkillSwap.Infrastructure.Email;
 namespace SkillSwap.Api.IntegrationTests.Jobs;
 
 /// <summary>Отправка письма по SMTP (MailKit) настоящим протоколом на настоящий сервер Mailpit.</summary>
+[Collection(OwnHostsCollection.Name)]
 public class SmtpMailTransportTests : IClassFixture<MailpitFixture>
 {
     private readonly MailpitFixture _mailpit;

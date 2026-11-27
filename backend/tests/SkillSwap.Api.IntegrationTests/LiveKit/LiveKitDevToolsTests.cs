@@ -28,7 +28,7 @@ public class LiveKitDevToolsTests
     private HttpClient DevClient(out WebApplicationFactory<Program> app, params (string Key, string? Value)[] settings)
     {
         app = _factory.WithSettings("Development", settings);
-        return app.CreateClient(NoRedirect);
+        return app.CreateLocalClient(NoRedirect);
     }
 
     private static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>
@@ -57,7 +57,7 @@ public class LiveKitDevToolsTests
     public async Task Outside_development_the_dev_tools_do_not_exist(string environment)
     {
         using var app = _factory.WithSettings(environment, ("Turnstile:SecretKey", "0x4AAAAAAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/dev/livekit")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/dev/livekit/token")).StatusCode);
@@ -68,7 +68,7 @@ public class LiveKitDevToolsTests
     [Fact]
     public async Task In_the_default_test_environment_the_dev_tools_are_absent_too()
     {
-        var client = _factory.CreateClient(NoRedirect);
+        var client = _factory.CreateLocalClient(NoRedirect);
 
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/dev/livekit")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/dev/livekit/token")).StatusCode);

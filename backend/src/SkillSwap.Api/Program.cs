@@ -70,6 +70,12 @@ SkillSwap.Api.CaseTimingSetup.Apply(app.Services, app.Environment);
 // а этот middleware подставляет туда адрес из X-Forwarded-For, но только если запрос пришёл от известного прокси.
 app.UseConfiguredForwardedHeaders();
 
+// Маршруты /dev/* (есть только в Development) отвечают только запросам с этого компьютера; адрес уже разобран из X-Forwarded-For строкой выше
+if (app.Environment.IsDevelopment())
+{
+    app.UseDevToolsLoopbackOnly();
+}
+
 app.UseExceptionHandler();
 
 // Документация API (договор с фронтендом) — только в разработке.
@@ -82,6 +88,7 @@ if (app.Environment.IsDevelopment())
     app.MapAdminSeedDevTools();   // данные для панелей админа и суперадмина: только в Development
     app.MapStaffQrDevTools();   // страница с QR-кодами TOTP dev-сотрудников для Google Authenticator: только в Development
     app.MapCaseSeedDevTools();   // служебные аккаунты и обращения на любой стадии для ручной проверки модерации: только в Development
+    app.MapDevUsersDevTools();   // постоянные dev-user-1…3, вход без пароля и сброс урока: только в Development
 }
 
 // В Development LiveKit (в Docker) шлёт webhook по обычному http на localhost; редирект на https с самоподписанным

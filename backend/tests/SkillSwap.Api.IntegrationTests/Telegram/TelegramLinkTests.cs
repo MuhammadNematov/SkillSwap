@@ -13,6 +13,7 @@ using SkillSwap.Domain.Enums;
 namespace SkillSwap.Api.IntegrationTests.Telegram;
 
 /// <summary>Подключение и отключение Telegram, webhook с секретом, выключенная функция.</summary>
+[Collection(OwnHostsCollection.Name)]
 public class TelegramLinkTests : IClassFixture<TelegramApiFactory>
 {
     private readonly ApiFactory _factory;

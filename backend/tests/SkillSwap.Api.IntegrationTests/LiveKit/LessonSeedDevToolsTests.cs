@@ -57,7 +57,7 @@ public class LessonSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
             var first = await JsonAsync(await client.PostAsync("/dev/seed-lesson", null));
             var student = first.GetProperty("users").EnumerateArray().Single(u => u.GetProperty("role").GetString() == "student");
 
@@ -88,7 +88,7 @@ public class LessonSeedDevToolsTests
         {
             using var app = _factory.WithSettings("Development", Short);
 
-            var response = await app.CreateClient(NoRedirect).PostAsJsonAsync("/dev/seed-lesson", new { studentEmail = email, startsInMinutes = startsIn });
+            var response = await app.CreateLocalClient(NoRedirect).PostAsJsonAsync("/dev/seed-lesson", new { studentEmail = email, startsInMinutes = startsIn });
 
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(code, (await JsonAsync(response)).GetProperty("code").GetString());
@@ -107,7 +107,7 @@ public class LessonSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var response = await client.PostAsync("/dev/seed-lesson", null);
 
@@ -162,7 +162,7 @@ public class LessonSeedDevToolsTests
         try
         {
             using var app = _factory.WithSettings("Development", Short);
-            var client = app.CreateClient(NoRedirect);
+            var client = app.CreateLocalClient(NoRedirect);
 
             var first = await JsonAsync(await client.PostAsync("/dev/seed-lesson", null));
             var second = await JsonAsync(await client.PostAsync("/dev/seed-lesson", null));
@@ -183,7 +183,7 @@ public class LessonSeedDevToolsTests
     {
         // Фабрика тестов задаёт значения ТЗ даже в Development: слот «через две минуты» при минимуме в час невозможен.
         using var app = _factory.WithSettings("Development");
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
         var before = await _factory.QueryAsync(db => db.Users.CountAsync(u => u.Email!.StartsWith("dev-teacher-")));
 
         var response = await client.PostAsync("/dev/seed-lesson", null);
@@ -201,7 +201,7 @@ public class LessonSeedDevToolsTests
     public async Task Outside_development_there_is_no_such_route_at_all(string environment)
     {
         using var app = _factory.WithSettings(environment);
-        var client = app.CreateClient(NoRedirect);
+        var client = app.CreateLocalClient(NoRedirect);
 
         var response = await client.PostAsync("/dev/seed-lesson", null);
 
@@ -214,7 +214,7 @@ public class LessonSeedDevToolsTests
         using var app = _factory.WithSettings("Development", Short);
         try
         {
-            var schema = await app.CreateClient(NoRedirect).GetStringAsync("/openapi/v1.json");
+            var schema = await app.CreateLocalClient(NoRedirect).GetStringAsync("/openapi/v1.json");
 
             Assert.DoesNotContain("seed-lesson", schema);
         }
@@ -233,7 +233,7 @@ public class LessonSeedDevToolsTests
         {
             using (var app = _factory.WithSettings("Development", Short))
             {
-                _ = app.CreateClient();
+                _ = app.CreateLocalClient();
 
                 Assert.Equal(TimeSpan.FromMinutes(1), LessonSession.MinLeadTime);
                 Assert.Equal(TimeSpan.FromMinutes(3), LessonSession.JoinOpensBefore);
@@ -245,7 +245,7 @@ public class LessonSeedDevToolsTests
 
             using (var again = _factory.WithSettings("Development"))
             {
-                _ = again.CreateClient();   // новый запуск без Lessons:* — значения ТЗ (тестовая фабрика задаёт их явно)
+                _ = again.CreateLocalClient();   // новый запуск без Lessons:* — значения ТЗ (тестовая фабрика задаёт их явно)
 
                 Assert.Equal(TimeSpan.FromHours(1), LessonSession.MinLeadTime);
                 Assert.Equal(30, LessonSession.MinJointMinutes);
@@ -285,7 +285,7 @@ public class LessonSeedDevToolsTests
         {
             using var app = _factory.WithSettings("Development", (key, value));
 
-            var error = Assert.ThrowsAny<Exception>(() => app.CreateClient());
+            var error = Assert.ThrowsAny<Exception>(() => app.CreateLocalClient());
 
             Assert.Contains("Lessons", error.ToString());
         }
@@ -301,11 +301,11 @@ public class LessonSeedDevToolsTests
         try
         {
             using var shortened = _factory.WithSettings("Production", Short);
-            var error = Assert.ThrowsAny<Exception>(() => shortened.CreateClient());
+            var error = Assert.ThrowsAny<Exception>(() => shortened.CreateLocalClient());
             Assert.Contains("Development", error.ToString());
 
             using var specification = _factory.WithSettings("Production");
-            _ = specification.CreateClient();   // значения ТЗ в боевой среде допустимы
+            _ = specification.CreateLocalClient();   // значения ТЗ в боевой среде допустимы
         }
         finally
         {
