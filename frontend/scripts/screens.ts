@@ -4,6 +4,7 @@
 // Результат: frontend/screenshots/<роль>/<экран>-<тема>-<ширина>.png (папка в .gitignore) и отчёт о горизонтальной прокрутке и ошибках консоли.
 //
 // Переменные: SCREENS_BASE (по умолчанию https://localhost:5173), SCREENS_ONLY=user,admin (роли), SCREENS_FILTER=admin/cases (подстрока в имени экрана).
+// SCREENS_ONLY=dev — панель «Режим разработчика» на странице входа (вход без пароля, сброс урока).
 // SCREENS_ONLY=user SCREENS_FILTER=home — только проверка верхнего блока главной и шапки при прокрутке (1440, 430, 390, 360 px, три языка).
 import { mkdirSync, rmSync } from 'node:fs'
 import { chromium, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test'
@@ -698,6 +699,54 @@ async function checkCallLayout(teacher: Page, student: Page, dir: string) {
   await shootAll(student, 'phone-844x390', true)
 }
 
+// Панель «Режим разработчика» на странице входа: группы «Пользователи» и «Сотрудники», «Получить пользователей», «Сбросить урок»,
+// вход без пароля под dev-user-1 переживает обновление страницы. Снимок самой панели: dev/dev-panel-<тема>-<ширина>.png
+async function checkDevPanel(browser: Browser) {
+  const dir = `${OUT}dev/`
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  for (const width of WIDTHS) {
+    const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU' })
+    const page = await ctx.newPage()
+    page.on('pageerror', (e) => problems.push(`dev-панель: ошибка страницы: ${e.message.slice(0, 160)}`))
+    const tag = `dev-панель ${width}`
+    await page.setViewportSize({ width, height: 2600 }) // высокое окно: панель внизу прокручиваемой колонки входа, снимок элемента не должен обрезаться
+    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
+    await openPage(page, '/login')
+    const panel = page.getByTestId('dev-panel')
+    if (!(await panel.isVisible().catch(() => false))) {
+      problems.push(`${tag}: панели нет на странице входа`)
+      await ctx.close()
+      continue
+    }
+    for (const group of ['Пользователи', 'Сотрудники']) {
+      if (!(await panel.getByRole('heading', { name: group, exact: true }).isVisible().catch(() => false))) problems.push(`${tag}: нет группы «${group}»`)
+    }
+    await panel.getByRole('button', { name: 'Получить пользователей' }).click()
+    await panel.getByText(/^Готово/).waitFor({ timeout: 30_000 }).catch(() => problems.push(`${tag}: «Получить пользователей» не ответила «Готово»`))
+    await panel.getByRole('button', { name: 'Сбросить урок' }).click()
+    await panel.getByText(/^Урок назначен заново, начнётся в/).waitFor({ timeout: 30_000 }).catch(() => problems.push(`${tag}: после «Сбросить урок» нет времени нового урока`))
+    await panel.getByRole('button', { name: 'Получить служебные аккаунты' }).click()
+    await panel.getByRole('button', { name: 'Войти: dev-admin', exact: true }).waitFor({ timeout: 30_000 }).catch(() => problems.push(`${tag}: нет кнопок входа сотрудников`))
+    for (const theme of THEMES) {
+      await setTheme(page, theme)
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      if (overflow > 1) problems.push(`${tag} ${theme}: горизонтальная прокрутка +${overflow}px`)
+      await page.mouse.move(0, 0) // без подсветки кнопки под курсором
+      await panel.screenshot({ path: `${dir}dev-panel-${theme}-${width}.png` })
+    }
+    if (width === WIDTHS[0]) {
+      await setTheme(page, 'light')
+      await panel.getByRole('button', { name: 'Войти: dev-user-1' }).click()
+      await page.waitForURL((u) => u.pathname.startsWith('/app'), { timeout: 30_000 }).catch(() => problems.push(`${tag}: вход под dev-user-1 не открыл кабинет (${page.url()})`))
+      await openPage(page, '/app/settings', false)
+      if (!new URL(page.url()).pathname.startsWith('/app')) problems.push(`${tag}: после обновления страницы вход dev-user-1 пропал (${page.url()})`)
+      else if (!(await page.getByText('dev-user-1@example.com').first().isVisible().catch(() => false))) problems.push(`${tag}: в кабинете не dev-user-1`)
+    }
+    await ctx.close()
+  }
+}
+
 async function main() {
   const seed = await (async () => {
     const browser0 = await chromium.launch({ channel: 'chromium' })
@@ -722,6 +771,7 @@ async function main() {
     await checkRequired(page)
     await ctx.close()
   }
+  if (!ONLY || ONLY.includes('dev')) await checkDevPanel(browser).catch((e) => problems.push(`dev-панель: проверка прервалась: ${String(e.message).split('\n')[0]}`))
   if (!ONLY || ONLY.includes('call')) await checkCall().catch((e) => problems.push(`звонок: проверка прервалась: ${String(e.message).split('\n')[0]}`))
   if (!ONLY || ONLY.includes('flows')) {
     const ctx = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'ru-RU' })

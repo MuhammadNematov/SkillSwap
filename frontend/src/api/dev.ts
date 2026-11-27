@@ -101,3 +101,40 @@ export async function getStaffCode(email: string): Promise<{ codes: string[]; se
     throw toApiError(e)
   }
 }
+
+// Постоянные dev-user-1…3 (только Development и только с этого компьютера): POST /dev/seed-users создаёт или приводит их в порядок
+// (профиль, навыки, языки, обмен user-1 ↔ user-2 с перепиской и уроком), POST /dev/login-user входит без пароля (refresh приходит в cookie, как при обычном входе),
+// POST /dev/reset-lesson назначает урок user-1 и user-2 заново (начнётся примерно через минуту).
+export const DEV_USER_EMAILS = ['dev-user-1@example.com', 'dev-user-2@example.com', 'dev-user-3@example.com'] as const
+
+export interface DevUsers {
+  users: { key: string; userId: string; email: string; name: string; password: string }[]
+  exchange: { id: string; created: boolean; url: string }
+  lesson: { sessionId: string; startAt: string; created: boolean } | null
+  lessonNote?: string | null
+  avatarNote?: string | null
+}
+
+export async function seedDevUsers(): Promise<DevUsers> {
+  try {
+    return (await axios.post<DevUsers>('/dev/seed-users')).data
+  } catch (e) {
+    throw toApiError(e)
+  }
+}
+
+export async function loginDevUser(email: string): Promise<{ accessToken: string }> {
+  try {
+    return (await axios.post<{ accessToken: string }>('/dev/login-user', { email })).data
+  } catch (e) {
+    throw toApiError(e)
+  }
+}
+
+export async function resetDevLesson(): Promise<{ lesson: { sessionId: string; startAt: string }; cancelled: number }> {
+  try {
+    return (await axios.post<{ lesson: { sessionId: string; startAt: string }; cancelled: number }>('/dev/reset-lesson')).data
+  } catch (e) {
+    throw toApiError(e)
+  }
+}

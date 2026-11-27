@@ -1020,7 +1020,11 @@
       "service_unavailable": "The server is temporarily unavailable, try again later",
       "api_unreachable": "The API server is not responding. Make sure the backend is running and refresh the page",
       "telegram_not_configured": "Telegram notifications are not set up yet",
-      "invalid_notification_settings": "This setting cannot be changed"
+      "invalid_notification_settings": "This setting cannot be changed",
+      "dev_user_not_found": "No such dev user: press Get users first.",
+      "dev_lesson_in_progress": "The lesson is still running: reset it after it ends.",
+      "lesson_timing_not_shortened": "Lesson timings are not shortened: appsettings.Development.json needs Lessons:MinLeadMinutes = 1.",
+      "skill_catalog_empty": "The skill catalog has too few skills."
     },
     "validation": {
       "required": "Fill in this field",
@@ -1721,7 +1725,7 @@
     "opensAt": "entry opens at {{time}}",
     "how": "Open the app in two browser profiles, sign in as these users and join the lesson from the calendar.",
     "staffTitle": "Developer mode: staff accounts",
-    "staffHint": "Creates moderators and an admin and signs in as the chosen one without a password or 2FA. Works only with a Development backend. The sign-in is lost when you reload the page.",
+    "staffHint": "Moderators, admin and super admin: sign in without a password or 2FA. The sign-in is lost when you reload the page.",
     "staffCreate": "Get staff accounts",
     "staffLogin": "Sign in: {{name}}",
     "caseTitle": "Test case",
@@ -1742,7 +1746,19 @@
     },
     "staffPassword": "Password for all staff accounts: Dev-staff-pass-1. Sign in as usual (email, password, 2FA code).",
     "staffCode": "2FA code for dev-admin@example.com",
-    "staffCodeLeft": "{{s}} s left"
+    "staffCodeLeft": "{{s}} s left",
+    "panelTitle": "Developer mode: sign in without a password",
+    "panelHint": "Works only with a Development backend and only on this computer (localhost).",
+    "usersTitle": "Users",
+    "usersHint": "dev-user-1…3 have complete profiles and find each other in Find partners. user-1 and user-2 share an exchange with messages and a lesson. The sign-in survives a page reload.",
+    "usersCreate": "Get users",
+    "usersDone": "Done. Password for all of them: {{password}} (for the regular sign-in).",
+    "resetLesson": "Reset the lesson",
+    "resetHint": "Cancels the open lessons of user-1 and user-2 and schedules a new one in a minute",
+    "lessonAt": "The user-1 and user-2 lesson starts at {{time}}",
+    "staffGroup": "Staff",
+    "notLocal": "Developer routes answer only on this computer: open the page at localhost.",
+    "resetDone": "The lesson was rescheduled, it starts at {{time}}"
   },
   "confirm": {
     "hint": "Confirm this action with your password and a code from your authenticator app. Each code works once.",
